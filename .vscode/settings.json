@@ -1,0 +1,11 @@
+{
+  "typescript.preferences.useAliasesForRenames": false,
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "typescript.workspaceSymbols.scope": "allOpenProjects",
+  "eslint.workingDirectories": ["packages/*"],
+  "eslint.validate": ["typescript"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "cSpell.enabled": false
+}

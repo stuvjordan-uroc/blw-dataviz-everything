@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: blw-postgres
+    environment:
+      POSTGRES_DB: blw_dataviz
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./packages/db/init:/docker-entrypoint-initdb.d
+    networks:
+      - blw-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d blw_dataviz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  blw-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

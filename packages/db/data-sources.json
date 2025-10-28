@@ -1,0 +1,20 @@
+{
+  "s3Config": {
+    "bucket": "blw-dataviz-everything",
+    "region": "us-east-2"
+  },
+  "migrations": {
+    "questions": {
+      "batteries": {
+        "s3Key": null,
+        "type": "hardcoded",
+        "description": "Hard-coded battery definitions."
+      },
+      "questions": {
+        "s3Key": "questions.json",
+        "type": "json",
+        "description": "Question data with battery assignments"
+      }
+    }
+  }
+}

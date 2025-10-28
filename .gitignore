@@ -1,0 +1,31 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# AWS credentials and cache
+.aws/
+aws-exports.js
+
+# VS Code - exclude personal settings but keep shared workspace config
+.vscode/launch.json
+.vscode/sftp.json
+.vscode/*.code-workspace
+
+# Keep shared settings and extensions
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+
+# Node.js dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
