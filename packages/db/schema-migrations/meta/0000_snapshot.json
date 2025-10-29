@@ -1,0 +1,175 @@
+{
+  "id": "6b76ff49-f610-4370-b957-d9118a833b34",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "questions.batteries": {
+      "name": "batteries",
+      "schema": "questions",
+      "columns": {
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "prefix": {
+          "name": "prefix",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "questions.questions": {
+      "name": "questions",
+      "schema": "questions",
+      "columns": {
+        "varName": {
+          "name": "varName",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "batteryName": {
+          "name": "batteryName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subBattery": {
+          "name": "subBattery",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "responses": {
+          "name": "responses",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "questions_batteryName_batteries_name_fk": {
+          "name": "questions_batteryName_batteries_name_fk",
+          "tableFrom": "questions",
+          "tableTo": "batteries",
+          "schemaTo": "questions",
+          "columnsFrom": [
+            "batteryName"
+          ],
+          "columnsTo": [
+            "name"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "questions_batteryName_subBattery_sub_batteries_batteryName_name_fk": {
+          "name": "questions_batteryName_subBattery_sub_batteries_batteryName_name_fk",
+          "tableFrom": "questions",
+          "tableTo": "sub_batteries",
+          "schemaTo": "questions",
+          "columnsFrom": [
+            "batteryName",
+            "subBattery"
+          ],
+          "columnsTo": [
+            "batteryName",
+            "name"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "questions.sub_batteries": {
+      "name": "sub_batteries",
+      "schema": "questions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "batteryName": {
+          "name": "batteryName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sub_batteries_batteryName_batteries_name_fk": {
+          "name": "sub_batteries_batteryName_batteries_name_fk",
+          "tableFrom": "sub_batteries",
+          "tableTo": "batteries",
+          "schemaTo": "questions",
+          "columnsFrom": [
+            "batteryName"
+          ],
+          "columnsTo": [
+            "name"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sub_batteries_batteryName_name_unique": {
+          "name": "sub_batteries_batteryName_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "batteryName",
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "questions": "questions"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

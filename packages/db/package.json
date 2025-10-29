@@ -4,22 +4,33 @@
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "scripts": {},
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "data:migrate": "tsx src/data-migrations/run.ts",
+    "data:migrate:questions": "tsx src/data-migrations/run.ts questions",
+    "data:migrate:responses": "tsx src/data-migrations/run.ts responses",
+    "data:reset": "tsx src/data-migrations/reset.ts",
+    "data:reset:questions": "tsx src/data-migrations/reset.ts questions",
+    "data:reset:responses": "tsx src/data-migrations/reset.ts responses"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "dotenv": "^17.2.3",
-    "postgres": "^3.4.7",
-    "drizzle-orm": "^0.44.7",
-    "zod": "^3.22.0",
-    "@aws-sdk/client-s3": "^3.478.0",
+    "@aws-sdk/client-s3": "^3.919.0",
     "@aws-sdk/credential-providers": "^3.478.0",
-    "csv-parse": "^5.5.0"
+    "csv-parse": "^5.5.0",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
+    "postgres": "^3.4.7",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "drizzle-kit": "^0.31.5",
-    "tsx": "^4.0.0",
-    "@types/node": "^20.0.0"
+    "tsx": "^4.0.0"
   }
 }

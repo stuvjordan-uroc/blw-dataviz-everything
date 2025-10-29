@@ -1,5 +1,4 @@
-import { pgSchema, text, check } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { pgSchema, text, serial, unique, foreignKey } from "drizzle-orm/pg-core";
 import type { InferInsertModel } from "drizzle-orm";
 
 /* CREATE QUESTIONS SCHEMA AND ITS TABLES */
@@ -8,11 +7,28 @@ import type { InferInsertModel } from "drizzle-orm";
 export const questionsSchema = pgSchema("questions");
 
 //batteries table
-export const batteries = questionsSchema.table("batteries", {
-  name: text().notNull().primaryKey(),
-  subBatteries: text().array(),
-  prefix: text(),
-});
+export const batteries = questionsSchema.table(
+  "batteries",
+  {
+    name: text().notNull().primaryKey(),
+    prefix: text(),
+  }
+);
+
+//sub-batteries table
+
+export const subBatteries = questionsSchema.table(
+  "sub_batteries",
+  {
+    id: serial("id").primaryKey(),
+    batteryName: text().notNull().references(() => batteries.name),
+    name: text().notNull()
+  },
+  (table) => [
+    //insure that the set of sub-batteries belonging to any battery has no duplicates.
+    unique().on(table.batteryName, table.name)
+  ]
+)
 
 //questions table
 export const questions = questionsSchema.table(
@@ -27,16 +43,15 @@ export const questions = questionsSchema.table(
     responses: text().array(), //index in this array will give coded response in responses table
   },
   (table) => [
-    check(
-      "sub_battery_in_battery_list",
-      sql`${table.subBattery} IS NULL OR EXISTS (
-      SELECT 1 FROM ${batteries} 
-      WHERE ${batteries.name} = ${table.batteryName} 
-      AND ${table.subBattery} = ANY(${batteries.subBatteries})
-    )`
-    ),
+    // Composite foreign key: ensures subBattery belongs to the correct battery
+    // References the unique constraint (batteryName, name) in subBatteries
+    foreignKey({
+      columns: [table.batteryName, table.subBattery],
+      foreignColumns: [subBatteries.batteryName, subBatteries.name]
+    })
   ]
 );
 
 export type BatteryInsert = InferInsertModel<typeof batteries>;
+export type SubBatteryInsert = InferInsertModel<typeof subBatteries>;
 export type QuestionInsert = InferInsertModel<typeof questions>;

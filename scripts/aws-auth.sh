@@ -25,9 +25,19 @@ if ! command -v aws &> /dev/null; then
 fi
 
 # Check if SSO is configured
-if ! aws configure list --profile $AWS_PROFILE | grep -q sso_start_url; then
+# Check both the config file and using aws configure get
+SSO_CONFIGURED=false
+if aws configure get sso_session --profile $AWS_PROFILE 2>/dev/null | grep -q .; then
+    SSO_CONFIGURED=true
+elif aws configure get sso_start_url --profile $AWS_PROFILE 2>/dev/null | grep -q .; then
+    SSO_CONFIGURED=true
+elif grep -q "sso_" "$HOME/.aws/config" 2>/dev/null; then
+    SSO_CONFIGURED=true
+fi
+
+if [ "$SSO_CONFIGURED" = false ]; then
     echo -e "${YELLOW}AWS SSO not configured for profile '$AWS_PROFILE'${NC}"
-    echo "Please run: aws configure sso --profile $AWS_PROFILE"
+    echo "Running 'aws configure sso' to set up SSO..."
     echo ""
     echo "You'll need:"
     echo "- SSO start URL (e.g., https://your-org.awsapps.com/start)"
@@ -35,7 +45,36 @@ if ! aws configure list --profile $AWS_PROFILE | grep -q sso_start_url; then
     echo "- Account ID"
     echo "- Role name"
     echo "- Output format (json recommended)"
-    exit 1
+    echo ""
+    
+    # Temporarily disable exit-on-error for interactive command
+    set +e
+    # Run SSO configuration interactively
+    # Allow it to use stdin/stdout/stderr directly
+    aws configure sso --profile $AWS_PROFILE
+    CONFIG_EXIT_CODE=$?
+    set -e
+    
+    # Verify configuration worked by testing if we can authenticate
+    # aws configure sso automatically logs you in, so test with sts get-caller-identity
+    if [ $CONFIG_EXIT_CODE -eq 0 ] && aws sts get-caller-identity --profile $AWS_PROFILE >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ SSO configuration and authentication completed${NC}"
+        IDENTITY=$(aws sts get-caller-identity --profile $AWS_PROFILE --output text --query 'Arn')
+        echo "Authenticated as: $IDENTITY"
+    else
+        echo -e "${RED}✗ SSO configuration failed or was cancelled${NC}"
+        exit 1
+    fi
+    
+    # SSO is now configured, skip the rest of the session check
+    echo -e "${GREEN}AWS SSO authentication complete!${NC}"
+    echo ""
+    echo "You can now run database operations that require S3 access:"
+    echo "  npm run db:generate"
+    echo "  npm run db:migrate"
+    echo ""
+    echo "To logout: aws sso logout --profile $AWS_PROFILE"
+    exit 0
 fi
 
 # Check current session status
@@ -74,10 +113,13 @@ else
     echo "Initiating SSO login..."
     
     # Perform SSO login
+    set +e
     aws sso login --profile $AWS_PROFILE
+    LOGIN_EXIT_CODE=$?
+    set -e
     
     # Verify login worked
-    if aws sts get-caller-identity --profile $AWS_PROFILE >/dev/null 2>&1; then
+    if [ $LOGIN_EXIT_CODE -eq 0 ] && aws sts get-caller-identity --profile $AWS_PROFILE >/dev/null 2>&1; then
         echo -e "${GREEN}✓ AWS SSO login successful${NC}"
         IDENTITY=$(aws sts get-caller-identity --profile $AWS_PROFILE --output text --query 'Arn')
         echo "Authenticated as: $IDENTITY"

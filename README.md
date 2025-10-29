@@ -93,59 +93,6 @@ Instead of storing data files in the repository, we use S3 for data source stora
 - **Data Sources**: Raw CSV and JSON files stored in S3 bucket
 - **Migration Integration**: Data transformations defined in data migration config files within each schema directory
 
-### Local Development Setup
-
-1. **Configure AWS SSO** (first time only):
-
-   ```bash
-   aws configure sso --profile default
-   ```
-
-   You'll need:
-
-   - SSO start URL (e.g., `https://your-org.awsapps.com/start`)
-   - SSO region (e.g., `us-east-1`)
-   - Account ID
-   - Role name
-   - Output format (`json` recommended)
-
-2. **Authenticate with AWS SSO**:
-
-   ```bash
-   npm run aws:auth
-   ```
-
-   This script will:
-
-   - Check your current AWS SSO session status
-   - Automatically login if session is expired
-   - Show token expiration time
-   - Verify S3 access permissions
-
-3. **Start the database**:
-
-   ```bash
-   npm run db:start
-   ```
-
-4. **Create your first unified migration**:
-
-   ```bash
-   npm run db:generate
-   ```
-
-5. **Apply migrations** (both schema and data):
-
-   ```bash
-   npm run db:migrate
-   ```
-
-6. **Open Drizzle Studio** (web UI for database):
-
-   ```bash
-   npm run db:studio
-   ```
-
 ### Available Commands
 
 **AWS Authentication:**
@@ -172,70 +119,138 @@ Instead of storing data files in the repository, we use S3 for data source stora
 
 #### 1. Create or Update Schema Definitions
 
-Define your PostgreSQL schema and tables in `packages/db/src/schemas/<schema-name>/schema.ts`:
+Define your PostgreSQL schema and tables in `packages/db/src/schemas/<schema-name>/schema.ts`. For example, here are the definitions for the tables in the questions schema at packages/db/sr/schemas/questions/schema.ts
 
 ```typescript
-import { pgTable, serial, text, jsonb, pgSchema } from "drizzle-orm/pg-core";
+import { pgSchema, text, check, serial, unique } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { InferInsertModel } from "drizzle-orm";
 
-// Define PostgreSQL schema
+/* CREATE QUESTIONS SCHEMA AND ITS TABLES */
+
+//schema
 export const questionsSchema = pgSchema("questions");
 
-// Define tables
+//batteries table
 export const batteries = questionsSchema.table("batteries", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  subBatteries: jsonb("sub_batteries").$type<string[]>(),
-  prefix: text("prefix").notNull(),
+  name: text().notNull().primaryKey(),
+  prefix: text(),
 });
 
-export const questions = questionsSchema.table("questions", {
-  id: serial("id").primaryKey(),
-  batteryId: serial("battery_id").references(() => batteries.id),
-  variableName: text("variable_name").notNull(),
-  questionText: text("question_text").notNull(),
-  shortText: text("short_text").notNull(),
-  category: text("category").notNull(),
-});
+//sub-batteries table
 
-// Export insert types for use in data migrations
+export const subBatteries = questionsSchema.table(
+  "sub_batteries",
+  {
+    id: serial("id").primaryKey(),
+    batteryName: text()
+      .notNull()
+      .references(() => batteries.name),
+    name: text().notNull(),
+  },
+  (table) => [
+    //insure that the set of sub-batteries belonging to any battery has no duplicates.
+    unique().on(table.batteryName, table.name),
+  ]
+);
+
+//questions table
+export const questions = questionsSchema.table(
+  "questions",
+  {
+    varName: text().notNull().primaryKey(),
+    text: text(),
+    batteryName: text()
+      .notNull()
+      .references(() => batteries.name),
+    subBattery: text().references(() => subBatteries.name),
+    responses: text().array(), //index in this array will give coded response in responses table
+  },
+  (table) => [
+    //make sure that the subBattery for each row belongs to the battery for that row
+    check(
+      "sub_battery_belongs_to_battery",
+      sql`
+        -- If subBattery is null, allow it
+        -- Otherwise, ensure it exists in sub_batteries table for the correct battery
+        ${table.subBattery} IS NULL 
+        OR EXISTS(
+          SELECT 1 
+          FROM ${subBatteries}
+          WHERE ${subBatteries.name} = ${table.subBattery}
+            AND ${subBatteries.batteryName} = ${table.batteryName}
+        )
+      `
+    ),
+  ]
+);
+
 export type BatteryInsert = InferInsertModel<typeof batteries>;
+export type SubBatteryInsert = InferInsertModel<typeof subBatteries>;
 export type QuestionInsert = InferInsertModel<typeof questions>;
 ```
 
-#### 2. Create Schema-Specific Types (Optional but Recommended)
+Notice the exported types. These are useful for the data migration configs that are specific to the schema.
 
-Create a `types.ts` file to define type-safe mappings for your data migrations:
+#### 3. Add or Update Data Migration Configs
 
-```typescript
-import type { BatteryInsert, QuestionInsert } from "./schema";
+To migrate data into the tables in a schema, create a data migration config file in `packages/db/src/schemas/<schema-name>/data-migrations/<migration-name>.ts`.
 
-/**
- * Type-safe mapping for questions schema data migrations
- */
-export type QuestionsSchemaRowsMap = {
-  batteries?: BatteryInsert[];
-  questions?: QuestionInsert[];
-};
-```
-
-#### 3. Write Data Migration Config
-
-Create a data migration config file in `packages/db/src/schemas/<schema-name>/data-migrations/<migration-name>.ts`:
+For example, here is the migration config that populates the perf- and imp- questions in the tables in the questions schema:
 
 ```typescript
-import type { DataMigrationConfig } from "../../../types/migrations";
-import type { QuestionsSchemaRowsMap } from "../types";
-import type { BatteryInsert, QuestionInsert } from "../schema";
-import { fetchS3File } from "../../../scripts/utils/parsers";
+import type {
+  DataMigrationConfig,
+  TableRowsMap,
+} from "../../../types/migrations";
+import {
+  type BatteryInsert,
+  type SubBatteryInsert,
+  type QuestionInsert,
+  batteries,
+  subBatteries,
+  questions,
+} from "../schema";
+import { fetchS3File } from "../../../scripts/utils";
 import { db } from "../../../index";
-import { batteries, questions } from "../schema";
+import { eq } from "drizzle-orm";
 
-// Define the structure of your S3 data source
+export const config: DataMigrationConfig = {
+  name: "perfImpQuestions",
+  schemaName: "questions",
+  dataSources: [
+    {
+      s3Key: "db/schemas/question/perf-imp.json",
+      tableName: "batteries",
+      transformer: perfImpBatteriesTransformer,
+    },
+    {
+      s3Key: "db/schemas/question/perf-imp.json",
+      tableName: "sub_batteries",
+      transformer: perfImpSubBatteriesTransformer,
+    },
+    {
+      s3Key: "db/schemas/question/perf-imp.json",
+      tableName: "questions",
+      transformer: perfImpQuestionsTransformer,
+    },
+  ],
+  rollback: perfImpRollback,
+};
+
+const impBatteryName = "democratic_characteristics_performance";
+const perfBatteryName = "democratic_characteristics_importance";
+
 type ImpPerfQuestionsJson = {
-  prefix_importance: string;
-  prefix_performance: string;
-  prompts: {
+  importance: {
+    prefix: string;
+    responses: string[];
+  };
+  performance: {
+    prefix: string;
+    responses: string[];
+  };
+  characteristics: {
     variable_name: string;
     question_text: string;
     short_text: string;
@@ -243,100 +258,114 @@ type ImpPerfQuestionsJson = {
   }[];
 };
 
-// Transformer function: fetches from S3 and transforms to table rows
 async function perfImpBatteriesTransformer(
   s3Key: string
-): Promise<QuestionsSchemaRowsMap> {
+): Promise<TableRowsMap> {
   const questionsJSON = (await fetchS3File(
     s3Key,
     "json"
   )) as ImpPerfQuestionsJson;
-
-  const subBatteries = new Set(
-    questionsJSON.prompts.map((prompt) => prompt.category)
-  );
-
-  const batteryRows: BatteryInsert[] = [
+  const rows = [
     {
-      name: "dem_chacteristics_importance",
-      subBatteries: [...subBatteries],
-      prefix: questionsJSON.prefix_importance,
+      name: impBatteryName,
+      prefix: questionsJSON.importance.prefix,
     },
     {
-      name: "dem_chacteristics_performance",
-      subBatteries: [...subBatteries],
-      prefix: questionsJSON.prefix_performance,
+      name: perfBatteryName,
+      prefix: questionsJSON.performance.prefix,
     },
-  ];
-
+  ] as BatteryInsert[];
   return {
-    batteries: batteryRows,
+    batteries: rows,
+  };
+}
+
+async function perfImpSubBatteriesTransformer(
+  s3Key: string
+): Promise<TableRowsMap> {
+  const questionsJSON = (await fetchS3File(
+    s3Key,
+    "json"
+  )) as ImpPerfQuestionsJson;
+  const uniqueSubBatteries = [
+    ...new Set(questionsJSON.characteristics.map((char) => char.category)),
+  ];
+  const rows: SubBatteryInsert[] = [
+    ...uniqueSubBatteries.map((sb) => ({
+      batteryName: impBatteryName,
+      name: sb,
+    })),
+    ...uniqueSubBatteries.map((sb) => ({
+      batteryName: perfBatteryName,
+      name: sb,
+    })),
+  ];
+  return {
+    subBatteries: rows,
   };
 }
 
 async function perfImpQuestionsTransformer(
   s3Key: string
-): Promise<QuestionsSchemaRowsMap> {
+): Promise<TableRowsMap> {
   const questionsJSON = (await fetchS3File(
     s3Key,
     "json"
   )) as ImpPerfQuestionsJson;
-
-  const questionRows: QuestionInsert[] = questionsJSON.prompts.map(
-    (prompt) => ({
-      variableName: prompt.variable_name,
-      questionText: prompt.question_text,
-      shortText: prompt.short_text,
-      category: prompt.category,
-    })
-  );
-
+  const rows: QuestionInsert[] = questionsJSON.characteristics
+    .map((char) => ({
+      varName: "imp_" + char.variable_name,
+      text: char.question_text,
+      batteryName: impBatteryName,
+      subBattery: char.category,
+      responses: questionsJSON.importance.responses,
+    }))
+    .concat(
+      questionsJSON.characteristics.map((char) => ({
+        varName: "perf_" + char.variable_name,
+        text: char.question_text,
+        batteryName: perfBatteryName,
+        subBattery: char.category,
+        responses: questionsJSON.performance.responses,
+      }))
+    );
   return {
-    questions: questionRows,
+    questions: rows,
   };
 }
 
-// Rollback function: removes all data inserted by this config
 async function perfImpRollback(): Promise<void> {
-  await db.delete(questions);
-  await db.delete(batteries);
-}
+  // Delete in reverse order of insertion to respect foreign key constraints
 
-// Export the config
-export const perfImpConfig: DataMigrationConfig = {
-  name: "perfImp",
-  schemaName: "questions",
-  dataSources: [
-    {
-      s3Key: "questions/perf-imp.json",
-      tableName: "batteries",
-      transformer: perfImpBatteriesTransformer,
-    },
-    {
-      s3Key: "questions/perf-imp.json",
-      tableName: "questions",
-      transformer: perfImpQuestionsTransformer,
-    },
-  ],
-  rollback: perfImpRollback,
-};
+  // 1. Remove all questions from both batteries
+  await db.delete(questions).where(eq(questions.batteryName, perfBatteryName));
+  await db.delete(questions).where(eq(questions.batteryName, impBatteryName));
+
+  // 2. Remove all sub-batteries from both batteries
+  await db
+    .delete(subBatteries)
+    .where(eq(subBatteries.batteryName, perfBatteryName));
+  await db
+    .delete(subBatteries)
+    .where(eq(subBatteries.batteryName, impBatteryName));
+
+  // 3. Remove both batteries
+  await db.delete(batteries).where(eq(batteries.name, perfBatteryName));
+  await db.delete(batteries).where(eq(batteries.name, impBatteryName));
+
+  console.log("Rollback completed for perfImp migration");
+}
 ```
 
 **Key Points:**
 
-- **`name`**: A camelCase identifier for this data migration (e.g., `perfImp`, `userAccounts`)
-- **`schemaName`**: The PostgreSQL schema name (must match directory name)
-- **`dataSources`**: Array of data sources to process
-  - **`s3Key`**: Path to the data file in S3
-  - **`tableName`**: Target table name (used for logging and validation)
-  - **`transformer`**: Async function that fetches and transforms data
-    - Returns a `Record<string, unknown[]>` where keys are table names and values are arrays of rows
-    - Can populate multiple tables from a single S3 file
-- **`rollback`**: Function to undo the data migration (typically deletes inserted rows)
+A datamigration config must export a `DataMigrationConfig` object. This give a name to the migration (`name`), the name of the schema targeted by the migration (`schemaName`), an array of object specifying data sources and how to transform them to form table rows (`dataSources`), and a rollback function (`rollback`) for rolling back the migration.
+
+Each object in the `dataSources` array specfies the key of the s3 object where the source data is stored, the `tableName` of the table targeted by that object, and the transformer (a function) that takes the source data and transforms it into rows for the targeted table.
 
 #### 4. Export Config from Index File
 
-Update `packages/db/src/schemas/<schema-name>/data-migrations/index.ts`:
+Whenever you add a new data migration file (e.g. perf-imp.ts), re-exported it from `packages/db/src/schemas/<schema-name>/data-migrations/index.ts`:
 
 ```typescript
 export { perfImpConfig } from "./perf-imp";
