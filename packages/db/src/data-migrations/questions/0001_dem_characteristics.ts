@@ -20,6 +20,10 @@ interface PerfImpJson {
   }[];
 }
 
+const batteryNameImp = "democratic_characteristics_importance"
+const batteryNamePerf = "democratic_characteristics_performance"
+
+
 export const migration: DataMigration = {
   name: 'questions_0001_dem_characteristics',
 
@@ -31,11 +35,11 @@ export const migration: DataMigration = {
     // Insert the two batteries
     await db.insert(batteries).values([
       {
-        name: 'dem_characteristics_importance',
+        name: batteryNameImp,
         prefix: data.importance.prefix,
       },
       {
-        name: 'dem_characteristics_performance',
+        name: batteryNamePerf,
         prefix: data.performance.prefix,
       },
     ]);
@@ -46,11 +50,11 @@ export const migration: DataMigration = {
     // Insert sub-batteries for both batteries
     const subBatteryValues = uniqueCategories.flatMap(category => [
       {
-        batteryName: 'dem_characteristics_importance',
+        batteryName: batteryNameImp,
         name: category,
       },
       {
-        batteryName: 'dem_characteristics_performance',
+        batteryName: batteryNamePerf,
         name: category,
       },
     ]);
@@ -61,17 +65,17 @@ export const migration: DataMigration = {
     const questionValues = data.characteristics.flatMap(char => [
       // Importance question
       {
-        varName: `imp_${char.variable_name}`,
+        varName: char.variable_name,
         text: char.question_text,
-        batteryName: 'dem_characteristics_importance',
+        batteryName: batteryNameImp,
         subBattery: char.category,
         responses: data.importance.responses,
       },
       // Performance question
       {
-        varName: `perf_${char.variable_name}`,
+        varName: char.variable_name,
         text: char.question_text,
-        batteryName: 'dem_characteristics_performance',
+        batteryName: batteryNamePerf,
         subBattery: char.category,
         responses: data.performance.responses,
       },

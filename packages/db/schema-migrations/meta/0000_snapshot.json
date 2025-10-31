@@ -1,5 +1,5 @@
 {
-  "id": "6b76ff49-f610-4370-b957-d9118a833b34",
+  "id": "a375fc53-8323-42d5-aadb-564bb09cfa1c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -36,7 +36,7 @@
         "varName": {
           "name": "varName",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true
         },
         "text": {
@@ -97,7 +97,16 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "questions_varName_batteryName_subBattery_pk": {
+          "name": "questions_varName_batteryName_subBattery_pk",
+          "columns": [
+            "varName",
+            "batteryName",
+            "subBattery"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

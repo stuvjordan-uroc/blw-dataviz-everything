@@ -6,11 +6,12 @@ CREATE TABLE "questions"."batteries" (
 );
 --> statement-breakpoint
 CREATE TABLE "questions"."questions" (
-	"varName" text PRIMARY KEY NOT NULL,
+	"varName" text NOT NULL,
 	"text" text,
 	"batteryName" text NOT NULL,
 	"subBattery" text,
-	"responses" text[]
+	"responses" text[],
+	CONSTRAINT "questions_varName_batteryName_subBattery_pk" PRIMARY KEY("varName","batteryName","subBattery")
 );
 --> statement-breakpoint
 CREATE TABLE "questions"."sub_batteries" (

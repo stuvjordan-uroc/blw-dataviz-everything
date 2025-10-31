@@ -1,4 +1,4 @@
-import { pgSchema, text, serial, unique, foreignKey } from "drizzle-orm/pg-core";
+import { pgSchema, text, serial, unique, foreignKey, primaryKey } from "drizzle-orm/pg-core";
 import type { InferInsertModel } from "drizzle-orm";
 
 /* CREATE QUESTIONS SCHEMA AND ITS TABLES */
@@ -34,7 +34,7 @@ export const subBatteries = questionsSchema.table(
 export const questions = questionsSchema.table(
   "questions",
   {
-    varName: text().notNull().primaryKey(),
+    varName: text().notNull(),
     text: text(),
     batteryName: text()
       .notNull()
@@ -43,6 +43,8 @@ export const questions = questionsSchema.table(
     responses: text().array(), //index in this array will give coded response in responses table
   },
   (table) => [
+    // Composite primary key
+    primaryKey({ columns: [table.varName, table.batteryName, table.subBattery] }),
     // Composite foreign key: ensures subBattery belongs to the correct battery
     // References the unique constraint (batteryName, name) in subBatteries
     foreignKey({

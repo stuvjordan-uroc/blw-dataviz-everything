@@ -10,11 +10,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "data:migrate": "tsx src/data-migrations/run.ts",
-    "data:migrate:questions": "tsx src/data-migrations/run.ts questions",
-    "data:migrate:responses": "tsx src/data-migrations/run.ts responses",
-    "data:reset": "tsx src/data-migrations/reset.ts",
-    "data:reset:questions": "tsx src/data-migrations/reset.ts questions",
-    "data:reset:responses": "tsx src/data-migrations/reset.ts responses"
+    "data:reset": "tsx src/data-migrations/reset.ts"
   },
   "keywords": [],
   "author": "",
