@@ -9,3 +9,10 @@ const client = postgres(connectionString);
 export const db = drizzle(client, { logger: false });
 
 export * from "./schemas/questions/schema";
+export {
+  sessions,
+  questions as pollQuestions,
+  respondents,
+  responses,
+  sessionStatistics
+} from "./schemas/polls/schema";
