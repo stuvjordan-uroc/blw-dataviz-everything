@@ -5,8 +5,20 @@
       "path": "."
     },
     {
-      "name": "Database Package",
+      "name": "Shared Schemas",
+      "path": "./packages/shared-schemas"
+    },
+    {
+      "name": "Shared Auth",
+      "path": "./packages/shared-auth"
+    },
+    {
+      "name": "Database",
       "path": "./packages/db"
+    },
+    {
+      "name": "API Polls Admin",
+      "path": "./packages/api-polls-admin"
     }
   ],
   "settings": {

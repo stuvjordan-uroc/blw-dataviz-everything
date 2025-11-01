@@ -10,7 +10,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "data:migrate": "tsx src/data-migrations/run.ts",
-    "data:reset": "tsx src/data-migrations/reset.ts"
+    "data:reset": "tsx src/data-migrations/reset.ts",
+    "seed:admin": "tsx src/seed-admin.ts"
   },
   "keywords": [],
   "author": "",
@@ -18,13 +19,16 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.919.0",
     "@aws-sdk/credential-providers": "^3.478.0",
+    "bcrypt": "^5.1.1",
     "csv-parse": "^5.5.0",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
     "postgres": "^3.4.7",
+    "shared-schemas": "*",
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/node": "^20.0.0",
     "drizzle-kit": "^0.31.5",
     "tsx": "^4.0.0"

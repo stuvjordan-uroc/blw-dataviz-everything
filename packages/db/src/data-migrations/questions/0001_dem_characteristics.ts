@@ -1,5 +1,5 @@
 import type { DataMigration } from '../types';
-import { batteries, subBatteries, questions } from '../../schemas/questions/schema';
+import { batteries, subBatteries, questions } from 'shared';
 import { fetchJsonFromS3, getDataMigrationsBucket } from '../utils/s3';
 import { sql } from 'drizzle-orm'
 

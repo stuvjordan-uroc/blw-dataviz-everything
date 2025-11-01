@@ -1,0 +1,28 @@
+{
+  "name": "shared-auth",
+  "version": "1.0.0",
+  "description": "Shared authentication utilities for NestJS APIs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/jwt": "^10.0.0",
+    "@nestjs/passport": "^10.0.0",
+    "passport": "^0.6.0",
+    "passport-jwt": "^4.0.1",
+    "bcrypt": "^5.1.1",
+    "shared-schemas": "*"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^20.0.0",
+    "@types/passport-jwt": "^3.0.13",
+    "typescript": "^5.9.3"
+  }
+}

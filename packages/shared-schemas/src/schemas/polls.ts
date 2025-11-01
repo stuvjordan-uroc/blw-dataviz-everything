@@ -1,5 +1,5 @@
 import { pgSchema, serial, integer, text, foreignKey, unique, jsonb, timestamp } from "drizzle-orm/pg-core";
-import { questions as questionsDef } from "../questions/schema";
+import { questions as questionsDef } from "./questions";
 
 
 /* CREATE POLLS SCHEMA AND ITS TABLES */
@@ -10,18 +10,18 @@ export const pollsSchema = pgSchema("polls")
 
 //types for session configuration
 
-interface ResponseGroup {
+export interface ResponseGroup {
   label: string;
   values: number[];
 }
 
-interface Question {
+export interface Question {
   varName: string;
   batteryName: string;
-  subBattery: string;
+  subBattery: string | null;
 };
 
-interface SessionConfig {
+export interface SessionConfig {
   responseQuestions: (
     Question &
     { responseGroups: { expanded: ResponseGroup[], collapsed: ResponseGroup[] } }

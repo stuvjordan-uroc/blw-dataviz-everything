@@ -1,9 +1,290 @@
 {
-  "id": "a375fc53-8323-42d5-aadb-564bb09cfa1c",
+  "id": "ad4d85f6-b2ac-4727-a531-4fa45f8e915b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "polls.questions": {
+      "name": "questions",
+      "schema": "polls",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "sessionId": {
+          "name": "sessionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "varName": {
+          "name": "varName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "batteryName": {
+          "name": "batteryName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subBattery": {
+          "name": "subBattery",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "questions_sessionId_sessions_id_fk": {
+          "name": "questions_sessionId_sessions_id_fk",
+          "tableFrom": "questions",
+          "tableTo": "sessions",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "sessionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "questions_varName_batteryName_subBattery_questions_varName_batteryName_subBattery_fk": {
+          "name": "questions_varName_batteryName_subBattery_questions_varName_batteryName_subBattery_fk",
+          "tableFrom": "questions",
+          "tableTo": "questions",
+          "schemaTo": "questions",
+          "columnsFrom": [
+            "varName",
+            "batteryName",
+            "subBattery"
+          ],
+          "columnsTo": [
+            "varName",
+            "batteryName",
+            "subBattery"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "questions_sessionId_varName_batteryName_subBattery_unique": {
+          "name": "questions_sessionId_varName_batteryName_subBattery_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "sessionId",
+            "varName",
+            "batteryName",
+            "subBattery"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "polls.respondents": {
+      "name": "respondents",
+      "schema": "polls",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "sessionId": {
+          "name": "sessionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "respondents_sessionId_sessions_id_fk": {
+          "name": "respondents_sessionId_sessions_id_fk",
+          "tableFrom": "respondents",
+          "tableTo": "sessions",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "sessionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "polls.responses": {
+      "name": "responses",
+      "schema": "polls",
+      "columns": {
+        "respondentId": {
+          "name": "respondentId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "questionSessionId": {
+          "name": "questionSessionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response": {
+          "name": "response",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "responses_respondentId_respondents_id_fk": {
+          "name": "responses_respondentId_respondents_id_fk",
+          "tableFrom": "responses",
+          "tableTo": "respondents",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "respondentId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "responses_questionSessionId_questions_id_fk": {
+          "name": "responses_questionSessionId_questions_id_fk",
+          "tableFrom": "responses",
+          "tableTo": "questions",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "questionSessionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "responses_respondentId_questionSessionId_unique": {
+          "name": "responses_respondentId_questionSessionId_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "respondentId",
+            "questionSessionId"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "polls.session_statistics": {
+      "name": "session_statistics",
+      "schema": "polls",
+      "columns": {
+        "sessionId": {
+          "name": "sessionId",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "statistics": {
+          "name": "statistics",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "session_statistics_sessionId_sessions_id_fk": {
+          "name": "session_statistics_sessionId_sessions_id_fk",
+          "tableFrom": "session_statistics",
+          "tableTo": "sessions",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "sessionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "polls.sessions": {
+      "name": "sessions",
+      "schema": "polls",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "session_config": {
+          "name": "session_config",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "questions.batteries": {
       "name": "batteries",
       "schema": "questions",
@@ -170,6 +451,7 @@
   },
   "enums": {},
   "schemas": {
+    "polls": "polls",
     "questions": "questions"
   },
   "sequences": {},
