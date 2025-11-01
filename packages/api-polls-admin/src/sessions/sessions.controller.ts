@@ -15,10 +15,16 @@ import { SessionsService } from './sessions.service';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from 'shared-auth';
 import { insertSessionSchema } from 'shared-schemas/src/schemas/polls.zod';
+import { z } from 'zod';
 import type { InferInsertModel } from 'drizzle-orm';
 import { sessions } from 'shared-schemas/src/schemas/polls';
 
 type NewSession = InferInsertModel<typeof sessions>;
+
+// Schema for toggling session status
+const toggleStatusSchema = z.object({
+  isOpen: z.boolean(),
+});
 
 /**
  * SessionsController handles HTTP requests for session management
@@ -32,7 +38,7 @@ type NewSession = InferInsertModel<typeof sessions>;
  * - @UseGuards(JwtAuthGuard) - Requires authentication
  * - @Get() - Handle GET requests (retrieve data)
  * - @Post() - Handle POST requests (create data)
- * - @Put() - Handle PUT requests (update data)
+ * - @Put() - Handle PUT requests (update session status only)
  * - @Delete() - Handle DELETE requests (remove data)
  * - @Body() - Extract request body
  * - @Param() - Extract URL parameters
@@ -41,8 +47,8 @@ type NewSession = InferInsertModel<typeof sessions>;
  * - POST   /sessions           - Create new session
  * - GET    /sessions           - Get all sessions
  * - GET    /sessions/:id       - Get specific session
- * - PUT    /sessions/:id       - Update session
- * - DELETE /sessions/:id       - Delete session
+ * - PUT    /sessions/:id/status - Toggle session open/closed status
+ * - DELETE /sessions/:id       - Delete session (cascades to all related data)
  */
 @Controller('sessions')
 @UseGuards(JwtAuthGuard) // Protect all routes in this controller
@@ -100,26 +106,32 @@ export class SessionsController {
   }
 
   /**
-   * PUT /sessions/:id
-   * Update an existing session
+   * PUT /sessions/:id/status
+   * Toggle session status between open and closed
    * 
-   * For partial updates, we use a modified version of the insert schema
-   * that makes all fields optional
+   * This is the ONLY update allowed on a session - changing its open/closed status.
+   * All other session properties are immutable after creation.
    * 
-   * Example: PUT /sessions/5
-   * Body: { "description": "Updated description" }
+   * Example: PUT /sessions/5/status
+   * Body: { "isOpen": false }
    */
-  @Put(':id')
-  async update(
+  @Put(':id/status')
+  async toggleStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body(new ZodValidationPipe(insertSessionSchema.partial())) sessionData: Partial<NewSession>,
+    @Body(new ZodValidationPipe(toggleStatusSchema)) body: { isOpen: boolean },
   ) {
-    return await this.sessionsService.update(id, sessionData);
+    return await this.sessionsService.toggleStatus(id, body.isOpen);
   }
 
   /**
    * DELETE /sessions/:id
-   * Delete a session
+   * Delete a session and all associated data
+   * 
+   * Cascades delete to all related tables:
+   * - polls.session_statistics
+   * - polls.responses
+   * - polls.respondents
+   * - polls.questions
    * 
    * @HttpCode(HttpStatus.NO_CONTENT) sets response status to 204
    * This is the standard status for successful deletion with no response body

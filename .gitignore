@@ -26,6 +26,14 @@ dist/
 build/
 *.tsbuildinfo
 
+# Prevent compiled files in src directories (should only be in dist/)
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts.map
+!packages/*/src/**/*.test.js
+!packages/*/src/**/*.config.js
+
 # Logs
 *.log
 npm-debug.log*

@@ -48,7 +48,7 @@ export class AuthController {
 
   /**
    * POST /auth/register
-   * Create a new admin user
+   * Create a new admin user and return JWT token
    * 
    * Request body:
    * {
@@ -59,11 +59,16 @@ export class AuthController {
    * 
    * Response:
    * {
-   *   "id": 2,
-   *   "email": "newadmin@example.com",
-   *   "name": "New Admin",
-   *   "isActive": true,
-   *   "createdAt": "2025-11-01T..."
+   *   "accessToken": "eyJhbGc...",
+   *   "user": {
+   *     "id": 2,
+   *     "email": "newadmin@example.com",
+   *     "name": "New Admin",
+   *     "isActive": true,
+   *     "createdAt": "2025-11-01T...",
+   *     "updatedAt": "2025-11-01T...",
+   *     "lastLoginAt": null
+   *   }
    * }
    */
   @Post('register')

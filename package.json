@@ -6,6 +6,9 @@
   "author": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:integration": "npm run test --workspace=integration-tests",
+    "test:integration:watch": "npm run test:watch --workspace=integration-tests",
+    "test:integration:coverage": "npm run test:coverage --workspace=integration-tests",
     "build": "tsc --build",
     "lint": "eslint packages/*/src --ext .ts",
     "lint:fix": "eslint packages/*/src --ext .ts --fix",

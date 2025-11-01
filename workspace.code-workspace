@@ -19,6 +19,10 @@
     {
       "name": "API Polls Admin",
       "path": "./packages/api-polls-admin"
+    },
+    {
+      "name": "Integration Tests",
+      "path": "./packages/integration-tests"
     }
   ],
   "settings": {

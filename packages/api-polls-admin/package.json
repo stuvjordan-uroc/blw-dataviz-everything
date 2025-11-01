@@ -18,17 +18,18 @@
     "@nestjs/jwt": "^10.0.0",
     "@nestjs/passport": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
+    "db": "*",
+    "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
-    "postgres": "^3.4.7",
+    "nanoid": "^3.3.11",
     "passport": "^0.6.0",
     "passport-jwt": "^4.0.1",
+    "postgres": "^3.4.7",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
-    "shared-schemas": "*",
     "shared-auth": "*",
-    "db": "*",
-    "zod": "^3.22.0",
-    "dotenv": "^17.2.3"
+    "shared-schemas": "*",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

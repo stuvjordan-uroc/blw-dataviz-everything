@@ -88,10 +88,10 @@ export class AuthService {
    * Register a new admin user
    * 
    * @param registerData - Email, name, and password
-   * @returns The newly created user (without password hash)
+   * @returns Access token and safe user data
    * @throws ConflictException if email already exists
    */
-  async register(registerData: RegisterAdminRequest): Promise<AdminUserSafe> {
+  async register(registerData: RegisterAdminRequest): Promise<LoginResponse> {
     // Check if email already exists
     const [existingUser] = await this.db
       .select()
@@ -115,9 +115,24 @@ export class AuthService {
       })
       .returning();
 
-    // Return user without password hash
-    const { passwordHash: _, ...safeUser } = newUser;
-    return safeUser;
+    // Generate JWT token for the new user
+    const payload: JwtPayload = {
+      sub: newUser.id,
+      email: newUser.email,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    // Return token and safe user data (no password hash)
+    return {
+      accessToken,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        isActive: newUser.isActive,
+      },
+    };
   }
 
   /**

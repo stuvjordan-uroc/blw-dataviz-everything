@@ -21,3 +21,7 @@ Utilities for authenticating admins. Exported for use by APIs in the project. Se
 ## api-polls-admin
 
 API for handling transactions by admins for running polls. See package/api-polls-admin/README.md
+
+## integration-tests
+
+Integration tests for API endpoints and database interactions. See packages/integration-tests/README.md for setup and usage.

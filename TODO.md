@@ -1,0 +1,5 @@
+- Add logic to create url for a session.
+- Poll responses api...
+  - scaffold
+  - write tests
+  - implement logic (note this will entail statistics computation logic!)

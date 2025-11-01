@@ -15,6 +15,20 @@
       "when": 1762006232137,
       "tag": "0001_blushing_red_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762016705306,
+      "tag": "0002_previous_bucky",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1762017747573,
+      "tag": "0003_keen_amphibian",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ import { config } from 'dotenv';
 config({ path: '../../.env' });
 
 export default {
-  schema: '../shared/src/schemas/*.ts',
+  schema: '../shared-schemas/src/schemas/*.ts',
   out: './schema-migrations',
   dialect: 'postgresql',
   dbCredentials: {

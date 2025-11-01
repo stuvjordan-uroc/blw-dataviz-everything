@@ -39,7 +39,9 @@ export const questions = questionsSchema.table(
     batteryName: text()
       .notNull()
       .references(() => batteries.name),
-    subBattery: text(),
+    // subBattery is part of the composite primary key, so it cannot be NULL in PostgreSQL.
+    // Use empty string '' for questions that don't belong to a sub-battery (simple batteries).
+    subBattery: text().notNull().default(''),
     responses: text().array(), //index in this array will give coded response in responses table
   },
   (table) => [

@@ -1,4 +1,4 @@
-import { pgSchema, serial, integer, text, foreignKey, unique, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgSchema, serial, integer, text, foreignKey, unique, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
 
 
@@ -18,7 +18,9 @@ export interface ResponseGroup {
 export interface Question {
   varName: string;
   batteryName: string;
-  subBattery: string | null;
+  // subBattery is required (empty string '' for questions without a sub-battery)
+  // This matches the database constraint where subBattery is part of the primary key
+  subBattery: string;
 };
 
 export interface SessionConfig {
@@ -37,8 +39,10 @@ export const sessions = pollsSchema.table(
   "sessions",
   {
     id: serial("id").primaryKey(),
+    slug: text("slug").notNull().unique(),
     sessionConfig: jsonb("session_config").$type<SessionConfig>(),
     description: text(),
+    isOpen: boolean("is_open").notNull().default(true),
     createdAt: timestamp("created_at").defaultNow()
   }
 )
@@ -51,7 +55,8 @@ export const questions = pollsSchema.table(
     sessionId: integer().references(() => sessions.id),
     varName: text().notNull(),
     batteryName: text().notNull(),
-    subBattery: text()
+    // subBattery must match questions.questions schema (NOT NULL, use '' for no sub-battery)
+    subBattery: text().notNull().default('')
   },
   (table) => [
     //Composite foreign key to questions schema
