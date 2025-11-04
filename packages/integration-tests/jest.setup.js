@@ -1,12 +1,18 @@
 // Jest setup file - runs before tests
 
-// Check that test environment is properly configured
-if (!process.env.TEST_API_URL) {
-  console.warn('⚠️  TEST_API_URL not set. Using default: http://localhost:3004');
-}
+// Load environment variables from root .env file
+require('dotenv').config({ path: '../../.env' });
 
-if (!process.env.TEST_DATABASE_URL) {
-  console.warn('⚠️  TEST_DATABASE_URL not set. Using default: postgresql://postgres:password@localhost:5433/blw_dataviz_test');
+// Check that test environment is properly configured
+// Set VERBOSE_TEST_SETUP=true to see configuration warnings
+if (process.env.VERBOSE_TEST_SETUP === 'true') {
+  if (!process.env.TEST_API_URL) {
+    console.warn('⚠️  TEST_API_URL not set. Using default: http://localhost:3004');
+  }
+
+  if (!process.env.TEST_DATABASE_URL) {
+    console.warn('⚠️  TEST_DATABASE_URL not set. Using default: postgresql://postgres:password@localhost:5433/blw_dataviz_test');
+  }
 }
 
 // Suppress dotenv console logs during testing

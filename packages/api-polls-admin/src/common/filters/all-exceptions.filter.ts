@@ -29,6 +29,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest();
 
+    // Log the full exception for debugging
+    console.error('🚨 Exception caught:', exception);
+    if (exception instanceof Error) {
+      console.error('Stack trace:', exception.stack);
+    }
+
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
     let errors: unknown = undefined;

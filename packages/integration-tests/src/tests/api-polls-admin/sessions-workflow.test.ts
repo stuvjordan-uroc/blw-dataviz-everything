@@ -15,7 +15,7 @@ import {
  * Prerequisites:
  * 1. Test environment must be running: npm run test:up
  * 2. Test database must be populated: npm run test:db-populate
- *    - This creates the admin user (admin@dev.local / dev-password-changeme)
+ *    - This creates the admin user from INITIAL_ADMIN_EMAIL/INITIAL_ADMIN_PASSWORD env vars
  *    - This creates real questions from data migrations
  * 
  * Test Flow:
@@ -42,6 +42,7 @@ describe('Poll Session Workflow (Integration)', () => {
       const questionsResult = await db.execute(sql`
         SELECT "varName", "batteryName", "subBattery"
         FROM questions.questions
+        ORDER BY "varName", "batteryName", "subBattery"
         LIMIT 3
       `);
 
@@ -203,9 +204,12 @@ describe('Poll Session Workflow (Integration)', () => {
         }
 
         // Verify first question details
-        const q1 = pollsQuestions.find((q: unknown) =>
-          (q as PollQuestion).varName === testQuestions[0].varName
-        ) as PollQuestion | undefined;
+        const q1 = pollsQuestions.find((q: unknown) => {
+          const pq = q as PollQuestion;
+          return pq.varName === testQuestions[0].varName &&
+            pq.batteryName === testQuestions[0].batteryName &&
+            pq.subBattery === testQuestions[0].subBattery;
+        }) as PollQuestion | undefined;
         expect(q1).toBeDefined();
         if (q1) {
           expect(q1.sessionId).toBe(sessionId);
@@ -214,9 +218,12 @@ describe('Poll Session Workflow (Integration)', () => {
         }
 
         // Verify second question details
-        const q2 = pollsQuestions.find((q: unknown) =>
-          (q as PollQuestion).varName === testQuestions[1].varName
-        ) as PollQuestion | undefined;
+        const q2 = pollsQuestions.find((q: unknown) => {
+          const pq = q as PollQuestion;
+          return pq.varName === testQuestions[1].varName &&
+            pq.batteryName === testQuestions[1].batteryName &&
+            pq.subBattery === testQuestions[1].subBattery;
+        }) as PollQuestion | undefined;
         expect(q2).toBeDefined();
         if (q2) {
           expect(q2.sessionId).toBe(sessionId);

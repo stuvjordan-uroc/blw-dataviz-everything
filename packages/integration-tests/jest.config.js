@@ -9,6 +9,15 @@ module.exports = {
   // Where to find test files
   testMatch: ['**/tests/**/*.test.ts'],
 
+  // Control test execution order and behavior
+  // Auth tests run first (alphabetically), then api-polls-admin
+  // Tests within each suite run in the order they appear in the file
+  testSequencer: '<rootDir>/jest-test-sequencer.js',
+
+  // Stop running tests after the first failure
+  // This ensures api-polls-admin tests won't run if auth tests fail
+  bail: 1,
+
   // Transform TypeScript files with ts-jest
   transform: {
     '^.+\\.ts$': 'ts-jest',

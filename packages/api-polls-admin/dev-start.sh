@@ -21,7 +21,7 @@ done
 # Wait a moment for initial builds to complete
 sleep 3
 
-# Start the main application with tsx watch
+# Start the main application with ts-node via nodemon for auto-reload
 echo "🚀 Starting api-polls-admin..."
 cd /app/packages/api-polls-admin
-npx tsx watch src/main.ts
+npx nodemon --watch src --ext ts --exec "ts-node --transpile-only src/main.ts"

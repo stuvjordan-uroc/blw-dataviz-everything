@@ -1,9 +1,11 @@
-import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Request } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
+import { LocalAuthGuard } from './guards/local-auth.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { JwtAuthGuard, CurrentUser } from 'shared-auth';
-import { loginSchema, registerAdminSchema } from 'shared-schemas';
-import type { LoginRequest, RegisterAdminRequest } from 'shared-schemas';
+import { JwtAuthGuard, CurrentUser, JwtPayload } from 'shared-auth';
+import { registerAdminSchema } from 'shared-schemas';
+import type { RegisterAdminRequest, LoginResponse, AdminUserSafe } from 'shared-schemas';
 
 /**
  * AuthController handles authentication endpoints
@@ -15,11 +17,19 @@ import type { LoginRequest, RegisterAdminRequest } from 'shared-schemas';
  */
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(
+    private readonly authService: AuthService,
+    private readonly jwtService: JwtService,
+  ) { }
 
   /**
    * POST /auth/login
    * Authenticate admin user and return JWT token
+   * 
+   * Uses LocalAuthGuard which:
+   * 1. Extracts email/password from request body
+   * 2. Validates credentials via LocalStrategy
+   * 3. Attaches user to request.user
    * 
    * Request body:
    * {
@@ -39,11 +49,24 @@ export class AuthController {
    * }
    */
   @Post('login')
+  @UseGuards(LocalAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async login(
-    @Body(new ZodValidationPipe(loginSchema)) loginData: LoginRequest,
-  ) {
-    return await this.authService.login(loginData);
+  async login(@Request() req): Promise<LoginResponse> {
+    // LocalAuthGuard has already validated credentials and attached user to req.user
+    const user = req.user as AdminUserSafe;
+
+    // Generate JWT token
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      accessToken,
+      user,
+    };
   }
 
   /**
@@ -75,16 +98,30 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Body(new ZodValidationPipe(registerAdminSchema)) registerData: RegisterAdminRequest,
-  ) {
-    return await this.authService.register(registerData);
+  ): Promise<LoginResponse> {
+    // Create user in database
+    const user = await this.authService.createUser(registerData);
+
+    // Generate JWT token for the new user
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      accessToken,
+      user,
+    };
   }
 
   /**
    * GET /auth/profile
    * Get current authenticated user's profile
    * 
-   * Requires JWT token in Authorization header:
-   * Authorization: Bearer eyJhbGc...
+   * Protected by JwtAuthGuard - requires valid JWT token in Authorization header.
+   * The @CurrentUser() decorator extracts the user data from the JWT payload.
    * 
    * Response:
    * {
@@ -98,7 +135,7 @@ export class AuthController {
    */
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@CurrentUser('userId') userId: number) {
-    return await this.authService.getProfile(userId);
+  async getProfile(@CurrentUser('userId') userId: number): Promise<AdminUserSafe> {
+    return await this.authService.findById(userId);
   }
 }

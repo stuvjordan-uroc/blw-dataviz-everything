@@ -31,7 +31,7 @@ export const migration: DataMigration = {
     // Hash the password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Insert the admin user (skip if already exists)
+    // Insert or update the admin user (always ensure it exists)
     const [adminUser] = await db
       .insert(users)
       .values({
@@ -39,16 +39,20 @@ export const migration: DataMigration = {
         name: 'Dev Administrator',
         passwordHash,
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: users.email,
+        set: {
+          passwordHash,
+          isActive: true,
+        },
+      })
       .returning();
 
     if (adminUser) {
-      console.log('✅ Development admin user created');
+      console.log('✅ Development admin user ready');
       console.log(`   Email: ${adminUser.email}`);
       console.log(`   Name: ${adminUser.name}`);
       console.log(`   ID: ${adminUser.id}`);
-    } else {
-      console.log('ℹ️  Development admin user already exists');
     }
   },
 

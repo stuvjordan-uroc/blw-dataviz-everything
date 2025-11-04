@@ -1,61 +1,65 @@
-import { Injectable, Inject, UnauthorizedException, ConflictException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable, Inject, ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../database/database.providers';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
 import { users } from 'shared-schemas/src/schemas/admin';
-import { PasswordService, JwtPayload } from 'shared-auth';
-import type { LoginRequest, RegisterAdminRequest, LoginResponse, AdminUserSafe } from 'shared-schemas';
+import { PasswordService } from 'shared-auth';
+import type { RegisterAdminRequest, AdminUserSafe } from 'shared-schemas';
 
 /**
- * AuthService handles authentication logic
+ * AuthService handles database operations for authentication
  * 
- * Responsibilities:
- * - Validate user credentials during login
- * - Create new admin users (registration)
- * - Generate JWT tokens
- * - Update last login timestamp
+ * Following the standard NestJS pattern, this service ONLY handles:
+ * - Database queries for users
+ * - Password hashing/verification
+ * 
+ * It does NOT handle:
+ * - JWT token generation (that's in the controller)
+ * - Request/response logic (that's in the controller)
  */
 @Injectable()
 export class AuthService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private db: ReturnType<typeof drizzle>,
-    private jwtService: JwtService,
     private passwordService: PasswordService,
   ) { }
 
   /**
-   * Authenticate a user and return a JWT token
+   * Validate user credentials
    * 
-   * @param loginData - Email and password from login form
-   * @returns Access token and safe user data
-   * @throws UnauthorizedException if credentials are invalid
+   * Used by LocalStrategy during login.
+   * Returns the user if credentials are valid, null otherwise.
+   * Throws UnauthorizedException for deactivated accounts with specific message.
+   * 
+   * @param email - User's email
+   * @param password - Plain text password to verify
+   * @returns User object if valid, null if invalid
+   * @throws UnauthorizedException if account is deactivated
    */
-  async login(loginData: LoginRequest): Promise<LoginResponse> {
-    // Find user by email
+  async validateUser(email: string, password: string): Promise<AdminUserSafe | null> {
     const [user] = await this.db
       .select()
       .from(users)
-      .where(eq(users.email, loginData.email));
+      .where(eq(users.email, email));
 
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      return null;
     }
 
-    // Check if user is active
+    // Check if user is active - throw specific error for deactivated accounts
     if (!user.isActive) {
       throw new UnauthorizedException('Account is deactivated');
     }
 
     // Verify password
     const isPasswordValid = await this.passwordService.comparePasswords(
-      loginData.password,
+      password,
       user.passwordHash,
     );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password');
+      return null;
     }
 
     // Update last login timestamp
@@ -64,34 +68,19 @@ export class AuthService {
       .set({ lastLoginAt: new Date() })
       .where(eq(users.id, user.id));
 
-    // Generate JWT token
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-    };
-
-    const accessToken = this.jwtService.sign(payload);
-
-    // Return token and safe user data (no password hash)
-    return {
-      accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        isActive: user.isActive,
-      },
-    };
+    // Return user without password hash
+    const { passwordHash: _, ...safeUser } = user;
+    return safeUser;
   }
 
   /**
-   * Register a new admin user
+   * Create a new admin user
    * 
    * @param registerData - Email, name, and password
-   * @returns Access token and safe user data
+   * @returns Created user (without password hash)
    * @throws ConflictException if email already exists
    */
-  async register(registerData: RegisterAdminRequest): Promise<LoginResponse> {
+  async createUser(registerData: RegisterAdminRequest): Promise<AdminUserSafe> {
     // Check if email already exists
     const [existingUser] = await this.db
       .select()
@@ -115,40 +104,28 @@ export class AuthService {
       })
       .returning();
 
-    // Generate JWT token for the new user
-    const payload: JwtPayload = {
-      sub: newUser.id,
-      email: newUser.email,
-    };
-
-    const accessToken = this.jwtService.sign(payload);
-
-    // Return token and safe user data (no password hash)
-    return {
-      accessToken,
-      user: {
-        id: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-        isActive: newUser.isActive,
-      },
-    };
+    // Return user without password hash
+    const { passwordHash: _, ...safeUser } = newUser;
+    return safeUser;
   }
 
   /**
-   * Get current user profile
+   * Find user by ID
    * 
-   * @param userId - ID from JWT token
+   * Used by JwtStrategy and profile endpoint.
+   * 
+   * @param userId - User's ID
    * @returns User profile data
+   * @throws NotFoundException if user doesn't exist
    */
-  async getProfile(userId: number): Promise<AdminUserSafe> {
+  async findById(userId: number): Promise<AdminUserSafe> {
     const [user] = await this.db
       .select()
       .from(users)
       .where(eq(users.id, userId));
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new NotFoundException('User not found');
     }
 
     const { passwordHash: _, ...safeUser } = user;

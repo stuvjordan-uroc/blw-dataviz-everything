@@ -13,7 +13,7 @@ import {
  * containerized API service.
  * 
  * Prerequisites:
- * 1. Test environment must be running: npm run test:up
+ * 1. Test environment must be running: npm run test
  * 2. Test database must be populated: npm run test:db-populate
  * 
  * Tests cover:
@@ -29,12 +29,34 @@ import {
 
 describe('Auth Endpoints (Integration)', () => {
   const apiUrl = getTestApiUrl();
+  const testUserEmails: string[] = [];
 
-  // Clean data between tests for isolation
+  // Clean up any leftover test users from previous runs
+  beforeAll(async () => {
+    const { db, cleanup } = getTestDb();
+    try {
+      // Delete all test users except the seeded admin
+      await db.execute(sql`
+        DELETE FROM "admin"."users" 
+        WHERE email NOT IN ('admin@example.com', ${process.env.INITIAL_ADMIN_EMAIL || 'admin@example.com'})
+      `);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  // Clean up only test users created during tests, preserve seeded admin
   afterEach(async () => {
     const { db, cleanup } = getTestDb();
     try {
-      await db.execute(sql`TRUNCATE TABLE "admin"."users" CASCADE`);
+      // Only delete users that were created during this test suite
+      if (testUserEmails.length > 0) {
+        await db.execute(sql`
+          DELETE FROM "admin"."users" 
+          WHERE email = ANY(ARRAY[${sql.join(testUserEmails.map(email => sql`${email}`), sql`, `)}])
+        `);
+        testUserEmails.length = 0; // Clear the array
+      }
     } finally {
       await cleanup();
     }
@@ -50,6 +72,8 @@ describe('Auth Endpoints (Integration)', () => {
           name: 'New Admin',
           password: 'SecurePassword123!',
         };
+
+        testUserEmails.push(registerData.email); // Track for cleanup
 
         const response = await request(apiUrl)
           .post('/auth/register')
@@ -89,11 +113,14 @@ describe('Auth Endpoints (Integration)', () => {
     });
 
     it('should reject registration with duplicate email', async () => {
+      const duplicateEmail = 'duplicate@example.com';
+      testUserEmails.push(duplicateEmail); // Track for cleanup
+
       // First registration
       const firstResponse = await request(apiUrl)
         .post('/auth/register')
         .send({
-          email: 'duplicate@example.com',
+          email: duplicateEmail,
           name: 'First User',
           password: 'Password123',
         });
@@ -107,7 +134,7 @@ describe('Auth Endpoints (Integration)', () => {
       const response = await request(apiUrl)
         .post('/auth/register')
         .send({
-          email: 'duplicate@example.com',
+          email: duplicateEmail,
           name: 'Second User',
           password: 'Password123',
         })
@@ -144,17 +171,20 @@ describe('Auth Endpoints (Integration)', () => {
       const { db, cleanup } = getTestDb();
 
       try {
+        const testEmail = 'testuser@example.com';
+        testUserEmails.push(testEmail); // Track for cleanup
+
         // Seed a test user
         const { password } = await seedTestAdminUser(
           db,
-          'testuser@example.com',
+          testEmail,
           'TestPassword123'
         );
 
         const response = await request(apiUrl)
           .post('/auth/login')
           .send({
-            email: 'testuser@example.com',
+            email: testEmail,
             password: password,
           })
           .expect(200);
@@ -163,7 +193,7 @@ describe('Auth Endpoints (Integration)', () => {
         expect(response.body).toHaveProperty('accessToken');
         expect(response.body).toHaveProperty('user');
         expect(response.body.user).toMatchObject({
-          email: 'testuser@example.com',
+          email: testEmail,
           name: 'Test User',
           isActive: true,
         });
@@ -171,7 +201,7 @@ describe('Auth Endpoints (Integration)', () => {
 
         // Verify lastLoginAt was updated
         const [user] = await db.execute(sql`
-          SELECT last_login_at FROM "admin"."users" WHERE email = 'testuser@example.com'
+          SELECT last_login_at FROM "admin"."users" WHERE email = ${testEmail}
         `);
         expect(user.last_login_at).toBeTruthy();
       } finally {
@@ -195,12 +225,15 @@ describe('Auth Endpoints (Integration)', () => {
       const { db, cleanup } = getTestDb();
 
       try {
-        await seedTestAdminUser(db, 'user@example.com', 'CorrectPassword');
+        const testEmail = 'user@example.com';
+        testUserEmails.push(testEmail); // Track for cleanup
+
+        await seedTestAdminUser(db, testEmail, 'CorrectPassword');
 
         const response = await request(apiUrl)
           .post('/auth/login')
           .send({
-            email: 'user@example.com',
+            email: testEmail,
             password: 'WrongPassword',
           })
           .expect(401);
@@ -215,18 +248,21 @@ describe('Auth Endpoints (Integration)', () => {
       const { db, cleanup } = getTestDb();
 
       try {
+        const testEmail = 'test@example.com';
+        testUserEmails.push(testEmail); // Track for cleanup
+
         // Create user
-        const { password } = await seedTestAdminUser(db);
+        const { password } = await seedTestAdminUser(db, testEmail);
 
         // Deactivate user
         await db.execute(sql`
-          UPDATE "admin"."users" SET is_active = false
+          UPDATE "admin"."users" SET is_active = false WHERE email = ${testEmail}
         `);
 
         const response = await request(apiUrl)
           .post('/auth/login')
           .send({
-            email: 'test@example.com',
+            email: testEmail,
             password: password,
           })
           .expect(401);
@@ -243,13 +279,16 @@ describe('Auth Endpoints (Integration)', () => {
       const { db, cleanup } = getTestDb();
 
       try {
+        const testEmail = 'test@example.com';
+        testUserEmails.push(testEmail); // Track for cleanup
+
         // Create user and login
-        const { password } = await seedTestAdminUser(db);
+        const { password } = await seedTestAdminUser(db, testEmail);
 
         const loginResponse = await request(apiUrl)
           .post('/auth/login')
           .send({
-            email: 'test@example.com',
+            email: testEmail,
             password: password,
           });
 
@@ -262,7 +301,7 @@ describe('Auth Endpoints (Integration)', () => {
           .expect(200);
 
         expect(response.body).toMatchObject({
-          email: 'test@example.com',
+          email: testEmail,
           name: 'Test User',
           isActive: true,
         });
