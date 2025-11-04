@@ -1,101 +1,96 @@
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { setupTestDatabase, TestDbConnection, cleanTables } from '../../utils/test-db';
-import { createTestApp, closeTestApp } from '../../utils/test-app';
-import { seedTestAdminUser } from '../../utils/test-helpers';
+import { sql } from 'drizzle-orm';
+import {
+  getTestDb,
+  getTestApiUrl,
+  seedTestAdminUser
+} from '../../utils/test-helpers';
 
 /**
  * Integration Tests: Auth Endpoints
  * 
- * These tests verify that authentication endpoints work correctly with the database:
+ * These tests verify that authentication endpoints work correctly against the 
+ * containerized API service.
+ * 
+ * Prerequisites:
+ * 1. Test environment must be running: npm run test:up
+ * 2. Test database must be populated: npm run test:db-populate
+ * 
+ * Tests cover:
  * - POST /auth/register - Create new admin user
  * - POST /auth/login - Authenticate and get JWT
  * - GET /auth/profile - Get current user profile (protected route)
  * 
  * Test Strategy:
- * - Start with a clean test database
- * - Make HTTP requests to the API
+ * - Make HTTP requests to the containerized API
  * - Verify responses and database state
  * - Clean up between tests
  */
 
 describe('Auth Endpoints (Integration)', () => {
-  let app: INestApplication;
-  let testDbConnection: TestDbConnection;
-
-  // Setup: Run once before all tests in this suite
-  beforeAll(async () => {
-    // Setup test database and run migrations
-    testDbConnection = await setupTestDatabase();
-
-    // Create NestJS app instance with test database
-    const testApp = await createTestApp(testDbConnection.db);
-    app = testApp.app;
-  });
-
-  // Cleanup: Run after each test to ensure clean state
-  afterEach(async () => {
-    await cleanTables(testDbConnection.db, ['admin.users']);
-  });
-
-  // Cleanup: Run once after all tests complete
-  afterAll(async () => {
-    await closeTestApp(app);
-    await testDbConnection.cleanup();
-  });
+  const apiUrl = getTestApiUrl();
 
   // Clean data between tests for isolation
   afterEach(async () => {
-    await testDbConnection.db.execute(`
-      TRUNCATE TABLE "admin"."users" CASCADE
-    `);
+    const { db, cleanup } = getTestDb();
+    try {
+      await db.execute(sql`TRUNCATE TABLE "admin"."users" CASCADE`);
+    } finally {
+      await cleanup();
+    }
   });
 
   describe('POST /auth/register', () => {
     it('should create a new admin user and return access token', async () => {
-      const registerData = {
-        email: 'newadmin@example.com',
-        name: 'New Admin',
-        password: 'SecurePassword123!',
-      };
+      const { db, cleanup } = getTestDb();
 
-      const response = await request(app.getHttpServer())
-        .post('/auth/register')
-        .send(registerData);
+      try {
+        const registerData = {
+          email: 'newadmin@example.com',
+          name: 'New Admin',
+          password: 'SecurePassword123!',
+        };
 
-      // Log response for debugging
-      if (response.status !== 201) {
-        console.log('Register failed:', response.status, response.body);
+        const response = await request(apiUrl)
+          .post('/auth/register')
+          .send(registerData);
+
+        // Log response for debugging
+        if (response.status !== 201) {
+          console.log('Register failed:', response.status, response.body);
+        }
+
+        expect(response.status).toBe(201);
+
+        // Verify response structure
+        expect(response.body).toHaveProperty('accessToken');
+        expect(response.body).toHaveProperty('user');
+        expect(response.body.user).toMatchObject({
+          email: registerData.email,
+          name: registerData.name,
+          isActive: true,
+        });
+        expect(response.body.user).toHaveProperty('id');
+        expect(response.body.user).not.toHaveProperty('passwordHash');
+
+        // Verify JWT token is valid (basic check)
+        expect(response.body.accessToken).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
+
+        // Verify user was created in database
+        const [user] = await db.execute(sql`
+          SELECT id, email, name, is_active 
+          FROM "admin"."users" 
+          WHERE email = ${registerData.email}
+        `);
+        expect(user).toBeDefined();
+      } finally {
+        await cleanup();
       }
-
-      expect(response.status).toBe(201);
-
-      // Verify response structure
-      expect(response.body).toHaveProperty('accessToken');
-      expect(response.body).toHaveProperty('user');
-      expect(response.body.user).toMatchObject({
-        email: registerData.email,
-        name: registerData.name,
-        isActive: true,
-      });
-      expect(response.body.user).toHaveProperty('id');
-      expect(response.body.user).not.toHaveProperty('passwordHash');
-
-      // Verify JWT token is valid (basic check)
-      expect(response.body.accessToken).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
-
-      // Verify user was created in database
-      const [user] = await testDbConnection.db.execute(`
-        SELECT id, email, name, is_active 
-        FROM "admin"."users" 
-        WHERE email = '${registerData.email}'
-      `);
-      expect(user).toBeDefined();
     });
 
     it('should reject registration with duplicate email', async () => {
       // First registration
-      const firstResponse = await request(app.getHttpServer())
+      const firstResponse = await request(apiUrl)
         .post('/auth/register')
         .send({
           email: 'duplicate@example.com',
@@ -109,7 +104,7 @@ describe('Auth Endpoints (Integration)', () => {
       expect(firstResponse.status).toBe(201);
 
       // Attempt duplicate registration
-      const response = await request(app.getHttpServer())
+      const response = await request(apiUrl)
         .post('/auth/register')
         .send({
           email: 'duplicate@example.com',
@@ -122,7 +117,7 @@ describe('Auth Endpoints (Integration)', () => {
     });
 
     it('should reject invalid email format', async () => {
-      await request(app.getHttpServer())
+      await request(apiUrl)
         .post('/auth/register')
         .send({
           email: 'not-an-email',
@@ -133,7 +128,7 @@ describe('Auth Endpoints (Integration)', () => {
     });
 
     it('should reject weak password', async () => {
-      await request(app.getHttpServer())
+      await request(apiUrl)
         .post('/auth/register')
         .send({
           email: 'test@example.com',
@@ -146,40 +141,46 @@ describe('Auth Endpoints (Integration)', () => {
 
   describe('POST /auth/login', () => {
     it('should authenticate valid credentials and return token', async () => {
-      // Seed a test user
-      const { password } = await seedTestAdminUser(
-        testDbConnection.db,
-        'testuser@example.com',
-        'TestPassword123'
-      );
+      const { db, cleanup } = getTestDb();
 
-      const response = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({
+      try {
+        // Seed a test user
+        const { password } = await seedTestAdminUser(
+          db,
+          'testuser@example.com',
+          'TestPassword123'
+        );
+
+        const response = await request(apiUrl)
+          .post('/auth/login')
+          .send({
+            email: 'testuser@example.com',
+            password: password,
+          })
+          .expect(200);
+
+        // Verify response
+        expect(response.body).toHaveProperty('accessToken');
+        expect(response.body).toHaveProperty('user');
+        expect(response.body.user).toMatchObject({
           email: 'testuser@example.com',
-          password: password,
-        })
-        .expect(200);
+          name: 'Test User',
+          isActive: true,
+        });
+        expect(response.body.user).not.toHaveProperty('passwordHash');
 
-      // Verify response
-      expect(response.body).toHaveProperty('accessToken');
-      expect(response.body).toHaveProperty('user');
-      expect(response.body.user).toMatchObject({
-        email: 'testuser@example.com',
-        name: 'Test User',
-        isActive: true,
-      });
-      expect(response.body.user).not.toHaveProperty('passwordHash');
-
-      // Verify lastLoginAt was updated
-      const [user] = await testDbConnection.db.execute(`
-        SELECT last_login_at FROM "admin"."users" WHERE email = 'testuser@example.com'
-      `);
-      expect(user.last_login_at).toBeTruthy();
+        // Verify lastLoginAt was updated
+        const [user] = await db.execute(sql`
+          SELECT last_login_at FROM "admin"."users" WHERE email = 'testuser@example.com'
+        `);
+        expect(user.last_login_at).toBeTruthy();
+      } finally {
+        await cleanup();
+      }
     });
 
     it('should reject invalid email', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(apiUrl)
         .post('/auth/login')
         .send({
           email: 'nonexistent@example.com',
@@ -191,79 +192,98 @@ describe('Auth Endpoints (Integration)', () => {
     });
 
     it('should reject invalid password', async () => {
-      await seedTestAdminUser(testDbConnection.db, 'user@example.com', 'CorrectPassword');
+      const { db, cleanup } = getTestDb();
 
-      const response = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({
-          email: 'user@example.com',
-          password: 'WrongPassword',
-        })
-        .expect(401);
+      try {
+        await seedTestAdminUser(db, 'user@example.com', 'CorrectPassword');
 
-      expect(response.body.message).toMatch(/invalid email or password/i);
+        const response = await request(apiUrl)
+          .post('/auth/login')
+          .send({
+            email: 'user@example.com',
+            password: 'WrongPassword',
+          })
+          .expect(401);
+
+        expect(response.body.message).toMatch(/invalid email or password/i);
+      } finally {
+        await cleanup();
+      }
     });
 
     it('should reject deactivated user', async () => {
-      // Create user
-      const { password } = await seedTestAdminUser(testDbConnection.db);
+      const { db, cleanup } = getTestDb();
 
-      // Deactivate user
-      await testDbConnection.db.execute(`
-        UPDATE "admin"."users" SET is_active = false
-      `);
+      try {
+        // Create user
+        const { password } = await seedTestAdminUser(db);
 
-      const response = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: password,
-        })
-        .expect(401);
+        // Deactivate user
+        await db.execute(sql`
+          UPDATE "admin"."users" SET is_active = false
+        `);
 
-      expect(response.body.message).toMatch(/deactivated/i);
+        const response = await request(apiUrl)
+          .post('/auth/login')
+          .send({
+            email: 'test@example.com',
+            password: password,
+          })
+          .expect(401);
+
+        expect(response.body.message).toMatch(/deactivated/i);
+      } finally {
+        await cleanup();
+      }
     });
   });
 
   describe('GET /auth/profile', () => {
     it('should return user profile with valid JWT', async () => {
-      // Create user and login
-      const { password } = await seedTestAdminUser(testDbConnection.db);
+      const { db, cleanup } = getTestDb();
 
-      const loginResponse = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({
+      try {
+        // Create user and login
+        const { password } = await seedTestAdminUser(db);
+
+        const loginResponse = await request(apiUrl)
+          .post('/auth/login')
+          .send({
+            email: 'test@example.com',
+            password: password,
+          });
+
+        const token = loginResponse.body.accessToken;
+
+        // Get profile with token
+        const response = await request(apiUrl)
+          .get('/auth/profile')
+          .set('Authorization', `Bearer ${token}`)
+          .expect(200);
+
+        expect(response.body).toMatchObject({
           email: 'test@example.com',
-          password: password,
+          name: 'Test User',
+          isActive: true,
         });
-
-      const token = loginResponse.body.accessToken;
-
-      // Get profile with token
-      const response = await request(app.getHttpServer())
-        .get('/auth/profile')
-        .set('Authorization', `Bearer ${token}`)
-        .expect(200);
-
-      expect(response.body).toMatchObject({
-        email: 'test@example.com',
-        name: 'Test User',
-        isActive: true,
-      });
-      expect(response.body).toHaveProperty('id');
+        expect(response.body).toHaveProperty('id');
+      } finally {
+        await cleanup();
+      }
     });
 
     it('should reject request without token', async () => {
-      await request(app.getHttpServer())
+      await request(apiUrl)
         .get('/auth/profile')
         .expect(401);
     });
 
     it('should reject request with invalid token', async () => {
-      await request(app.getHttpServer())
+      await request(apiUrl)
         .get('/auth/profile')
         .set('Authorization', 'Bearer invalid.token.here')
         .expect(401);
     });
   });
 });
+

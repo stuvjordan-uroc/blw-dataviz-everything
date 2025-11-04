@@ -1,5 +1,3 @@
-- figure out whether database migrations are integrated into database builds.
-- containerize tests of api-polls-admin
 - api-polls-public...
   - scaffold
     - container

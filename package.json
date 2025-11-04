@@ -5,7 +5,9 @@
   "license": "ISC",
   "author": "",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "docker compose -f docker-compose.test.yml up",
+    "test:db-populate": "TEST_DATABASE_URL=postgresql://postgres:password@localhost:5433/blw_dataviz_test npm run aws:auth && TEST_DATABASE_URL=postgresql://postgres:password@localhost:5433/blw_dataviz_test npm run db:migrate:data",
+    "test:run": "TEST_API_URL=http://localhost:3004 TEST_DATABASE_URL=postgresql://postgres:password@localhost:5433/blw_dataviz_test npm run test:integration",
     "test:integration": "npm run test --workspace=integration-tests",
     "test:integration:watch": "npm run test:watch --workspace=integration-tests",
     "test:integration:coverage": "npm run test:coverage --workspace=integration-tests",

@@ -1,77 +1,85 @@
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { setupTestDatabase, TestDbConnection } from '../../utils/test-db';
-import { createTestApp, closeTestApp } from '../../utils/test-app';
-import { seedTestAdminUser, seedTestQuestions } from '../../utils/test-helpers';
+import { sql } from 'drizzle-orm';
+import {
+  getTestDb,
+  getTestApiUrl,
+  cleanSessionData
+} from '../../utils/test-helpers';
 
 /**
  * Integration Tests: Poll Session Workflow
  * 
- * These tests verify the complete workflow of creating and managing a poll session,
- * following the expected production usage pattern:
+ * These tests verify the complete workflow of creating and managing a poll session
+ * against the containerized API service using real production-like data.
  * 
- * 1. Admin authenticates
- * 2. Admin creates a new poll session with configuration
- * 3. [TODO] Admin closes session.
- * 4. [TODO] Admin re-opens closed session.
+ * Prerequisites:
+ * 1. Test environment must be running: npm run test:up
+ * 2. Test database must be populated: npm run test:db-populate
+ *    - This creates the admin user (admin@dev.local / dev-password-changeme)
+ *    - This creates real questions from data migrations
  * 
- * This test suite focuses on the realistic end-to-end flow rather than
- * testing individual endpoints in isolation.
+ * Test Flow:
+ * 1. Admin authenticates (using data migration admin)
+ * 2. Admin creates a new poll session with configuration (using real questions)
+ * 3. Admin manages session status (open/closed)
+ * 4. Admin retrieves and deletes sessions
+ * 
+ * This test suite focuses on the realistic end-to-end flow using production data.
  */
 
 describe('Poll Session Workflow (Integration)', () => {
-  let app: INestApplication;
-  let testDbConnection: TestDbConnection;
+  const apiUrl = getTestApiUrl();
   let authToken: string;
   let adminUserId: number;
+  let testQuestions: Array<{ varName: string; batteryName: string; subBattery: string }> = [];
 
   // Setup: Run once before all tests in this suite
   beforeAll(async () => {
-    // Setup test database and run migrations
-    testDbConnection = await setupTestDatabase();
+    const { db, cleanup } = getTestDb();
 
-    // Create NestJS app instance with test database
-    const testApp = await createTestApp(testDbConnection.db);
-    app = testApp.app;
+    try {
+      // Fetch some real questions from the database (seeded by data migrations)
+      const questionsResult = await db.execute(sql`
+        SELECT "varName", "batteryName", "subBattery"
+        FROM questions.questions
+        LIMIT 3
+      `);
 
-    // Step 1: Create and authenticate an admin user
-    const { password } = await seedTestAdminUser(
-      testDbConnection.db,
-      'admin@polling.com',
-      'SecurePassword123'
-    );
+      if (questionsResult.length < 2) {
+        throw new Error('Not enough questions in database. Did you run test:db-populate?');
+      }
 
-    const loginResponse = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({
-        email: 'admin@polling.com',
-        password: password,
-      })
-      .expect(200);
+      // Type assertion after validation
+      testQuestions = questionsResult.map(q => ({
+        varName: (q as Record<string, unknown>).varName as string,
+        batteryName: (q as Record<string, unknown>).batteryName as string,
+        subBattery: (q as Record<string, unknown>).subBattery as string,
+      }));
 
-    authToken = loginResponse.body.accessToken;
-    adminUserId = loginResponse.body.user.id;
+      // Authenticate using the admin created by data migrations
+      const loginResponse = await request(apiUrl)
+        .post('/auth/login')
+        .send({
+          email: process.env.INITIAL_ADMIN_EMAIL || 'admin@dev.local',
+          password: process.env.INITIAL_ADMIN_PASSWORD || 'dev-password-changeme',
+        })
+        .expect(200);
 
-    // Seed questions that will be available for sessions
-    await seedTestQuestions(testDbConnection.db);
-  });
-
-  // Cleanup: Run once after all tests complete
-  afterAll(async () => {
-    await closeTestApp(app);
-    await testDbConnection.cleanup();
+      authToken = loginResponse.body.accessToken;
+      adminUserId = loginResponse.body.user.id;
+    } finally {
+      await cleanup();
+    }
   });
 
   // Clean session data between tests
   afterEach(async () => {
-    await testDbConnection.db.execute(`
-      TRUNCATE TABLE 
-        "polls"."responses",
-        "polls"."respondents",
-        "polls"."questions",
-        "polls"."sessions"
-      CASCADE
-    `);
+    const { db, cleanup } = getTestDb();
+    try {
+      await cleanSessionData(db);
+    } finally {
+      await cleanup();
+    }
   });
 
   describe('Complete Workflow: Admin Creates and Manages Poll Session', () => {
@@ -80,13 +88,13 @@ describe('Poll Session Workflow (Integration)', () => {
       expect(authToken).toBeDefined();
       expect(adminUserId).toBeDefined();
 
-      // Step 2: Create a new poll session with configuration
+      // Step 2: Create a new poll session with configuration using real questions
       const sessionConfig = {
         responseQuestions: [
           {
-            varName: 'q1',
-            batteryName: 'test_battery',
-            subBattery: '', // Empty string for questions without sub-battery
+            varName: testQuestions[0].varName,
+            batteryName: testQuestions[0].batteryName,
+            subBattery: testQuestions[0].subBattery,
             responseGroups: {
               expanded: [
                 { label: 'Yes', values: [1] },
@@ -100,9 +108,9 @@ describe('Poll Session Workflow (Integration)', () => {
         ],
         groupingQuestions: [
           {
-            varName: 'q2',
-            batteryName: 'test_battery',
-            subBattery: '', // Empty string for questions without sub-battery
+            varName: testQuestions[1].varName,
+            batteryName: testQuestions[1].batteryName,
+            subBattery: testQuestions[1].subBattery,
             responseGroups: [
               { label: 'Group A', values: [1] },
               { label: 'Group B', values: [2] }
@@ -111,7 +119,7 @@ describe('Poll Session Workflow (Integration)', () => {
         ]
       };
 
-      const createSessionResponse = await request(app.getHttpServer())
+      const createSessionResponse = await request(apiUrl)
         .post('/sessions')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
@@ -127,100 +135,111 @@ describe('Poll Session Workflow (Integration)', () => {
       expect(createSessionResponse.body.description).toBe('November 2025 Test Poll');
       expect(createSessionResponse.body.sessionConfig).toEqual(sessionConfig);
       expect(createSessionResponse.body).toHaveProperty('createdAt');
-
-      const sessionId = createSessionResponse.body.id;
     });
 
     it('should populate polls.questions when a valid session is created', async () => {
-      // Create a session with 2 questions (1 response question, 1 grouping question)
-      const sessionConfig = {
-        responseQuestions: [
-          {
-            varName: 'q1',
-            batteryName: 'test_battery',
-            subBattery: '',
-            responseGroups: {
-              expanded: [
-                { label: 'Yes', values: [1] },
-                { label: 'No', values: [2] }
-              ],
-              collapsed: [
-                { label: 'All Responses', values: [1, 2] }
+      const { db, cleanup } = getTestDb();
+
+      try {
+        // Create a session with 2 real questions (1 response question, 1 grouping question)
+        const sessionConfig = {
+          responseQuestions: [
+            {
+              varName: testQuestions[0].varName,
+              batteryName: testQuestions[0].batteryName,
+              subBattery: testQuestions[0].subBattery,
+              responseGroups: {
+                expanded: [
+                  { label: 'Yes', values: [1] },
+                  { label: 'No', values: [2] }
+                ],
+                collapsed: [
+                  { label: 'All Responses', values: [1, 2] }
+                ]
+              }
+            }
+          ],
+          groupingQuestions: [
+            {
+              varName: testQuestions[1].varName,
+              batteryName: testQuestions[1].batteryName,
+              subBattery: testQuestions[1].subBattery,
+              responseGroups: [
+                { label: 'Group A', values: [1] },
+                { label: 'Group B', values: [2] }
               ]
             }
-          }
-        ],
-        groupingQuestions: [
-          {
-            varName: 'q2',
-            batteryName: 'test_battery',
-            subBattery: '',
-            responseGroups: [
-              { label: 'Group A', values: [1] },
-              { label: 'Group B', values: [2] }
-            ]
-          }
-        ]
-      };
+          ]
+        };
 
-      const createSessionResponse = await request(app.getHttpServer())
-        .post('/sessions')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          description: 'Test Session for Questions Population',
-          sessionConfig: sessionConfig
-        })
-        .expect(201);
+        const createSessionResponse = await request(apiUrl)
+          .post('/sessions')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            description: 'Test Session for Questions Population',
+            sessionConfig: sessionConfig
+          })
+          .expect(201);
 
-      const sessionId = createSessionResponse.body.id;
+        const sessionId = createSessionResponse.body.id;
 
-      // Verify that polls.questions was populated with the questions from the session config
-      const pollsQuestions = await testDbConnection.db.execute(
-        `SELECT * FROM polls.questions WHERE "sessionId" = ${sessionId} ORDER BY "varName"`
-      );
+        // Verify that polls.questions was populated with the questions from the session config
+        const pollsQuestions = await db.execute(sql`
+          SELECT * FROM polls.questions 
+          WHERE "sessionId" = ${sessionId} 
+          ORDER BY "varName"
+        `);
 
-      // Should have 2 questions (q1 and q2)
-      expect(pollsQuestions.length).toBe(2);
+        // Should have 2 questions
+        expect(pollsQuestions.length).toBe(2);
 
-      // Define the expected shape of a poll question row
-      interface PollQuestion {
-        id: number;
-        sessionId: number;
-        varName: string;
-        batteryName: string;
-        subBattery: string;
+        // Define the expected shape of a poll question row
+        interface PollQuestion {
+          id: number;
+          sessionId: number;
+          varName: string;
+          batteryName: string;
+          subBattery: string;
+        }
+
+        // Verify first question details
+        const q1 = pollsQuestions.find((q: unknown) =>
+          (q as PollQuestion).varName === testQuestions[0].varName
+        ) as PollQuestion | undefined;
+        expect(q1).toBeDefined();
+        if (q1) {
+          expect(q1.sessionId).toBe(sessionId);
+          expect(q1.batteryName).toBe(testQuestions[0].batteryName);
+          expect(q1.subBattery).toBe(testQuestions[0].subBattery);
+        }
+
+        // Verify second question details
+        const q2 = pollsQuestions.find((q: unknown) =>
+          (q as PollQuestion).varName === testQuestions[1].varName
+        ) as PollQuestion | undefined;
+        expect(q2).toBeDefined();
+        if (q2) {
+          expect(q2.sessionId).toBe(sessionId);
+          expect(q2.batteryName).toBe(testQuestions[1].batteryName);
+          expect(q2.subBattery).toBe(testQuestions[1].subBattery);
+        }
+
+        // Verify foreign key constraint is satisfied (questions exist in questions.questions)
+        const questionsBankCheck = await db.execute(sql`
+          SELECT * FROM questions.questions 
+          WHERE ("varName", "batteryName", "subBattery") IN (
+            (${testQuestions[0].varName}, ${testQuestions[0].batteryName}, ${testQuestions[0].subBattery}),
+            (${testQuestions[1].varName}, ${testQuestions[1].batteryName}, ${testQuestions[1].subBattery})
+          )
+        `);
+        expect(questionsBankCheck.length).toBe(2);
+      } finally {
+        await cleanup();
       }
-
-      // Verify q1 details
-      const q1 = pollsQuestions.find(q => (q as unknown as PollQuestion).varName === 'q1') as unknown as PollQuestion | undefined;
-      expect(q1).toBeDefined();
-      if (q1) {
-        expect(q1.sessionId).toBe(sessionId);
-        expect(q1.batteryName).toBe('test_battery');
-        expect(q1.subBattery).toBe('');
-      }
-
-      // Verify q2 details
-      const q2 = pollsQuestions.find(q => (q as unknown as PollQuestion).varName === 'q2') as unknown as PollQuestion | undefined;
-      expect(q2).toBeDefined();
-      if (q2) {
-        expect(q2.sessionId).toBe(sessionId);
-        expect(q2.batteryName).toBe('test_battery');
-        expect(q2.subBattery).toBe('');
-      }
-      // Verify foreign key constraint is satisfied (questions exist in questions.questions)
-      const questionsBankCheck = await testDbConnection.db.execute(
-        `SELECT * FROM questions.questions 
-         WHERE ("varName", "batteryName", "subBattery") IN (
-           ('q1', 'test_battery', ''),
-           ('q2', 'test_battery', '')
-         )`
-      );
-      expect(questionsBankCheck.length).toBe(2);
     });
 
     it('should require authentication for session creation', async () => {
-      await request(app.getHttpServer())
+      await request(apiUrl)
         .post('/sessions')
         .send({
           description: 'Unauthorized Poll',
@@ -231,7 +250,7 @@ describe('Poll Session Workflow (Integration)', () => {
 
     it('should validate session config structure', async () => {
       // Invalid config (missing required fields)
-      const invalidResponse = await request(app.getHttpServer())
+      const invalidResponse = await request(apiUrl)
         .post('/sessions')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
@@ -251,8 +270,8 @@ describe('Poll Session Workflow (Integration)', () => {
     let sessionId: number;
 
     beforeEach(async () => {
-      // Create a session for testing management operations
-      const response = await request(app.getHttpServer())
+      // Create a session for testing management operations using real question
+      const response = await request(apiUrl)
         .post('/sessions')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
@@ -260,9 +279,9 @@ describe('Poll Session Workflow (Integration)', () => {
           sessionConfig: {
             responseQuestions: [
               {
-                varName: 'q1',
-                batteryName: 'test_battery',
-                subBattery: '',
+                varName: testQuestions[0].varName,
+                batteryName: testQuestions[0].batteryName,
+                subBattery: testQuestions[0].subBattery,
                 responseGroups: {
                   expanded: [{ label: 'Yes', values: [1] }, { label: 'No', values: [2] }],
                   collapsed: [{ label: 'All', values: [1, 2] }]
@@ -277,7 +296,7 @@ describe('Poll Session Workflow (Integration)', () => {
     });
 
     it('should retrieve all sessions', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(apiUrl)
         .get('/sessions')
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
@@ -290,7 +309,7 @@ describe('Poll Session Workflow (Integration)', () => {
     });
 
     it('should retrieve a specific session by ID', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(apiUrl)
         .get(`/sessions/${sessionId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
@@ -302,34 +321,40 @@ describe('Poll Session Workflow (Integration)', () => {
     });
 
     it('should delete a session and cascade to all related data', async () => {
-      await request(app.getHttpServer())
-        .delete(`/sessions/${sessionId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(204);
+      const { db, cleanup } = getTestDb();
 
-      // Verify session is gone
-      await request(app.getHttpServer())
-        .get(`/sessions/${sessionId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(404);
+      try {
+        await request(apiUrl)
+          .delete(`/sessions/${sessionId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(204);
 
-      // Verify in database that session is deleted
-      const result = await testDbConnection.db.execute(`
-        SELECT * FROM "polls"."sessions" WHERE id = ${sessionId}
-      `);
-      expect(result.length).toBe(0);
+        // Verify session is gone
+        await request(apiUrl)
+          .get(`/sessions/${sessionId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(404);
 
-      // Verify associated questions are also deleted
-      const questionsResult = await testDbConnection.db.execute(`
-        SELECT * FROM "polls"."questions" WHERE "sessionId" = ${sessionId}
-      `);
-      expect(questionsResult.length).toBe(0);
+        // Verify in database that session is deleted
+        const result = await db.execute(`
+          SELECT * FROM "polls"."sessions" WHERE id = ${sessionId}
+        `);
+        expect(result.length).toBe(0);
+
+        // Verify associated questions are also deleted
+        const questionsResult = await db.execute(`
+          SELECT * FROM "polls"."questions" WHERE "sessionId" = ${sessionId}
+        `);
+        expect(questionsResult.length).toBe(0);
+      } finally {
+        await cleanup();
+      }
     });
 
     it('should return 404 for non-existent session', async () => {
       const nonExistentId = 99999;
 
-      await request(app.getHttpServer())
+      await request(apiUrl)
         .get(`/sessions/${nonExistentId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
@@ -340,8 +365,8 @@ describe('Poll Session Workflow (Integration)', () => {
     let sessionId: number;
 
     beforeEach(async () => {
-      // Create a session for testing status toggling
-      const response = await request(app.getHttpServer())
+      // Create a session for testing status toggling using real question
+      const response = await request(apiUrl)
         .post('/sessions')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
@@ -349,9 +374,9 @@ describe('Poll Session Workflow (Integration)', () => {
           sessionConfig: {
             responseQuestions: [
               {
-                varName: 'q1',
-                batteryName: 'test_battery',
-                subBattery: '',
+                varName: testQuestions[0].varName,
+                batteryName: testQuestions[0].batteryName,
+                subBattery: testQuestions[0].subBattery,
                 responseGroups: {
                   expanded: [{ label: 'Yes', values: [1] }, { label: 'No', values: [2] }],
                   collapsed: [{ label: 'All', values: [1, 2] }]
@@ -366,7 +391,7 @@ describe('Poll Session Workflow (Integration)', () => {
     });
 
     it('should create session as open by default', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(apiUrl)
         .get(`/sessions/${sessionId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
@@ -375,7 +400,7 @@ describe('Poll Session Workflow (Integration)', () => {
     });
 
     it('should toggle session from open to closed', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(apiUrl)
         .put(`/sessions/${sessionId}/status`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ isOpen: false })
@@ -385,7 +410,7 @@ describe('Poll Session Workflow (Integration)', () => {
       expect(response.body.id).toBe(sessionId);
 
       // Verify in database
-      const getResponse = await request(app.getHttpServer())
+      const getResponse = await request(apiUrl)
         .get(`/sessions/${sessionId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
@@ -395,14 +420,14 @@ describe('Poll Session Workflow (Integration)', () => {
 
     it('should toggle session from closed to open', async () => {
       // First close it
-      await request(app.getHttpServer())
+      await request(apiUrl)
         .put(`/sessions/${sessionId}/status`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ isOpen: false })
         .expect(200);
 
       // Then reopen it
-      const response = await request(app.getHttpServer())
+      const response = await request(apiUrl)
         .put(`/sessions/${sessionId}/status`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ isOpen: true })
@@ -412,14 +437,14 @@ describe('Poll Session Workflow (Integration)', () => {
     });
 
     it('should require authentication to toggle status', async () => {
-      await request(app.getHttpServer())
+      await request(apiUrl)
         .put(`/sessions/${sessionId}/status`)
         .send({ isOpen: false })
         .expect(401);
     });
 
     it('should validate isOpen field is boolean', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(apiUrl)
         .put(`/sessions/${sessionId}/status`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ isOpen: 'not a boolean' })
@@ -429,7 +454,7 @@ describe('Poll Session Workflow (Integration)', () => {
     });
 
     it('should return 404 when toggling non-existent session', async () => {
-      await request(app.getHttpServer())
+      await request(apiUrl)
         .put('/sessions/99999/status')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ isOpen: false })
@@ -438,13 +463,14 @@ describe('Poll Session Workflow (Integration)', () => {
   });
 
   describe('Session Configuration Validation', () => {
-    it('should accept valid session with multiple questions', async () => {
+    it('should accept valid session with multiple questions and complex groupings', async () => {
+      // Use real questions with complex response groupings
       const complexConfig = {
         responseQuestions: [
           {
-            varName: 'q1',
-            batteryName: 'test_battery',
-            subBattery: '', // Empty string for questions without sub-battery
+            varName: testQuestions[0].varName,
+            batteryName: testQuestions[0].batteryName,
+            subBattery: testQuestions[0].subBattery,
             responseGroups: {
               expanded: [
                 { label: '18-24', values: [1] },
@@ -461,9 +487,9 @@ describe('Poll Session Workflow (Integration)', () => {
         ],
         groupingQuestions: [
           {
-            varName: 'q2',
-            batteryName: 'test_battery',
-            subBattery: '', // Empty string for questions without sub-battery
+            varName: testQuestions[1].varName,
+            batteryName: testQuestions[1].batteryName,
+            subBattery: testQuestions[1].subBattery,
             responseGroups: [
               { label: 'Northeast', values: [1] },
               { label: 'South', values: [2] },
@@ -474,7 +500,7 @@ describe('Poll Session Workflow (Integration)', () => {
         ]
       };
 
-      const response = await request(app.getHttpServer())
+      const response = await request(apiUrl)
         .post('/sessions')
         .set('Authorization', `Bearer ${authToken}`)
         .send({

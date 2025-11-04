@@ -1,17 +1,52 @@
+import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { sql } from 'drizzle-orm';
 
 /**
  * Test Helper Utilities
  * 
- * Common functions used across multiple test suites
+ * Provides utilities for integration tests that run against a containerized API.
+ * These helpers manage direct database connections for seeding data and cleanup.
  */
+
+/**
+ * Get the test database connection
+ * 
+ * Connects to the test database running in the postgres-test container.
+ * The connection URL should be provided via TEST_DATABASE_URL env var.
+ */
+export function getTestDb() {
+  const connectionString = process.env.TEST_DATABASE_URL ||
+    'postgresql://postgres:password@localhost:5433/blw_dataviz_test';
+
+  const client = postgres(connectionString, {
+    max: 1,
+    onnotice: () => { }, // Suppress NOTICE messages
+  });
+
+  return {
+    db: drizzle(client),
+    client,
+    cleanup: async () => {
+      await client.end();
+    }
+  };
+}
+
+/**
+ * Get the test API URL
+ * 
+ * Returns the URL for the containerized API running in api-polls-admin-test container.
+ */
+export function getTestApiUrl(): string {
+  return process.env.TEST_API_URL || 'http://localhost:3004';
+}
 
 /**
  * Seed a test admin user into the database
  * 
- * This is useful for tests that require an authenticated user.
- * Returns the created user (without password hash) and the plain password.
+ * This is useful for auth tests that need to test user creation/deletion.
+ * For other tests, use the admin created by data migrations (admin@dev.local).
  * 
  * @param db - Database instance
  * @param email - User email (defaults to test@example.com)
@@ -39,34 +74,45 @@ export async function seedTestAdminUser(
 }
 
 /**
- * Seed test questions and batteries
+ * Clean session-related tables between tests
  * 
- * Creates a basic set of test questions that can be used in tests
+ * Truncates session data but preserves questions, batteries, and users.
+ * Use this in afterEach hooks to clean up between tests.
  * 
  * @param db - Database instance
  */
-export async function seedTestQuestions(db: ReturnType<typeof drizzle>) {
-  // Create a test battery
+export async function cleanSessionData(db: ReturnType<typeof drizzle>) {
   await db.execute(sql`
-    INSERT INTO "questions"."batteries" (name, prefix)
-    VALUES ('test_battery', 'TEST')
-    ON CONFLICT (name) DO NOTHING
+    TRUNCATE TABLE 
+      "polls"."responses",
+      "polls"."respondents",
+      "polls"."questions",
+      "polls"."sessions"
+    CASCADE
   `);
+}
 
-  // Create a default sub_battery (empty string) for questions without sub-batteries
+/**
+ * Clean all test data
+ * 
+ * Truncates all tables. Use this sparingly, typically only in beforeAll
+ * or when you need a complete reset.
+ * 
+ * @param db - Database instance
+ */
+export async function cleanAllData(db: ReturnType<typeof drizzle>) {
   await db.execute(sql`
-    INSERT INTO "questions"."sub_batteries" ("batteryName", name)
-    VALUES ('test_battery', '')
-    ON CONFLICT ("batteryName", name) DO NOTHING
-  `);
-
-  // Create test questions (subBattery is '' for questions without a specific sub-battery)
-  await db.execute(sql`
-    INSERT INTO "questions"."questions" ("varName", text, "batteryName", "subBattery", responses)
-    VALUES 
-      ('q1', 'Test Question 1', 'test_battery', '', ARRAY['Yes', 'No']),
-      ('q2', 'Test Question 2', 'test_battery', '', ARRAY['Agree', 'Disagree', 'Neutral'])
-    ON CONFLICT ("varName", "batteryName", "subBattery") DO NOTHING
+    TRUNCATE TABLE 
+      "admin"."users",
+      "polls"."responses",
+      "polls"."respondents",
+      "polls"."questions",
+      "polls"."session_statistics",
+      "polls"."sessions",
+      "questions"."questions",
+      "questions"."sub_batteries",
+      "questions"."batteries"
+    CASCADE
   `);
 }
 
@@ -102,6 +148,7 @@ export async function waitFor(
  * @param loginResponse - Response from login endpoint
  * @returns JWT access token
  */
-export function extractToken(loginResponse: any): string {
-  return loginResponse.body.accessToken || loginResponse.body.access_token;
+export function extractToken(loginResponse: { body: { accessToken?: string; access_token?: string } }): string {
+  return loginResponse.body.accessToken || loginResponse.body.access_token || '';
 }
+
