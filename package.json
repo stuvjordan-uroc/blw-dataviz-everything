@@ -13,15 +13,10 @@
     "lint": "eslint packages/*/src --ext .ts",
     "lint:fix": "eslint packages/*/src --ext .ts --fix",
     "clean": "tsc --build --clean",
-    "aws:auth": "./scripts/aws-auth.sh",
-    "aws:logout": "aws sso logout --profile ${AWS_PROFILE:-default}",
-    "db:start": "docker compose up -d postgres",
-    "db:stop": "docker compose down",
-    "db:logs": "docker compose logs -f postgres",
-    "db:reset": "docker compose down -v && docker compose up -d postgres",
-    "db:migrate": "npm run db:migrate --workspace=db",
-    "db:fresh": "npm run db:reset && sleep 5 && npm run db:migrate",
-    "db:studio": "cd packages/db && npx drizzle-kit studio"
+    "dev": "docker compose up",
+    "dev:detached": "docker compose up -d",
+    "dev:stop": "docker compose down",
+    "dev:logs": "docker compose logs -f"
   },
   "workspaces": [
     "packages/*"

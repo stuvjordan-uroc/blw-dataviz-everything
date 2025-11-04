@@ -16,5 +16,11 @@
     "incremental": true,
     "types": ["node"]
   },
-  "exclude": ["node_modules", "dist", "build"]
+  "references": [
+    { "path": "./packages/shared-schemas" },
+    { "path": "./packages/shared-auth" },
+    { "path": "./packages/api-polls-admin" }
+  ],
+  "exclude": ["node_modules", "dist", "build"],
+  "files": []
 }

@@ -1,4 +1,12 @@
+- test containerized system.
+- make sure containers are cleaned up when stopping development.
+- how to keep track of state of builds at the root level. How do we know before running system that the build in each package is up-to-date?
+- figure out whether database migrations are integrated into database builds.
+- containerize tests of api-polls-admin
 - api-polls-public...
   - scaffold
+    - container
+    - package.json
+    - tsconfig.json
   - write tests
   - implement logic (note this will entail statistics computation logic!)
