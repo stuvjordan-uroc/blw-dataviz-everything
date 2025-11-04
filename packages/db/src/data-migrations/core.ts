@@ -100,7 +100,6 @@ export async function runDataMigrations(
   const applied = await getAppliedMigrations(options.schema);
 
   let ranCount = 0;
-  let skippedCount = 0;
 
   for (const migration of migrations) {
     if (!applied.has(migration.name)) {
@@ -116,23 +115,21 @@ export async function runDataMigrations(
         await markMigrationApplied(migration.name, schema);
 
         if (verbose) {
-          console.log(`✓ Completed: ${migration.name}`);
+          console.log(`✅ Completed: ${migration.name}`);
         }
         ranCount++;
       } catch (error) {
-        console.error(`✗ Failed: ${migration.name}`);
+        console.error(`❌ Failed: ${migration.name}`);
         throw error;
       }
     } else {
-      if (verbose) {
-        console.log(`⊘ Skipping (already applied): ${migration.name}`);
-      }
-      skippedCount++;
+      // Don't log skipped migrations - they're already shown in the preview
     }
   }
 
-  if (verbose) {
-    console.log(`\nSummary: ${ranCount} applied, ${skippedCount} skipped`);
+  // Only show summary if we actually ran migrations
+  if (verbose && ranCount > 0) {
+    console.log(`\n✅ Successfully applied ${ranCount} migration(s)`);
   }
 }
 

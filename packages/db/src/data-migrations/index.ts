@@ -9,6 +9,7 @@
 
 import type { SchemaMigrations, DataMigration } from './types';
 import questionsMigrations from './questions/index.js';
+import { adminMigrations } from './admin';
 // import { responsesMigrations } from './responses'; // Add when responses schema exists
 
 /**
@@ -16,10 +17,15 @@ import questionsMigrations from './questions/index.js';
  * 
  * Migrations within each schema are independent.
  * Migrations execute in this order:
- * 1. questions
- * 2. responses (when added)
+ * 1. admin (dev user seeding, skipped in production)
+ * 2. questions
+ * 3. responses (when added)
  */
 export const allMigrationsBySchema: SchemaMigrations[] = [
+  {
+    schema: 'admin',
+    migrations: adminMigrations,
+  },
   {
     schema: 'questions',
     migrations: questionsMigrations,

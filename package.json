@@ -16,7 +16,11 @@
     "dev": "docker compose up",
     "dev:detached": "docker compose up -d",
     "dev:stop": "docker compose down",
-    "dev:logs": "docker compose logs -f"
+    "dev:logs": "docker compose logs -f",
+    "dev:db-populate": "npm run aws:auth && npm run db:migrate:data",
+    "aws:auth": "./scripts/aws-auth.sh",
+    "db:migrate": "npm run db:migrate --workspace=db",
+    "db:migrate:data": "npm run data:migrate --workspace=db"
   },
   "workspaces": [
     "packages/*"

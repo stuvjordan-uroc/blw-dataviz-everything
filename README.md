@@ -16,7 +16,7 @@ See packages/shared-schemas/README.md
 
 Utilities for authenticating admins. Exported for use by APIs in the project. See packages/shared-auth/README.md
 
-**NOTE**: To put an admin in the database's admin user's table, use the seed:admin script in the database package!
+**NOTE**: Development admin users are automatically seeded when you run `npm run dev:db-populate`. In production, admin users should be created through proper user management processes.
 
 ## api-polls-admin
 
@@ -28,37 +28,80 @@ Integration tests for API endpoints and database interactions. See packages/inte
 
 # Running the System for Development and Testing
 
-The system uses Docker Compose to orchestrate multiple services:
-
-- **postgres**: PostgreSQL database
-- **api-polls-admin**: Admin API service (auto-reloads on code changes)
-
 ## Prerequisites
 
 1. Copy `.env.example` to `.env` and configure if needed
 2. Ensure Docker and Docker Compose are installed
 
-## Starting the System
-
-```bash
-# Start all services (database + API) with logs visible
-npm run dev
-
-# Start in detached mode (background)
-npm run dev:detached
-
-# Or use docker compose directly
-docker compose up
-docker compose up -d
-```
-
-api-polls-admin service will be available at `http://localhost:3003` with hot-reload enabled.
-
 ## Development Workflow
 
-If you start the services (`npm run dev`), you can edit source files in `packages/*`, and changes will be automaticaly detected and services will re-load.
+There are two high-level parts to the sytems in the repo that have to be developed separately: First the database defined at packages/db. Second all APIs and frontend that serve as interfaces to the tables in the DB.
 
-**TO DO: Is this true for DB migrations????**
+In any environment -- whether development, testing, or production -- the APIs and frontend cannot function as designed _until_ the database is up-and-running and populated with schemas and data.
+
+This means two things:
+
+(1) When you want to run or test the APIs and/or frontend, you have to spin up the databse and run schema and data migrations on it.
+
+(2) When you make changes to the schema or data with which database should be populated, you need to implement these changes through migrations before running the APIs and/or frontend again.
+
+Here's the basic workflow:
+
+1. **Start the system:** Run `npm run dev`. This starts the database and APIs in containers and automatically runs schema migrations from `packages/db/schema-migrations/`. The result is a running database with all required tables, but no rows in those tables.
+
+2. **Populate the database:** Run `npm run dev:db-populate`. This single command authenticates with AWS and runs all data migrations (including development admin user seeding). After this, the database is fully populated.
+
+3. **Develop and test:** The APIs can now interact with the database as designed. API containers auto-reload when you change source code, so you can develop and immediately test changes.
+
+**When making schema changes:** Shut down dev processes, update schema source files in `packages/shared-schemas/src/schemas/`, generate migrations with `npm run db:generate --workspace=db`, then restart with `npm run dev`.
+
+## Database Migrations
+
+### Schema Migrations (Automatic on Startup)
+
+Schema migrations are **automatically applied** when you start the system with `npm run dev`. The `db-migrate` service:
+
+- Runs after the postgres container is healthy
+- Applies any pending schema migrations from `packages/db/schema-migrations/`
+- Exits after completion (won't re-run automatically)
+
+**When you create new schema migrations:**
+
+1. Generate migration: `npm run db:generate --workspace=db`
+2. Apply manually: `npm run db:migrate` (or restart the system)
+3. Or restart db-migrate service: `docker compose up db-migrate`
+
+### Data Migrations & Seeding (Manual - One Command)
+
+Data migrations populate the database with data from S3 and include development admin user seeding.
+
+**Quick start:**
+
+```bash
+# Single command - handles AWS auth and all data migrations
+npm run dev:db-populate
+```
+
+This command:
+
+1. Authenticates with AWS (interactive)
+2. Runs all data migrations from S3
+3. Seeds development admin users (automatically skipped in production)
+
+**Advanced usage:**
+
+```bash
+# Just authenticate (if you want to run migrations separately)
+npm run aws:auth
+
+# Run data migrations manually
+npm run db:migrate:data
+
+# Run migrations for specific schema only
+npm run db:migrate:data --workspace=db -- questions
+```
+
+See `packages/db/README.md` for detailed migration documentation.
 
 ## Stopping the System
 
