@@ -1,7 +1,6 @@
-- api-polls-public...
-  - scaffold
-    - container
-    - package.json
-    - tsconfig.json
-  - write tests
-  - implement logic (note this will entail statistics computation logic!)
+- api-polls-public endpoints and logic
+  - (DONE) GET to for questions in a given session
+  - Endpoint: POST one respondent's responses to a question...first as stub, don't update DB yet
+  - Logic: update statistics as posts come in, batching as required.
+  - Logic: Finish POST endpoint -- when enough posts come in, compute new statistics, then update respondents and responses table and statistics table all in one go.
+- api-polls-realtime -- realtime updates on statistics table for a session with a given ID.
