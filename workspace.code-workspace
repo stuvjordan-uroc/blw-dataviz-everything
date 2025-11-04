@@ -21,6 +21,10 @@
       "path": "./packages/api-polls-admin"
     },
     {
+      "name": "API Polls Public",
+      "path": "./packages/api-polls-public"
+    },
+    {
       "name": "Integration Tests",
       "path": "./packages/integration-tests"
     }

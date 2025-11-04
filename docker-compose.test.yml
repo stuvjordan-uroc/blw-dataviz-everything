@@ -68,6 +68,31 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  api-polls-public-test:
+    build:
+      context: .
+      dockerfile: ./packages/api-polls-public/Dockerfile
+      target: development
+    container_name: blw-api-polls-public-test
+    working_dir: /app/packages/api-polls-public
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres-test:5432/blw_dataviz_test
+      NODE_ENV: test
+      PORT: 3004
+    ports:
+      - "3005:3004"  # Different host port to avoid conflict with dev
+    volumes:
+      - ./packages/api-polls-public/src:/app/packages/api-polls-public/src
+      - ./packages/shared-schemas/src:/app/packages/shared-schemas/src
+    networks:
+      - blw-test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      db-migrate-test:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
 networks:
   blw-test-network:
     driver: bridge

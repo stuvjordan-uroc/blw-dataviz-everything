@@ -218,16 +218,3 @@ api-polls-admin:
     - ./packages/shared-schemas/src:/app/packages/shared-schemas/src
     - ./packages/your-package-name/src:/app/packages/your-package-name/src # Add this
 ```
-
-## 7. Rebuild Docker Image
-
-After adding the package, rebuild the Docker image:
-
-```bash
-docker compose down
-docker compose up --build
-```
-
-## Auto-discovery Feature
-
-The development startup script (`dev-start.sh`) automatically detects and starts watch mode for all workspace packages that have a `build:watch` script. You don't need to manually modify the startup script when adding new shared packages - just ensure your package.json includes the `build:watch` script.

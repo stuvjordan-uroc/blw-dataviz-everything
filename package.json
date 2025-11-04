@@ -6,7 +6,7 @@
   "author": "",
   "scripts": {
     "test": "docker compose -f docker-compose.test.yml up -d --build",
-    "test:stop": "docker compose -f docker-compose.test.yml down",
+    "test:teardown": "docker compose -f docker-compose.test.yml down",
     "test:logs": "docker compose -f docker-compose.test.yml logs -f",
     "test:db-populate": "TEST_DATABASE_URL=postgresql://postgres:password@localhost:5433/blw_dataviz_test npm run aws:auth && TEST_DATABASE_URL=postgresql://postgres:password@localhost:5433/blw_dataviz_test npm run db:migrate:data",
     "test:integration": "npm run test --workspace=integration-tests",
@@ -18,7 +18,7 @@
     "clean": "tsc --build --clean",
     "dev": "docker compose up -d --build",
     "dev:detached": "docker compose up -d",
-    "dev:stop": "docker compose down",
+    "dev:teardown": "docker compose down",
     "dev:logs": "docker compose logs -f",
     "dev:db-populate": "npm run aws:auth && npm run db:migrate:data",
     "aws:auth": "./scripts/aws-auth.sh",
