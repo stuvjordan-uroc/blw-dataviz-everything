@@ -13,6 +13,10 @@
       "path": "./packages/shared-auth"
     },
     {
+      "name": "Shared Computation",
+      "path": "./packages/shared-computation"
+    },
+    {
       "name": "Database",
       "path": "./packages/db"
     },

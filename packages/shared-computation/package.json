@@ -1,0 +1,25 @@
+{
+  "name": "shared-computation",
+  "version": "1.0.0",
+  "description": "Shared computation functions for statistics and data processing across the monorepo",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "computation",
+    "statistics",
+    "shared"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "shared-schemas": "workspace:*"
+  }
+}

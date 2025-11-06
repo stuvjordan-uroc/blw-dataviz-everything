@@ -109,7 +109,7 @@ export const responses = pollsSchema.table(
 );
 
 //types for session statistics
-interface Split {
+export interface Split {
   groups: {
     question: Question;
     responseGroup: ResponseGroup | null;
@@ -129,4 +129,7 @@ export const sessionStatistics = pollsSchema.table("session_statistics", {
     .references(() => sessions.id), //only one row per session!!! Note this means application will have to handle concurrent updates!
   statistics: jsonb("statistics").$type<Split[]>(),
   computedAt: timestamp("computed_at").defaultNow(),
+  // Fields for incremental computation tracking
+  lastProcessedRespondentId: integer("last_processed_respondent_id"), // highest respondent.id processed so far
+  totalRespondentCount: integer("total_respondent_count").notNull().default(0), // total unique respondents included in statistics
 });

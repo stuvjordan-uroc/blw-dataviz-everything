@@ -5,7 +5,12 @@ export {
   questions as pollQuestions,
   respondents,
   responses,
-  sessionStatistics
+  sessionStatistics,
+  // Export types for computation
+  type ResponseGroup,
+  type Question,
+  type SessionConfig,
+  type Split,
 } from "./schemas/polls";
 export * from "./schemas/admin";
 

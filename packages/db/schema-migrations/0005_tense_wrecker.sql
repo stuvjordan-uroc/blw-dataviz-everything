@@ -1,0 +1,2 @@
+ALTER TABLE "polls"."session_statistics" ADD COLUMN "last_processed_respondent_id" integer;--> statement-breakpoint
+ALTER TABLE "polls"."session_statistics" ADD COLUMN "total_respondent_count" integer DEFAULT 0 NOT NULL;
