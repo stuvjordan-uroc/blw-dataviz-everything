@@ -21,7 +21,7 @@ export const pollsSchema = pgSchema("polls");
 
 export interface ResponseGroup {
   label: string;
-  values: number[];
+  values: number[]; //must be indices of responses column of questions.questions
 }
 
 export interface Question {
@@ -100,7 +100,7 @@ export const responses = pollsSchema.table(
       .notNull()
       .references(() => respondents.id),
     questionSessionId: integer().references(() => questions.id),
-    response: integer(),
+    response: integer(), //this will be null if a repondent gives a response that is not an index in the the responses array of questions.questions.
   },
   (table) => [
     // Ensure each respondent can only answer each question once
