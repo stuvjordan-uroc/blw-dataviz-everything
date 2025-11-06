@@ -11,7 +11,7 @@ export type {
   ResponseData,
   QuestionKey,
   ResponseCounts,
-  GroupedResponses,
+  RespondentRecord,
   // Re-exported from shared-schemas for convenience
   SessionConfig,
   Split,
@@ -20,17 +20,7 @@ export type {
 } from "./types";
 
 // Export computation functions (full recomputation)
-export {
-  computeSplitStatistics,
-  createEmptyStatistics,
-  // Utility functions that might be useful externally
-  createQuestionKey,
-  parseQuestionKey,
-  questionsMatch,
-  groupResponsesByRespondent,
-  groupResponsesByQuestion,
-  filterResponsesByGrouping,
-} from "./computations";
+export { computeSplitStatistics, createQuestionKey } from "./computations";
 
 // Export update functions (incremental updates)
 export {

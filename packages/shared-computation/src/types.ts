@@ -74,5 +74,28 @@ export interface GroupedResponses {
   respondentCount: number;
 }
 
+/**
+ * RespondentRecord represents all of one respondent's responses in a structured format.
+ * This is the primary data structure used for computations, making it easy to access
+ * a respondent's responses to grouping questions, response questions, and weight.
+ */
+export interface RespondentRecord {
+  /** The unique ID of this respondent */
+  respondentId: number;
+
+  /**
+   * Map from question key to response value for all questions this respondent answered.
+   * Key format: "varName|batteryName|subBattery"
+   * Value: response index (number) or null if no valid response
+   */
+  responses: Map<string, number | null>;
+
+  /**
+   * The weight for this respondent (if weighted analysis is being performed).
+   * Defaults to 1.0 if no weight question is specified or respondent didn't answer it.
+   */
+  weight: number;
+}
+
 // Re-export types from shared-schemas that are needed by computation functions
 export type { SessionConfig, Split, Question, ResponseGroup };

@@ -11,12 +11,12 @@ import {
 } from "../src/computations";
 import {
   mockSessionConfig,
-  mockResponses,
-  mockWeightedResponses,
-  mockWeightQuestion,
+  loadMockResponsesFromCsv,
 } from "./fixtures/mock-data";
 
 describe("computations", () => {
+  const mockResponses = loadMockResponsesFromCsv();
+
   describe("createQuestionKey", () => {
     test("should create a unique key for a question", () => {
       const keys = [
@@ -56,18 +56,6 @@ describe("computations", () => {
           mockSessionConfig.responseQuestions[1]
         )
       ).toBeFalsy();
-    });
-  });
-
-  describe("groupResponsesByRespondent", () => {
-    test("should group responses by respondent ID", () => {
-      // TODO: Implement test
-    });
-  });
-
-  describe("groupResponsesByQuestion", () => {
-    test("should group responses by question key", () => {
-      // TODO: Implement test
     });
   });
 
