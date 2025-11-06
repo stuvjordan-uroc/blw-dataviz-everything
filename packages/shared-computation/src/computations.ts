@@ -4,7 +4,7 @@ import type {
   Question,
   ResponseGroup,
 } from "shared-schemas";
-import type { ResponseData, GroupedResponses } from "./types";
+import type { ResponseData, GroupedResponses, QuestionKey } from "./types";
 
 /**
  * Creates a unique string key for a Question object.
@@ -145,22 +145,63 @@ export function filterResponsesByGrouping(
 }
 
 /**
+ * Gets the weight for a respondent from their responses.
+ * Returns 1.0 if no weight question is specified (unweighted case).
+ *
+ * @param respondentId - The ID of the respondent
+ * @param responses - All responses to search through
+ * @param weightQuestion - Optional question key identifying which question holds weights
+ * @returns The weight value, or 1.0 if no weight question or weight not found
+ */
+function getRespondentWeight(
+  respondentId: number,
+  responses: ResponseData[],
+  weightQuestion?: QuestionKey
+): number {
+  // If no weight question specified, use weight of 1.0 (unweighted)
+  if (!weightQuestion) {
+    return 1.0;
+  }
+
+  // Find the weight response for this respondent
+  const weightResponse = responses.find(
+    (r) =>
+      r.respondentId === respondentId &&
+      r.varName === weightQuestion.varName &&
+      r.batteryName === weightQuestion.batteryName &&
+      r.subBattery === weightQuestion.subBattery
+  );
+
+  // If weight response found and is a valid number, return it
+  // Otherwise return 1.0 as default
+  if (weightResponse && weightResponse.response !== null) {
+    return weightResponse.response;
+  }
+
+  return 1.0;
+}
+
+/**
  * Computes proportions for each response group for a single question.
  *
  * This function:
- * 1. Counts how many respondents selected each response in the group
- * 2. Divides by total respondents to get proportions
+ * 1. Counts how many respondents selected each response in the group (or sums weights)
+ * 2. Divides by total respondents (or total weight) to get proportions
  * 3. Returns both expanded and collapsed response groups with proportions
  *
  * @param responses - All responses for this question
  * @param responseQuestionConfig - Configuration for this response question from SessionConfig
- * @param totalRespondents - Total number of unique respondents (denominator for proportions)
+ * @param totalRespondents - Total number of unique respondents (or total weight sum for weighted case)
+ * @param allResponses - All responses in the split (needed to look up weights)
+ * @param weightQuestion - Optional question key identifying which question holds weights
  * @returns Response groups (expanded and collapsed) with computed proportions
  */
 function computeResponseGroupProportions(
   responses: ResponseData[],
   responseQuestionConfig: SessionConfig["responseQuestions"][0],
-  totalRespondents: number
+  totalRespondents: number,
+  allResponses: ResponseData[],
+  weightQuestion?: QuestionKey
 ): {
   expanded: (ResponseGroup & { proportion: number })[];
   collapsed: (ResponseGroup & { proportion: number })[];
@@ -168,27 +209,45 @@ function computeResponseGroupProportions(
   /**
    * Helper function to compute proportions for a set of response groups.
    * For each response group, counts how many respondents selected any of the
-   * response values in that group.
+   * response values in that group (or sums their weights in the weighted case).
    */
   const computeProportionsForGroups = (
     responseGroups: ResponseGroup[]
   ): (ResponseGroup & { proportion: number })[] => {
     return responseGroups.map((group) => {
-      // Count respondents who selected any value in this response group
-      const respondentsInGroup = new Set<number>();
+      // Track respondents and their contribution (count or weight)
+      const respondentContributions = new Map<number, number>();
 
       for (const response of responses) {
         if (
           response.response !== null &&
           group.values.includes(response.response)
         ) {
-          respondentsInGroup.add(response.respondentId);
+          // Get this respondent's weight (1.0 if unweighted)
+          const weight = getRespondentWeight(
+            response.respondentId,
+            allResponses,
+            weightQuestion
+          );
+
+          // Only count each respondent once (use max weight if multiple responses)
+          const existing =
+            respondentContributions.get(response.respondentId) || 0;
+          respondentContributions.set(
+            response.respondentId,
+            Math.max(existing, weight)
+          );
         }
       }
 
-      // Calculate proportion: (respondents in group) / (total respondents)
+      // Sum all contributions (weights or counts)
+      const totalContribution = Array.from(
+        respondentContributions.values()
+      ).reduce((sum, contrib) => sum + contrib, 0);
+
+      // Calculate proportion: (sum of weights/counts in group) / (total weight/count)
       const proportion =
-        totalRespondents > 0 ? respondentsInGroup.size / totalRespondents : 0;
+        totalRespondents > 0 ? totalContribution / totalRespondents : 0;
 
       return {
         ...group,
@@ -217,6 +276,7 @@ function computeResponseGroupProportions(
  * @param splitResponses - All responses in this split
  * @param sessionConfig - Full session configuration
  * @param groupingCriteria - The grouping questions/response groups that define this split
+ * @param weightQuestion - Optional question key identifying which question holds weights
  * @returns A Split object with computed proportions for all response questions
  */
 function computeSingleSplit(
@@ -225,11 +285,26 @@ function computeSingleSplit(
   groupingCriteria: {
     question: Question;
     responseGroup: ResponseGroup | null;
-  }[]
+  }[],
+  weightQuestion?: QuestionKey
 ): Split {
-  // Count unique respondents in this split
-  const uniqueRespondents = new Set(splitResponses.map((r) => r.respondentId))
-    .size;
+  // Calculate total: unique respondent count (unweighted) or sum of weights (weighted)
+  let totalRespondents: number;
+
+  if (weightQuestion) {
+    // Weighted case: sum of weights for unique respondents
+    const uniqueRespondents = new Set(
+      splitResponses.map((r) => r.respondentId)
+    );
+    totalRespondents = Array.from(uniqueRespondents)
+      .map((respondentId) =>
+        getRespondentWeight(respondentId, splitResponses, weightQuestion)
+      )
+      .reduce((sum, weight) => sum + weight, 0);
+  } else {
+    // Unweighted case: count unique respondents
+    totalRespondents = new Set(splitResponses.map((r) => r.respondentId)).size;
+  }
 
   // Group responses by question for efficient lookup
   const responsesByQuestion = groupResponsesByQuestion(splitResponses);
@@ -243,7 +318,9 @@ function computeSingleSplit(
       const responseGroups = computeResponseGroupProportions(
         questionResponses,
         responseQuestionConfig,
-        uniqueRespondents
+        totalRespondents,
+        splitResponses,
+        weightQuestion
       );
 
       return {
@@ -344,6 +421,10 @@ function generateGroupingCombinations(
  * 2. For each split, filters responses to that group
  * 3. Computes proportions for all response questions within each split
  *
+ * Proportions can be computed as weighted or unweighted:
+ * - Unweighted (default): proportion = respondents_in_group / total_respondents
+ * - Weighted: proportion = sum_of_weights_in_group / sum_of_total_weights
+ *
  * Use this function for:
  * - Initial statistics computation when no statistics exist
  * - Full recomputation after session config changes
@@ -353,11 +434,13 @@ function generateGroupingCombinations(
  *
  * @param responses - All responses in the session
  * @param sessionConfig - Session configuration with questions and groupings
+ * @param weightQuestion - Optional question key identifying which question holds weights
  * @returns Array of Split objects, one for each grouping combination
  */
 export function computeSplitStatistics(
   responses: ResponseData[],
-  sessionConfig: SessionConfig
+  sessionConfig: SessionConfig,
+  weightQuestion?: QuestionKey
 ): Split[] {
   // Handle empty case
   if (responses.length === 0) {
@@ -390,7 +473,8 @@ export function computeSplitStatistics(
     const split = computeSingleSplit(
       splitResponses,
       sessionConfig,
-      groupingCriteria
+      groupingCriteria,
+      weightQuestion
     );
 
     splits.push(split);
@@ -404,9 +488,13 @@ export function computeSplitStatistics(
  * Used when initializing statistics for a session with no responses yet.
  *
  * @param sessionConfig - Session configuration
+ * @param weightQuestion - Optional question key identifying which question holds weights
  * @returns Empty Split array with zero proportions for all response groups
  */
-export function createEmptyStatistics(sessionConfig: SessionConfig): Split[] {
+export function createEmptyStatistics(
+  sessionConfig: SessionConfig,
+  weightQuestion?: QuestionKey
+): Split[] {
   // Create empty splits with all proportions set to 0
-  return computeSplitStatistics([], sessionConfig);
+  return computeSplitStatistics([], sessionConfig, weightQuestion);
 }

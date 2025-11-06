@@ -1,0 +1,11 @@
+# Mock response data for testing
+# Format: respondent_id,weight,party,age_group,approval,anger
+# party: 0=Democrat, 1=Republican
+# age_group: 0=18-34, 1=35-54, 2=55+
+# approval: 0=Strongly Approve, 1=Somewhat Approve, 2=Somewhat Disapprove, 3=Strongly Disapprove
+# anger: 0=none, 1=irritated, 2=hot, 3=aflame
+respondent_id,weight,party,age_group,approval,anger
+1,1.5,0,0,0,1
+2,0.8,0,1,1,0
+3,2.0,1,0,3,3
+4,1.2,1,2,2,2

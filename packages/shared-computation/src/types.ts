@@ -28,13 +28,13 @@ export interface ResponseData {
 
   /**
    * The response value - an index into the responses array in questions.questions table.
-   * null if the respondent gave a response that doesn't map to a valid index.
+   * null if the respondent gave a response that doesn't map to a valid index, or gave no response
    */
   response: number | null;
 }
 
 /**
- * QuestionKey uniquely identifies a question within a session.
+ * QuestionKey uniquely identifies a question.
  * Used as a map key for grouping responses by question.
  */
 export interface QuestionKey {
