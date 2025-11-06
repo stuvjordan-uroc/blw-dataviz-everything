@@ -1,0 +1,1 @@
+ALTER TABLE "polls"."questions" ADD COLUMN "ordering_index" integer NOT NULL;
