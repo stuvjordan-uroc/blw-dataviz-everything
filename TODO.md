@@ -3,7 +3,7 @@
   - (DONE) Endpoint: POST one respondent's responses to all questions from session.
   - (DONE) API inserts new record into polls.respondents and polls.responses for each received response at POST enpoint.
   - Working on computation module...
-    - finish computations.ts
+    - (DONE) finish computations.ts
     - test computations.ts
     - delete and start over with update-statistics.ts
     - test update-statistics.ts
