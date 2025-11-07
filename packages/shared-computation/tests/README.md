@@ -1,6 +1,155 @@
-# Tests for shared-computation
+# Computation Tests
 
-This directory contains unit tests for the shared-computation package.
+This directory contains unit tests for the computation functions in `shared-computation`.
+
+## Test Data Architecture
+
+The tests use a **hybrid approach** that combines:
+
+1. **Human-readable CSV data** with inline comments
+2. **Type-safe expected results** defined in TypeScript
+3. **ASCII tables in test comments** for visual clarity
+
+This makes it easy for humans to:
+
+- **Understand the test data** at a glance
+- **Verify the calculations** by hand
+- **Debug failing tests** with clear expected values
+
+## Data Files
+
+### `fixtures/mock-responses.csv`
+
+Contains mock respondent data in rectangular format with:
+
+- Inline comments showing what each respondent represents
+- Invalid respondents marked with explanations
+- Clear mapping to response values
+
+Example:
+
+```csv
+respondent_id,weight,party,age_group,approval,anger
+1,1.5,0,0,0,1    # Democrat, 18-34, Strongly Approve, irritated
+6,,,0,1,1        # INVALID: missing weight AND party
+```
+
+### `fixtures/mock-data.ts`
+
+The **single source of truth** for test expectations. Contains:
+
+1. **CSV Parser** - Converts CSV to `ResponseData[]`
+2. **Session Config** - Defines questions and response groups
+3. **Expected Results** - Hand-calculated values with inline math
+
+All expected values include explanatory comments showing the calculation:
+
+```typescript
+"Strongly Approve": 1.5 / 2.3,  // R1 weight
+```
+
+## Understanding the Test Data
+
+### Valid Respondents (used in calculations)
+
+| ID  | Weight | Party      | Age   | Approval            | Anger     |
+| --- | ------ | ---------- | ----- | ------------------- | --------- |
+| 1   | 1.5    | Democrat   | 18-34 | Strongly Approve    | irritated |
+| 2   | 0.8    | Democrat   | 35-54 | Somewhat Approve    | none      |
+| 3   | 2.0    | Republican | 18-34 | Strongly Disapprove | aflame    |
+| 4   | 1.2    | Republican | 55+   | Somewhat Disapprove | hot       |
+| 5   | 1.0    | Democrat   | 55+   | Strongly Approve    | hot       |
+
+### Invalid Respondents (filtered out)
+
+| ID  | Reason for Exclusion                           |
+| --- | ---------------------------------------------- |
+| 6   | Missing party (required grouping question)     |
+| 7   | Missing age_group (required grouping question) |
+| 8   | Invalid approval value (5 not in valid range)  |
+
+## Example Calculation Walkthrough
+
+### Split: Democrat × 18-34 OR 35-54
+
+**Matching respondents:** 1, 2 (party=0 AND age_group IN [0,1])
+
+#### Unweighted Calculation
+
+- **n = 2**
+- **Approval - Strongly Approve:**
+  - Respondent 1 has approval=0 → 1 respondent
+  - 1 / 2 = **0.5**
+- **Approval - Somewhat Approve:**
+  - Respondent 2 has approval=1 → 1 respondent
+  - 1 / 2 = **0.5**
+
+#### Weighted Calculation
+
+- **effectiveN = 1.5 + 0.8 = 2.3**
+- **Approval - Strongly Approve:**
+  - Respondent 1 (weight=1.5) has approval=0
+  - 1.5 / 2.3 = **0.6522**
+- **Approval - Somewhat Approve:**
+  - Respondent 2 (weight=0.8) has approval=1
+  - 0.8 / 2.3 = **0.3478**
+
+## Test Structure
+
+Each test includes:
+
+1. **ASCII Table** - Visual reference of relevant data
+2. **Inline Calculation** - Shows expected math
+3. **Assertions** - Verifies code matches expectations
+
+Example:
+
+```typescript
+test("should compute correct proportions", () => {
+  /**
+   * Split: Democrat × 18-34 OR 35-54
+   * Matching respondents: 1, 2
+   *
+   * UNWEIGHTED Expected:
+   * - Strongly Approve: 1/2 = 0.5
+   * - Somewhat Approve: 1/2 = 0.5
+   */
+
+  const result = populateSplitStatistics(...);
+  const expected = expectedSplitStatistics["Democrat × 18-34 OR 35-54"];
+
+  expect(result.approval).toBeCloseTo(expected.approval, 10);
+});
+```
+
+## Adding New Test Cases
+
+To add new test cases:
+
+1. **Update `mock-responses.csv`** - Add new respondent rows with inline comments
+2. **Update `expectedRespondentRecords`** - Add to included/excluded lists
+3. **Update `expectedSplitStatistics`** - Hand-calculate proportions with inline math
+4. **Add test case** - Include ASCII table and reference expected values
+
+## Benefits of This Approach
+
+✅ **Type Safety** - TypeScript catches errors in expected values  
+✅ **Human Readable** - Tables and comments make data clear  
+✅ **Single Source of Truth** - Expected results defined once  
+✅ **Easy Debugging** - See what was expected and why  
+✅ **Self-Documenting** - Tests explain the domain logic
+
+## Running Tests
+
+```bash
+npm test
+```
+
+To run only computation tests:
+
+```bash
+npm test computations
+```
 
 ## Running Tests
 
@@ -64,15 +213,6 @@ Tests for incremental update functions:
 - Handling of new respondents and edge cases
 
 ## Test Data Overview
-
-The mock data represents a simple poll scenario with 4 respondents:
-
-| ID  | Weight | Party | Age Group | Approval            | Anger     |
-| --- | ------ | ----- | --------- | ------------------- | --------- |
-| 1   | 1.5    | Dem   | 18-34     | Strongly Approve    | irritated |
-| 2   | 0.8    | Dem   | 35-54     | Somewhat Approve    | none      |
-| 3   | 2.0    | Rep   | 18-34     | Strongly Disapprove | aflame    |
-| 4   | 1.2    | Rep   | 55+       | Somewhat Disapprove | hot       |
 
 **Grouping Questions:**
 

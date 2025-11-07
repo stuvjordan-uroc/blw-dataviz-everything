@@ -5,7 +5,11 @@
 # approval: 0=Strongly Approve, 1=Somewhat Approve, 2=Somewhat Disapprove, 3=Strongly Disapprove
 # anger: 0=none, 1=irritated, 2=hot, 3=aflame
 respondent_id,weight,party,age_group,approval,anger
-1,1.5,0,0,0,1
-2,0.8,0,1,1,0
-3,2.0,1,0,3,3
-4,1.2,1,2,2,2
+1,1.5,0,0,0,1    # Democrat, 18-34, Strongly Approve, irritated
+2,0.8,0,1,1,0    # Democrat, 35-54, Somewhat Approve, none
+3,2.0,1,0,3,3    # Republican, 18-34, Strongly Disapprove, aflame
+4,1.2,1,2,2,2    # Republican, 55+, Somewhat Disapprove, hot
+5,1.0,0,2,0,2    # Democrat, 55+, Strongly Approve, hot
+6,,,0,1,1        # INVALID: missing weight AND party (should be excluded when weight required)
+7,1.1,0,,1,0     # INVALID: missing age_group (should always be excluded)
+8,0.9,1,1,5,1    # INVALID: approval=5 not in valid range (should always be excluded)

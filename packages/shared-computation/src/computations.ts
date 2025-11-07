@@ -31,7 +31,7 @@ export function createQuestionKey(question: Question): string {
  * @param weightQuestion - Optional question key identifying the weight question
  * @returns Array of valid RespondentRecord objects only
  */
-function buildRespondentRecords(
+export function buildRespondentRecords(
   responses: ResponseData[],
   sessionConfig: SessionConfig,
   weightQuestion?: QuestionKey
@@ -222,7 +222,7 @@ function buildRespondentRecords(
  * @param sessionConfig - Session configuration with grouping questions
  * @returns Array of Split objects with groups populated but responseQuestions empty (to be filled in Step 4)
  */
-function generateSplits(sessionConfig: SessionConfig): Split[] {
+export function generateSplits(sessionConfig: SessionConfig): Split[] {
   // If there are no grouping questions, return a single split with no grouping filters
   if (sessionConfig.groupingQuestions.length === 0) {
     return [
@@ -431,7 +431,7 @@ function computeProportionsForQuestion(
  * @param weightQuestion - Optional question key identifying the weight question
  * @returns Complete Split object with responseQuestions populated
  */
-function populateSplitStatistics(
+export function populateSplitStatistics(
   split: Split,
   respondents: RespondentRecord[],
   sessionConfig: SessionConfig,
