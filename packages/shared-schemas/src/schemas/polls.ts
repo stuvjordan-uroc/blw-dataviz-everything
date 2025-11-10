@@ -8,7 +8,6 @@ import {
   jsonb,
   timestamp,
   boolean,
-  real,
 } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
 
@@ -145,5 +144,4 @@ export const sessionStatistics = pollsSchema.table("session_statistics", {
   computedAt: timestamp("computed_at").defaultNow(),
   // Fields for incremental computation tracking
   lastProcessedRespondentId: integer("last_processed_respondent_id"), // highest respondent.id processed so far
-  totalRespondentWeight: real("total_respondent_weight").notNull().default(0), // sum of weights for all respondents included in statistics (can be count for unweighted)
 });

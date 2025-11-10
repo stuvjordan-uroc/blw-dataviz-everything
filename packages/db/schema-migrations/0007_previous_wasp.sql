@@ -1,0 +1,1 @@
+ALTER TABLE "polls"."session_statistics" DROP COLUMN "total_respondent_weight";
