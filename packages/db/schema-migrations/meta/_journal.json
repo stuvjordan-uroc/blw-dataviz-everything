@@ -43,6 +43,13 @@
       "when": 1762450594081,
       "tag": "0005_tense_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1762788076065,
+      "tag": "0006_gigantic_grandmaster",
+      "breakpoints": true
     }
   ]
 }

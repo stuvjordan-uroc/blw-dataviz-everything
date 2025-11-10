@@ -1,4 +1,4 @@
-# Mock response data for testing
+# Mock response data for testing (Wave 1 - Initial/Original Data)
 # 
 # FORMAT: respondent_id,weight,party,age_group,approval,anger
 # 
@@ -12,6 +12,7 @@
 # age_group: 0=18-34, 1=35-54, 2=55+
 # approval: 0=Strongly Approve, 1=Somewhat Approve, 2=Somewhat Disapprove, 3=Strongly Disapprove
 # anger: 0=none, 1=irritated, 2=hot, 3=aflame
+# RESPONDENT IDs: 1-10 (Wave 1)
 # 
 # TESTING TWO TYPES OF MISSING DATA:
 # 1. Null response: Element exists with response=null (e.g., ",,0" creates party element with null)

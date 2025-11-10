@@ -1,0 +1,33 @@
+# Mock response data for testing (Wave 2 - Incremental Update Data)
+# This represents a second wave of responses to update existing statistics
+# 
+# FORMAT: respondent_id,weight,party,age_group,approval,anger
+# 
+# VALUE TYPES (same as Wave 1 mock-responses-wave1.csv):
+# - Numeric value (e.g., 0, 1, 1.5): Creates ResponseData element with that value
+# - Empty or "null": Creates ResponseData element with response=null (null response)
+# - "MISSING" (case-insensitive): Omits ResponseData element entirely (missing entry)
+# 
+# QUESTION VALUES (same as original):
+# party: 0=Democrat, 1=Republican
+# age_group: 0=18-34, 1=35-54, 2=55+
+# approval: 0=Strongly Approve, 1=Somewhat Approve, 2=Somewhat Disapprove, 3=Strongly Disapprove
+# anger: 0=none, 1=irritated, 2=hot, 3=aflame
+# 
+# RESPONDENT IDs: 11-20 (Wave 2 - non-overlapping with Wave 1 IDs 1-10)
+# 
+# TESTING TWO TYPES OF MISSING DATA (same pattern as Wave 1):
+# 1. Null response: Element exists with response=null (e.g., ",,0" creates party element with null)
+# 2. Missing entry: No element created at all (e.g., "MISSING" omits element entirely)
+# 
+respondent_id,weight,party,age_group,approval,anger
+11,1.3,0,0,1,0    # Democrat, 18-34, Somewhat Approve, none - adds to Democrat×18-34 OR 35-54
+12,0.9,1,2,2,1    # Republican, 55+, Somewhat Disapprove, irritated - adds to Republican×55+
+13,1.1,0,1,0,2    # Democrat, 35-54, Strongly Approve, hot - adds to Democrat×18-34 OR 35-54
+14,1.5,1,0,3,3    # Republican, 18-34, Strongly Disapprove, aflame - adds to Republican×18-34 OR 35-54
+15,0.7,0,2,1,1    # Democrat, 55+, Somewhat Approve, irritated - adds to Democrat×55+
+16,,,1,1,0        # INVALID: null weight AND null party (null response elements exist)
+17,1.2,1,,2,0     # INVALID: null age_group (null response element exists)
+18,0.95,0,0,5,1   # INVALID: approval=5 not in valid range (should always be excluded)
+19,1.6,MISSING,1,1,0    # INVALID: MISSING party (no response element created) - grouping question
+20,1.4,1,1,MISSING,2    # INVALID: MISSING approval (no response element created) - response question

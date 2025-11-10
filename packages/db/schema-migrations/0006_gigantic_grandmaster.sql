@@ -1,0 +1,2 @@
+ALTER TABLE "polls"."session_statistics" ADD COLUMN "total_respondent_weight" real DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "polls"."session_statistics" DROP COLUMN "total_respondent_count";

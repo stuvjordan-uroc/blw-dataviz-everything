@@ -141,6 +141,65 @@ If you change questions or response groups:
 
 4. **Verify all tests pass**
 
+### Working with Wave 2 Data (Incremental Updates)
+
+When testing incremental statistics updates:
+
+1. **Update Wave 2 CSV** (`fixtures/mock-responses-wave2.csv`):
+
+   ```csv
+   # Add new respondent to Wave 2
+   21,1.4,0,2,0,1    # Democrat, 55+, Strongly Approve, irritated
+   ```
+
+2. **Calculate incremental impact**:
+
+   - Identify which splits are affected
+   - Calculate the new weights and counts manually
+   - Update `expectedUpdateResults` in `mock-data.ts`
+
+3. **Document the calculation** in `expectedUpdateResults`:
+
+   ```typescript
+   "Democrat × 55+": {
+     wave1: {
+       respondentIds: [5],
+       totalWeight: 1.0,
+       proportions: {
+         "Strongly Approve": 1.0  // R5: 1.0 / 1.0
+       }
+     },
+     wave2Incremental: {
+       respondentIds: [15, 21],  // Added R21
+       incrementalWeight: 0.7 + 1.4,  // R15 + R21
+       newCounts: {
+         "Strongly Approve": 0 + 1.4,  // R15 (Somewhat) + R21 (Strongly)
+         "Somewhat Approve": 0.7 + 0   // R15 + R21
+       }
+     },
+     updated: {
+       respondentIds: [5, 15, 21],
+       totalWeight: 1.0 + 0.7 + 1.4,  // = 3.1
+       proportions: {
+         "Strongly Approve": 2.4 / 3.1,  // (1.0 + 1.4) / 3.1
+         "Somewhat Approve": 0.7 / 3.1   // 0.7 / 3.1
+       }
+     }
+   }
+   ```
+
+4. **Verify incremental matches full recomputation**:
+
+   - The test should confirm `updateSplitStatistics()` produces the same result as `computeSplitStatistics()` on combined data
+   - Check the test output to ensure verification passes
+
+5. **Regenerate test report**:
+   ```bash
+   npx ts-node tests/fixtures/generate-test-report.ts > TEST_DATA_REPORT.md
+   ```
+
+For comprehensive documentation on incremental update testing, see [`UPDATE_STATISTICS_TESTING.md`](./UPDATE_STATISTICS_TESTING.md).
+
 ## Best Practices
 
 ### ✅ DO

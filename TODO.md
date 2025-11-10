@@ -4,7 +4,7 @@
   - (DONE) API inserts new record into polls.respondents and polls.responses for each received response at POST enpoint.
   - Working on computation module...
     - (DONE) finish computations.ts
-    - test computations.ts
+    - (DONE) test computations.ts
     - delete and start over with update-statistics.ts
     - test update-statistics.ts
   - Logic: Finish POST endpoint -- when enough posts come in, compute new statistics, then update respondents and responses table and statistics table all in one go.

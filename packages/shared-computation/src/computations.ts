@@ -3,6 +3,8 @@ import type {
   Split,
   Question,
   ResponseGroup,
+  ResponseGroupWithProportion,
+  SplitResponseQuestion,
 } from "shared-schemas";
 import type { ResponseData, QuestionKey, RespondentRecord } from "./types";
 
@@ -229,6 +231,7 @@ export function generateSplits(sessionConfig: SessionConfig): Split[] {
       {
         groups: [],
         responseQuestions: [], // Will be populated in Step 4
+        totalWeight: 0, // Will be populated in Step 4
       },
     ];
   }
@@ -287,10 +290,11 @@ export function generateSplits(sessionConfig: SessionConfig): Split[] {
     }
 
     // Create the Split object
-    // responseQuestions will be populated in Step 4 with computed proportions
+    // responseQuestions and totalWeight will be populated in Step 4 with computed proportions
     splits.push({
       groups: groups,
       responseQuestions: [], // Will be filled in Step 4
+      totalWeight: 0, // Will be filled in Step 4
     });
   }
 
@@ -371,8 +375,8 @@ function computeProportionsForQuestion(
   responseQuestion: SessionConfig["responseQuestions"][0],
   weightQuestion?: QuestionKey
 ): {
-  expanded: (ResponseGroup & { proportion: number })[];
-  collapsed: (ResponseGroup & { proportion: number })[];
+  expanded: ResponseGroupWithProportion[];
+  collapsed: ResponseGroupWithProportion[];
 } {
   const questionKey = createQuestionKey(responseQuestion);
 
@@ -385,7 +389,7 @@ function computeProportionsForQuestion(
   // Helper function to compute proportions for a set of response groups
   const computeForGroups = (
     groups: ResponseGroup[]
-  ): (ResponseGroup & { proportion: number })[] => {
+  ): ResponseGroupWithProportion[] => {
     return groups.map((group) => {
       // Count respondents (weighted or unweighted) who belong to this response group
       let count = 0;
@@ -422,14 +426,15 @@ function computeProportionsForQuestion(
  * 
  * This function:
  * 1. Filters respondents to those who match the split's grouping criteria
- * 2. For each response question, computes proportions across its response groups
- * 3. Returns a complete Split object with all statistics populated
+ * 2. Calculates the total weight for respondents in this split
+ * 3. For each response question, computes proportions across its response groups
+ * 4. Returns a complete Split object with all statistics populated
  * 
  * @param split - The split to populate (with groups already set)
  * @param respondents - All valid respondents
  * @param sessionConfig - Session configuration with response questions
  * @param weightQuestion - Optional question key identifying the weight question
- * @returns Complete Split object with responseQuestions populated
+ * @returns Complete Split object with responseQuestions and totalWeight populated
  */
 export function populateSplitStatistics(
   split: Split,
@@ -440,7 +445,13 @@ export function populateSplitStatistics(
   // Step 1: Filter respondents to those who match this split's grouping criteria
   const filteredRespondents = filterRespondentsForSplit(respondents, split);
 
-  // Step 2: Compute proportions for each response question
+  // Step 2: Calculate total weight for this split
+  const totalWeight = filteredRespondents.reduce(
+    (sum, respondent) => sum + respondent.weight,
+    0
+  );
+
+  // Step 3: Compute proportions for each response question
   const responseQuestions: Split["responseQuestions"] = [];
 
   for (const responseQuestion of sessionConfig.responseQuestions) {
@@ -460,12 +471,193 @@ export function populateSplitStatistics(
     });
   }
 
-  // Return the complete split with statistics
+  // Return the complete split with statistics and totalWeight
   return {
     groups: split.groups,
     responseQuestions: responseQuestions,
+    totalWeight: totalWeight,
   };
 }
+
+/**
+ * Updates split statistics incrementally with new responses.
+ *
+ * This function is for incremental updates when:
+ * - Session configuration hasn't changed
+ * - You have existing statistics and want to add new responses
+ * - You want to avoid recomputing all statistics from scratch
+ *
+ * Prerequisites:
+ * - Existing statistics must have totalWeight populated in each Split
+ * - newResponses should be pre-filtered (respondent_id > lastProcessedRespondentId)
+ *
+ * Example usage in database context:
+ * ```typescript
+ * const stats = await db.select().from(sessionStatistics).where(...);
+ * const result = updateSplitStatistics(
+ *   stats.statistics,
+ *   stats.totalRespondentWeight,
+ *   newResponses,
+ *   sessionConfig,
+ *   weightQuestion
+ * );
+ *
+ * // Track the new max respondent ID (caller's responsibility)
+ * const newMaxRespondentId = Math.max(...newResponses.map(r => r.respondentId));
+ *
+ * // Save updated statistics to database
+ * await db.update(sessionStatistics)
+ *   .set({
+ *     statistics: result.updatedStatistics,
+ *     totalRespondentWeight: result.newTotalWeight,
+ *     lastProcessedRespondentId: newMaxRespondentId,
+ *     computedAt: new Date()
+ *   })
+ *   .where(eq(sessionStatistics.sessionId, sessionId));
+ * ```
+ *
+ * Mathematical correctness:
+ * - For each response group: existing_count = existing_proportion × split.totalWeight
+ * - Add new counts from new respondents: new_count = existing_count + incremental_count
+ * - Update split totalWeight: new_split_total = split.totalWeight + sum(new respondent weights in split)
+ * - Recompute proportion: new_proportion = new_count / new_split_total
+ * - This is mathematically equivalent to recomputing from all responses
+ *
+ * @param existingStatistics - Current statistics (array of Split objects with totalWeight populated)
+ * @param existingTotalWeight - Current sum of respondent weights (or count if unweighted)
+ * @param newResponses - NEW responses only (pre-filtered by caller, respondent_id > lastProcessedRespondentId)
+ * @param sessionConfig - Session configuration with questions and groupings
+ * @param weightQuestion - Optional question key identifying which question holds weights
+ * @returns Object containing updated statistics and new total weight
+ */
+export function updateSplitStatistics(
+  existingStatistics: Split[],
+  existingTotalWeight: number,
+  newResponses: ResponseData[],
+  sessionConfig: SessionConfig,
+  weightQuestion?: QuestionKey
+): {
+  updatedStatistics: Split[];
+  newTotalWeight: number;
+} {
+  // Handle empty new responses - return existing statistics unchanged
+  if (newResponses.length === 0) {
+    return {
+      updatedStatistics: existingStatistics,
+      newTotalWeight: existingTotalWeight,
+    };
+  }
+
+  // Step 1: Convert new responses to RespondentRecord format
+  // This filters out invalid respondents (those who didn't answer all questions with valid values)
+  const newRespondentRecords = buildRespondentRecords(
+    newResponses,
+    sessionConfig,
+    weightQuestion
+  );
+
+  // Calculate total weight of new respondents
+  const incrementalTotalWeight = newRespondentRecords.reduce(
+    (sum, record) => sum + record.weight,
+    0
+  );
+
+  // Calculate new session-level total weight
+  const newTotalWeight = existingTotalWeight + incrementalTotalWeight;
+
+  // Handle edge case: no valid new respondents after filtering
+  if (newRespondentRecords.length === 0) {
+    return {
+      updatedStatistics: existingStatistics,
+      newTotalWeight: existingTotalWeight, // No weight change
+    };
+  }
+
+  // Step 2: Update each split's statistics incrementally
+  const updatedStatistics = existingStatistics.map((existingSplit) => {
+    // Filter new respondents to those matching this split's grouping criteria
+    const filteredNewRespondents = filterRespondentsForSplit(
+      newRespondentRecords,
+      existingSplit
+    );
+
+    // Calculate incremental split weight from new respondents matching this split
+    const incrementalSplitWeight = filteredNewRespondents.reduce(
+      (sum, record) => sum + record.weight,
+      0
+    );
+
+    // Calculate new split total weight
+    const newSplitTotalWeight = existingSplit.totalWeight + incrementalSplitWeight;
+
+    // Update each response question's statistics
+    const updatedResponseQuestions = existingSplit.responseQuestions.map(
+      (existingResponseQuestion): SplitResponseQuestion => {
+        const questionKey = createQuestionKey(existingResponseQuestion);
+
+        // Helper function to update response groups (expanded or collapsed)
+        const updateGroups = (
+          groups: ResponseGroupWithProportion[]
+        ): ResponseGroupWithProportion[] => {
+          return groups.map((group) => {
+            // Step 1: Convert existing proportion back to weighted count
+            const existingCount = group.proportion * existingSplit.totalWeight;
+
+            // Step 2: Calculate incremental weighted count from new respondents
+            let incrementalCount = 0;
+            for (const respondent of filteredNewRespondents) {
+              const response = respondent.responses.get(questionKey);
+              if (
+                response !== null &&
+                response !== undefined &&
+                group.values.includes(response)
+              ) {
+                incrementalCount += respondent.weight;
+              }
+            }
+
+            // Step 3: Calculate new weighted count
+            const newCount = existingCount + incrementalCount;
+
+            // Step 4: Recompute proportion with new split total weight
+            const newProportion =
+              newSplitTotalWeight > 0 ? newCount / newSplitTotalWeight : 0;
+
+            return {
+              label: group.label,
+              values: group.values,
+              proportion: newProportion,
+            };
+          });
+        };
+
+        // Update both expanded and collapsed response groups
+        return {
+          varName: existingResponseQuestion.varName,
+          batteryName: existingResponseQuestion.batteryName,
+          subBattery: existingResponseQuestion.subBattery,
+          responseGroups: {
+            expanded: updateGroups(existingResponseQuestion.responseGroups.expanded),
+            collapsed: updateGroups(existingResponseQuestion.responseGroups.collapsed),
+          },
+        };
+      }
+    );
+
+    // Return updated split with new totalWeight
+    return {
+      groups: existingSplit.groups,
+      responseQuestions: updatedResponseQuestions,
+      totalWeight: newSplitTotalWeight,
+    };
+  });
+
+  return {
+    updatedStatistics: updatedStatistics,
+    newTotalWeight: newTotalWeight,
+  };
+}
+
 
 /**
  * Computes complete split statistics for a session from scratch.
@@ -475,6 +667,7 @@ export function populateSplitStatistics(
  *    (filtering out invalid respondents during the conversion process)
  * 2. Generates all possible grouping combinations (splits)
  * 3. For each split, filters respondents to that group and computes proportions
+ * 4. Calculates total weight across all valid respondents
  *
  * Proportions can be computed as weighted or unweighted:
  * - Unweighted (default): proportion = respondents_in_group / total_respondents
@@ -490,16 +683,22 @@ export function populateSplitStatistics(
  * @param responses - All responses in the session (flat array from database)
  * @param sessionConfig - Session configuration with questions and groupings
  * @param weightQuestion - Optional question key identifying which question holds weights
- * @returns Array of Split objects, one for each grouping combination
+ * @returns Object containing statistics (array of Split objects) and total weight
  */
 export function computeSplitStatistics(
   responses: ResponseData[],
   sessionConfig: SessionConfig,
   weightQuestion?: QuestionKey
-): Split[] {
+): {
+  statistics: Split[];
+  totalWeight: number;
+} {
   // Handle empty case
   if (responses.length === 0) {
-    return [];
+    return {
+      statistics: [],
+      totalWeight: 0,
+    };
   }
 
   // Step 1 & 2: Convert flat responses to structured respondent records and filter for validity
@@ -509,6 +708,12 @@ export function computeSplitStatistics(
     responses,
     sessionConfig,
     weightQuestion
+  );
+
+  // Calculate total weight from all valid respondents
+  const totalWeight = validRespondents.reduce(
+    (sum, record) => sum + record.weight,
+    0
   );
 
   // Step 3: Generate all possible grouping combinations (splits)
@@ -521,5 +726,8 @@ export function computeSplitStatistics(
     populateSplitStatistics(split, validRespondents, sessionConfig, weightQuestion)
   );
 
-  return completedSplits;
+  return {
+    statistics: completedSplits,
+    totalWeight: totalWeight,
+  };
 }

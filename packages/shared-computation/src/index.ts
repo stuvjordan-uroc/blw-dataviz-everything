@@ -23,7 +23,4 @@ export type {
 export { computeSplitStatistics, createQuestionKey } from "./computations";
 
 // Export update functions (incremental updates)
-export {
-  updateSplitStatistics,
-  validateSplitsMatchConfig,
-} from "./update-statistics";
+export { updateSplitStatistics } from "./computations";

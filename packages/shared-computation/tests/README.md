@@ -61,6 +61,24 @@ All expected values include explanatory comments showing the calculation:
 "Strongly Approve": 1.5 / 2.3,  // R1 weight
 ```
 
+### `fixtures/mock-responses-wave1.csv` and `mock-responses-wave2.csv`
+
+**Two-wave test architecture** for testing incremental statistics updates:
+
+- **Wave 1** (`mock-responses-wave1.csv`): Baseline data with respondents 1-10 (5 valid, 5 invalid)
+- **Wave 2** (`mock-responses-wave2.csv`): Incremental data with respondents 11-20 (5 valid, 5 invalid)
+
+This architecture enables testing of `updateSplitStatistics()`, which efficiently updates existing statistics when new respondent data arrives, without recomputing from scratch.
+
+**Key features:**
+
+- Wave 2 mirrors Wave 1's structure (same types of invalid respondents)
+- Enables verification that incremental updates match full recomputation
+- Tests filtering consistency across waves
+- Validates mathematical correctness of the update algorithm
+
+For detailed documentation on incremental update testing, see [`UPDATE_STATISTICS_TESTING.md`](./UPDATE_STATISTICS_TESTING.md).
+
 ## Understanding the Test Data
 
 ### Valid Respondents (used in calculations)

@@ -11,6 +11,9 @@ export {
   type Question,
   type SessionConfig,
   type Split,
+  type ResponseGroupWithProportion,
+  type SplitGroup,
+  type SplitResponseQuestion,
 } from "./schemas/polls";
 export * from "./schemas/admin";
 

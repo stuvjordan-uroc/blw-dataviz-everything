@@ -8,6 +8,7 @@ import {
   jsonb,
   timestamp,
   boolean,
+  real,
 } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
 
@@ -109,17 +110,30 @@ export const responses = pollsSchema.table(
 );
 
 //types for session statistics
+
+// Response group with computed proportion statistic
+export interface ResponseGroupWithProportion extends ResponseGroup {
+  proportion: number;
+}
+
+// Grouping criterion for a split (question + selected response group or null for "all")
+export interface SplitGroup {
+  question: Question;
+  responseGroup: ResponseGroup | null;
+}
+
+// Response question with computed statistics (used in Split)
+export interface SplitResponseQuestion extends Question {
+  responseGroups: {
+    expanded: ResponseGroupWithProportion[];
+    collapsed: ResponseGroupWithProportion[];
+  };
+}
+
 export interface Split {
-  groups: {
-    question: Question;
-    responseGroup: ResponseGroup | null;
-  }[];
-  responseQuestions: (Question & {
-    responseGroups: {
-      expanded: (ResponseGroup & { proportion: number })[];
-      collapsed: (ResponseGroup & { proportion: number })[];
-    };
-  })[];
+  groups: SplitGroup[];
+  responseQuestions: SplitResponseQuestion[];
+  totalWeight: number; // Sum of weights for all respondents matching this split's grouping criteria
 }
 
 //session_statistics table
@@ -131,5 +145,5 @@ export const sessionStatistics = pollsSchema.table("session_statistics", {
   computedAt: timestamp("computed_at").defaultNow(),
   // Fields for incremental computation tracking
   lastProcessedRespondentId: integer("last_processed_respondent_id"), // highest respondent.id processed so far
-  totalRespondentCount: integer("total_respondent_count").notNull().default(0), // total unique respondents included in statistics
+  totalRespondentWeight: real("total_respondent_weight").notNull().default(0), // sum of weights for all respondents included in statistics (can be count for unweighted)
 });
