@@ -23,8 +23,26 @@ npm run test:report > report.md      # Save report to file
 ## 📊 Test Data Summary
 
 **Valid Respondents:** 1, 2, 3, 4, 5 (5 total)  
-**Invalid Respondents:** 6, 7, 8 (filtered out)  
+**Invalid Respondents:** 6, 7, 8, 9, 10 (filtered out)
+
+- Null responses: 6, 7
+- Invalid value: 8
+- Missing entries: 9, 10
+
 **Expected Splits:** 9 (3 party options × 3 age options)
+
+## 🔑 CSV Value Types
+
+| Value Type        | Example         | Result                                 |
+| ----------------- | --------------- | -------------------------------------- |
+| Numeric           | `1.5`, `0`, `2` | Creates element with that value        |
+| Empty or `"null"` | ``or`null`      | Creates element with `response=null`   |
+| `"MISSING"`       | `MISSING`       | Skips creating element (missing entry) |
+
+**Use cases:**
+
+- Test null responses: Use empty string or `null`
+- Test missing entries: Use `MISSING`
 
 ## 🔍 Finding Expected Values
 
@@ -48,7 +66,14 @@ expectedSplitStatistics["Democrat × 18-34 OR 35-54"].unweighted.approval;
 ### 1. Update CSV
 
 ```csv
-9,1.3,1,1,2,0    # Republican, 35-54, Somewhat Disapprove, none
+# Valid respondent with numeric values
+11,1.3,1,1,2,0    # Republican, 35-54, Somewhat Disapprove, none
+
+# Invalid respondent with null response
+12,,,1,1,0        # Null weight and party (elements exist with null)
+
+# Invalid respondent with missing entry
+13,1.2,MISSING,1,1,0    # MISSING party (no element created)
 ```
 
 ### 2. Update Expected Results

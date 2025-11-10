@@ -23,8 +23,18 @@ const QUESTION_METADATA: Record<
 
 /**
  * Parses CSV file and converts it to ResponseData array
+ * 
  * CSV format: respondent_id,weight,party,age_group,approval,anger
  * Lines starting with # are treated as comments and ignored
+ * 
+ * Value handling:
+ * - Numeric value (e.g., 0, 1, 1.5): Creates ResponseData element with that value
+ * - Empty string or "null": Creates ResponseData element with response=null
+ * - "MISSING" (case-insensitive): Skips creating ResponseData element entirely
+ * 
+ * This allows testing two types of missing data:
+ * 1. Null response: Element exists but has response=null
+ * 2. Missing entry: No element created at all
  */
 export function loadMockResponsesFromCsv(): ResponseData[] {
   const csvPath = path.join(__dirname, "mock-responses.csv");
@@ -55,8 +65,15 @@ export function loadMockResponsesFromCsv(): ResponseData[] {
       }
 
       const responseValue = values[j].trim();
+
+      // Skip creating element if value is "MISSING" (case-insensitive)
+      if (responseValue.toLowerCase() === "missing") {
+        continue;
+      }
+
+      // Parse response: empty or "null" → null, otherwise parse as number
       const response =
-        responseValue === "" || responseValue === "null"
+        responseValue === "" || responseValue.toLowerCase() === "null"
           ? null
           : parseFloat(responseValue);
 
@@ -279,6 +296,10 @@ export function createSimpleSessionConfig(
 /**
  * Expected results for buildRespondentRecords tests
  * Based on mock-responses.csv data
+ * 
+ * IMPORTANT: Tests two types of missing data:
+ * 1. Null response: ResponseData element exists with response=null (respondents 6, 7)
+ * 2. Missing entry: No ResponseData element created at all (respondents 9, 10)
  */
 export const expectedRespondentRecords = {
   /**
@@ -287,14 +308,16 @@ export const expectedRespondentRecords = {
    */
   withoutWeight: {
     includedIds: [1, 2, 3, 4, 5] as const,
-    excludedIds: [6, 7, 8] as const,
+    excludedIds: [6, 7, 8, 9, 10] as const,
     totalCount: 5,
     explanation: {
       included: "Respondents 1-5 have valid responses to all non-weight questions",
       excluded: {
-        6: "Missing party (null) - required grouping question",
-        7: "Missing age_group (null) - required grouping question",
+        6: "Missing party (null response element exists) - required grouping question",
+        7: "Missing age_group (null response element exists) - required grouping question",
         8: "Invalid approval value (5) - not in any response group",
+        9: "Missing party (no response element) - required grouping question",
+        10: "Missing approval (no response element) - required response question",
       },
     },
   },
@@ -305,14 +328,16 @@ export const expectedRespondentRecords = {
    */
   withWeight: {
     includedIds: [1, 2, 3, 4, 5] as const,
-    excludedIds: [6, 7, 8] as const,
+    excludedIds: [6, 7, 8, 9, 10] as const,
     totalCount: 5,
     explanation: {
       included: "Respondents 1-5 have valid weights and all required responses",
       excluded: {
-        6: "Missing both weight and party - fails on multiple requirements",
-        7: "Missing age_group - required grouping question",
+        6: "Missing both weight (null element) and party (null element) - multiple failures",
+        7: "Missing age_group (null response element exists) - required grouping question",
         8: "Invalid approval value (5) - not in any response group",
+        9: "Missing party (no response element) - required grouping question",
+        10: "Missing approval (no response element) - required response question",
       },
     },
   },

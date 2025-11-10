@@ -25,13 +25,26 @@ Contains mock respondent data in rectangular format with:
 - Inline comments showing what each respondent represents
 - Invalid respondents marked with explanations
 - Clear mapping to response values
+- **Special sentinel value "MISSING"** to test missing entries
+
+**CSV Value Types:**
+
+1. **Numeric value** (e.g., `0`, `1`, `1.5`): Creates ResponseData element with that value
+2. **Empty string or `"null"`**: Creates ResponseData element with `response=null` (null response)
+3. **`"MISSING"`** (case-insensitive): Omits ResponseData element entirely (missing entry)
+
+This allows testing **two types of missing data**:
+
+- **Null response**: Element exists in the array but has `response=null`
+- **Missing entry**: No element in the array at all for that respondent-question
 
 Example:
 
 ```csv
 respondent_id,weight,party,age_group,approval,anger
-1,1.5,0,0,0,1    # Democrat, 18-34, Strongly Approve, irritated
-6,,,0,1,1        # INVALID: missing weight AND party
+1,1.5,0,0,0,1         # Democrat, 18-34, Strongly Approve, irritated
+6,,,0,1,1             # INVALID: null weight AND party (null response elements)
+9,1.4,MISSING,1,1,0   # INVALID: MISSING party (no response element created)
 ```
 
 ### `fixtures/mock-data.ts`
@@ -62,11 +75,19 @@ All expected values include explanatory comments showing the calculation:
 
 ### Invalid Respondents (filtered out)
 
-| ID  | Reason for Exclusion                           |
-| --- | ---------------------------------------------- |
-| 6   | Missing party (required grouping question)     |
-| 7   | Missing age_group (required grouping question) |
-| 8   | Invalid approval value (5 not in valid range)  |
+| ID  | Reason for Exclusion                             | Type          |
+| --- | ------------------------------------------------ | ------------- |
+| 6   | Missing party (null response element exists)     | Null response |
+| 7   | Missing age_group (null response element exists) | Null response |
+| 8   | Invalid approval value (5 not in valid range)    | Invalid value |
+| 9   | Missing party (no response element)              | Missing entry |
+| 10  | Missing approval (no response element)           | Missing entry |
+
+**Types of Invalid Data:**
+
+- **Null response**: ResponseData element exists but has `response=null` (respondents 6, 7)
+- **Invalid value**: ResponseData element has value outside valid range (respondent 8)
+- **Missing entry**: No ResponseData element created at all (respondents 9, 10)
 
 ## Example Calculation Walkthrough
 
@@ -172,12 +193,18 @@ Human-readable CSV file containing mock response data in rectangular format (one
 
 **Format:**
 
-```
+```csv
 respondent_id,weight,party,age_group,approval,anger
-1,1.5,0,0,0,1
-2,0.8,0,1,1,0
-...
+1,1.5,0,0,0,1          # Valid respondent
+6,,,0,1,1              # Null responses (element exists with null value)
+9,1.4,MISSING,1,1,0    # Missing entry (no element created)
 ```
+
+**Value Encoding:**
+
+- Numeric values create ResponseData elements with that value
+- Empty or `"null"` creates ResponseData element with `response=null`
+- `"MISSING"` (case-insensitive) skips creating the element entirely
 
 Lines starting with `#` are treated as comments. The CSV includes a `weight` column for all respondents, allowing tests to use the same data for both weighted and unweighted computations.
 
@@ -200,9 +227,10 @@ Contains mock data loading and configuration:
 Tests for core computation functions:
 
 - Question key creation and parsing
-- Response grouping and filtering
+- Response grouping and filtering (both null responses and missing entries)
 - Split statistics computation (weighted and unweighted)
 - Empty statistics generation
+- Validation of all exclusion types (null, invalid, missing)
 
 ### `update-statistics.test.ts`
 
@@ -235,6 +263,9 @@ When writing tests:
 1. **Use CSV-based mock data**: Call `getMockResponses()` for unweighted tests or `getAllMockResponses()` for weighted tests
 2. **Test both weighted and unweighted scenarios**: The same data can be used by passing/omitting the `weightQuestion` parameter
 3. **Modify CSV for new scenarios**: Edit `mock-responses.csv` to add more respondents or change response patterns
-4. **Test edge cases**: Empty data, missing weights, null responses, etc.
-5. **Verify proportions**: Ensure proportions sum to expected values and match manual calculations
-6. **Check split generation**: Verify splits are generated correctly based on grouping criteria
+4. **Test both types of missing data**:
+   - Use empty string or `null` to test null response elements
+   - Use `MISSING` to test missing entries (no element created)
+5. **Test edge cases**: Empty data, missing weights, null responses, missing entries, invalid values, etc.
+6. **Verify proportions**: Ensure proportions sum to expected values and match manual calculations
+7. **Check split generation**: Verify splits are generated correctly based on grouping criteria

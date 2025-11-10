@@ -19,23 +19,35 @@ describe("computations", () => {
   describe("buildRespondentRecords", () => {
     /**
      * Test data reference (from mock-responses.csv):
-     * | ID | Weight | Party      | Age    | Approval            | Anger     | Status  |
-     * |----|--------|------------|--------|---------------------|-----------|---------|
-     * | 1  | 1.5    | Democrat   | 18-34  | Strongly Approve    | irritated | valid   |
-     * | 2  | 0.8    | Democrat   | 35-54  | Somewhat Approve    | none      | valid   |
-     * | 3  | 2.0    | Republican | 18-34  | Strongly Disapprove | aflame    | valid   |
-     * | 4  | 1.2    | Republican | 55+    | Somewhat Disapprove | hot       | valid   |
-     * | 5  | 1.0    | Democrat   | 55+    | Strongly Approve    | hot       | valid   |
-     * | 6  | null   | null       | 18-34  | Somewhat Approve    | irritated | invalid |
-     * | 7  | 1.1    | Democrat   | null   | Somewhat Approve    | none      | invalid |
-     * | 8  | 0.9    | Republican | 35-54  | 5 (invalid)         | irritated | invalid |
+     * 
+     * VALID RESPONDENTS:
+     * | ID | Weight | Party      | Age    | Approval            | Anger     |
+     * |----|--------|------------|--------|---------------------|-----------|
+     * | 1  | 1.5    | Democrat   | 18-34  | Strongly Approve    | irritated |
+     * | 2  | 0.8    | Democrat   | 35-54  | Somewhat Approve    | none      |
+     * | 3  | 2.0    | Republican | 18-34  | Strongly Disapprove | aflame    |
+     * | 4  | 1.2    | Republican | 55+    | Somewhat Disapprove | hot       |
+     * | 5  | 1.0    | Democrat   | 55+    | Strongly Approve    | hot       |
+     * 
+     * INVALID RESPONDENTS (null response elements exist):
+     * | ID | Weight | Party      | Age    | Approval            | Anger     | Issue          |
+     * |----|--------|------------|--------|---------------------|-----------|----------------|
+     * | 6  | null   | null       | 18-34  | Somewhat Approve    | irritated | null responses |
+     * | 7  | 1.1    | Democrat   | null   | Somewhat Approve    | none      | null response  |
+     * | 8  | 0.9    | Republican | 35-54  | 5 (invalid)         | irritated | invalid value  |
+     * 
+     * INVALID RESPONDENTS (no response element created - MISSING):
+     * | ID | Weight | Party      | Age    | Approval            | Anger     | Issue          |
+     * |----|--------|------------|--------|---------------------|-----------|----------------|
+     * | 9  | 1.4    | MISSING    | 35-54  | Somewhat Approve    | none      | missing entry  |
+     * | 10 | 1.5    | Democrat   | 18-34  | MISSING             | irritated | missing entry  |
      */
 
-    test("should filter out respondents missing response to a non-weight question", () => {
+    test("should filter out respondents with null response to a non-weight question", () => {
       const responses = getMockResponses(); // Excludes weight
       const records = buildRespondentRecords(responses, mockSessionConfig);
 
-      // Respondent 7 has null age_group (a required grouping question)
+      // Respondent 7 has null age_group (response element exists with null value)
       const respondentIds = records.map((r) => r.respondentId);
       expect(respondentIds).not.toContain(7);
 
@@ -48,11 +60,41 @@ describe("computations", () => {
       );
     });
 
+    test("should filter out respondents with missing entry for a non-weight question", () => {
+      /**
+       * Testing MISSING entries (no ResponseData element created):
+       * - Respondent 9: MISSING party (grouping question)
+       * - Respondent 10: MISSING approval (response question)
+       */
+      const responses = getMockResponses(); // Excludes weight
+      const records = buildRespondentRecords(responses, mockSessionConfig);
+
+      const respondentIds = records.map((r) => r.respondentId);
+
+      // Respondent 9 has no party element at all (MISSING in CSV)
+      expect(respondentIds).not.toContain(9);
+
+      // Respondent 10 has no approval element at all (MISSING in CSV)
+      expect(respondentIds).not.toContain(10);
+
+      // Should include only valid respondents
+      expect(respondentIds).toEqual(
+        expect.arrayContaining(expectedRespondentRecords.withoutWeight.includedIds as unknown as number[])
+      );
+      expect(records).toHaveLength(
+        expectedRespondentRecords.withoutWeight.totalCount
+      );
+    });
+
     test("should filter out respondents with an invalid response to a non-weight question", () => {
+      /**
+       * Respondent 8 has approval=5, which is not in any valid response group [0,1,2,3]
+       * This tests that invalid numeric values are properly filtered
+       */
       const responses = getMockResponses();
       const records = buildRespondentRecords(responses, mockSessionConfig);
 
-      // Respondent 8 has approval=5, which is not in any valid response group [0,1,2,3]
+      // Respondent 8 has approval=5, which is not in any valid response group
       const respondentIds = records.map((r) => r.respondentId);
       expect(respondentIds).not.toContain(8);
 
@@ -61,7 +103,11 @@ describe("computations", () => {
       );
     });
 
-    test("should filter out respondents missing the weight question when weightQuestion is defined", () => {
+    test("should filter out respondents with null weight when weightQuestion is defined", () => {
+      /**
+       * Respondent 6 has null weight (response element exists with null value)
+       * When weight question is defined, null weight should exclude the respondent
+       */
       const responses = getAllMockResponses(); // Includes weight
       const records = buildRespondentRecords(
         responses,
@@ -69,7 +115,7 @@ describe("computations", () => {
         mockWeightQuestion
       );
 
-      // Respondent 6 has null weight
+      // Respondent 6 has null weight element
       const respondentIds = records.map((r) => r.respondentId);
       expect(respondentIds).not.toContain(6);
 
@@ -78,7 +124,13 @@ describe("computations", () => {
       );
     });
 
-    test("should filter out respondents null on the weight question when weightQuestion is defined", () => {
+    test("should handle both null responses and missing entries correctly", () => {
+      /**
+       * Comprehensive test verifying all exclusion types:
+       * - Null responses: 6 (null weight & party), 7 (null age_group)
+       * - Invalid value: 8 (approval=5)
+       * - Missing entries: 9 (MISSING party), 10 (MISSING approval)
+       */
       const responses = getAllMockResponses();
       const records = buildRespondentRecords(
         responses,
@@ -86,9 +138,42 @@ describe("computations", () => {
         mockWeightQuestion
       );
 
-      // Respondent 6 has null weight - verify it's excluded
-      const respondent6 = records.find((r) => r.respondentId === 6);
-      expect(respondent6).toBeUndefined();
+      const respondentIds = records.map((r) => r.respondentId);
+
+      // Verify all invalid respondents are excluded
+      expect(respondentIds).not.toContain(6);  // null weight & party
+      expect(respondentIds).not.toContain(7);  // null age_group
+      expect(respondentIds).not.toContain(8);  // invalid approval value
+      expect(respondentIds).not.toContain(9);  // MISSING party entry
+      expect(respondentIds).not.toContain(10); // MISSING approval entry
+
+      // Verify only valid respondents are included
+      expect(respondentIds.sort()).toEqual([1, 2, 3, 4, 5]);
+      expect(records).toHaveLength(5);
+    });
+
+    test("should verify excluded respondents match expected results", () => {
+      /**
+       * Ensures that expectedRespondentRecords accurately reflects exclusions
+       */
+      const responses = getAllMockResponses();
+      const records = buildRespondentRecords(
+        responses,
+        mockSessionConfig,
+        mockWeightQuestion
+      );
+
+      // Verify excluded IDs
+      const includedIds = records.map((r) => r.respondentId).sort();
+      const expectedIncluded = [...expectedRespondentRecords.withWeight.includedIds].sort();
+      const expectedExcluded = [...expectedRespondentRecords.withWeight.excludedIds];
+
+      expect(includedIds).toEqual(expectedIncluded);
+
+      // Verify none of the excluded IDs are present
+      for (const excludedId of expectedExcluded) {
+        expect(includedIds).not.toContain(excludedId);
+      }
 
       // Verify only valid respondents are included
       expect(records).toHaveLength(

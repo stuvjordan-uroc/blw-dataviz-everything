@@ -18,6 +18,7 @@ The test system uses a **three-layer approach**:
 │ 1. CSV Data (Human-Readable)                               │
 │    - mock-responses.csv                                     │
 │    - Inline comments showing what each row represents       │
+│    - MISSING sentinel for testing missing entries           │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -30,8 +31,30 @@ The test system uses a **three-layer approach**:
 │ 3. Test Assertions (Visual Documentation)                  │
 │    - computations.test.ts                                   │
 │    - ASCII tables and explanatory comments                  │
+│    - Tests for null responses AND missing entries           │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## Working with Missing Data
+
+The test system supports **two types of missing data**:
+
+### 1. Null Response (element exists with null value)
+
+```csv
+7,1.1,0,,1,0     # Empty age_group → creates element with response=null
+```
+
+### 2. Missing Entry (no element created)
+
+```csv
+9,1.4,MISSING,1,1,0    # MISSING party → no element created at all
+```
+
+**When to use each:**
+
+- Use **null/empty** to test behavior when ResponseData element exists but is null
+- Use **MISSING** to test behavior when no ResponseData element exists at all
 
 ## Making Changes
 
@@ -40,15 +63,30 @@ The test system uses a **three-layer approach**:
 1. **Update CSV** (`fixtures/mock-responses.csv`):
 
    ```csv
-   9,1.3,1,1,2,0    # Republican, 35-54, Somewhat Disapprove, none
+   # Valid respondent
+   11,1.3,1,1,2,0    # Republican, 35-54, Somewhat Disapprove, none
+
+   # Invalid respondent with null response
+   12,,,1,1,0        # Null weight and party (elements exist with null)
+
+   # Invalid respondent with missing entry
+   13,1.2,MISSING,1,1,0    # MISSING party (no element created)
    ```
 
 2. **Update expected results** (`fixtures/mock-data.ts`):
 
    ```typescript
    withoutWeight: {
-     includedIds: [1, 2, 3, 4, 5, 9],  // Add 9
-     totalCount: 6,  // Increment
+     includedIds: [1, 2, 3, 4, 5, 11],  // Add valid respondent
+     excludedIds: [6, 7, 8, 9, 10, 12, 13],  // Add invalid respondents
+     totalCount: 6,  // Increment for valid only
+     explanation: {
+       excluded: {
+         // ... existing exclusions
+         12: "Null weight and party (null elements) - ...",
+         13: "Missing party (no element) - ...",
+       }
+     }
    }
    ```
 
@@ -136,6 +174,10 @@ If you change questions or response groups:
 
 - **Use imprecise equality checks** - use `toBeCloseTo` for floats
 
+- **Confuse null responses with missing entries** - they are different:
+  - Null response: Element exists with `response=null`
+  - Missing entry: No element exists at all (use `MISSING` in CSV)
+
 ## Debugging Failed Tests
 
 When a test fails:
@@ -200,10 +242,16 @@ Respondents are excluded if they:
 
 Valid respondents must have:
 
-- Non-null response to ALL grouping questions
-- Non-null response to ALL response questions
+- Non-null response to ALL grouping questions (or element must exist)
+- Non-null response to ALL response questions (or element must exist)
 - Response values that belong to at least one response group
 - Non-null weight (if using weighted analysis)
+
+**Note:** A respondent is invalid if:
+
+- Any required question has a null response element
+- Any required question has no response element at all (MISSING)
+- Any response value is outside valid ranges
 
 ## Test Data Integrity
 

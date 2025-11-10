@@ -10,16 +10,21 @@
 │  mock-responses.csv                                                         │
 │  ┌────────────────────────────────────────────────────────────┐            │
 │  │ respondent_id,weight,party,age_group,approval,anger        │            │
-│  │ 1,1.5,0,0,0,1    # Democrat, 18-34, Strongly Approve       │            │
-│  │ 2,0.8,0,1,1,0    # Democrat, 35-54, Somewhat Approve       │            │
+│  │ 1,1.5,0,0,0,1         # Numeric values → element created   │            │
+│  │ 6,,,0,1,1             # Empty → null response element      │            │
+│  │ 9,1.4,MISSING,1,1,0   # MISSING → no element created       │            │
 │  │ ...                                                         │            │
 │  └────────────────────────────────────────────────────────────┘            │
 │                            ↓ parsed by                                      │
 │                   loadMockResponsesFromCsv()                                │
+│                   (handles MISSING sentinel)                                │
 │                            ↓                                                │
 │  ResponseData[]                                                             │
 │  ┌────────────────────────────────────────────────────────────┐            │
-│  │ [{ respondentId: 1, varName: "party", response: 0, ... }]  │            │
+│  │ [{ respondentId: 1, varName: "party", response: 0, ... },  │            │
+│  │  { respondentId: 6, varName: "party", response: null },    │            │
+│  │  // Note: No party element for respondent 9 (MISSING)      │            │
+│  │ ]                                                           │            │
 │  └────────────────────────────────────────────────────────────┘            │
 │                                                                             │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -32,8 +37,16 @@
 │  ┌────────────────────────────────────────────────────────────┐            │
 │  │ withoutWeight: {                                            │            │
 │  │   includedIds: [1, 2, 3, 4, 5],                            │            │
-│  │   excludedIds: [6, 7, 8],                                  │            │
-│  │   explanation: { ... }                                     │            │
+│  │   excludedIds: [6, 7, 8, 9, 10],                           │            │
+│  │   explanation: {                                            │            │
+│  │     excluded: {                                             │            │
+│  │       6: "null response element",                           │            │
+│  │       7: "null response element",                           │            │
+│  │       8: "invalid value",                                   │            │
+│  │       9: "no response element (MISSING)",                   │            │
+│  │       10: "no response element (MISSING)"                   │            │
+│  │     }                                                        │            │
+│  │   }                                                          │            │
 │  │ }                                                           │            │
 │  └────────────────────────────────────────────────────────────┘            │
 │                                                                             │
@@ -100,13 +113,20 @@
 ### Invalid Respondents (Filtered Out)
 
 ```
-┌────┬────────────────────────────────────────────────────────────────┐
-│ ID │ Reason                                                         │
-├────┼────────────────────────────────────────────────────────────────┤
-│ 6  │ Missing party (null) - required grouping question              │
-│ 7  │ Missing age_group (null) - required grouping question          │
-│ 8  │ Invalid approval value (5) - not in any response group         │
-└────┴────────────────────────────────────────────────────────────────┘
+┌────┬──────────────┬──────────────────────────────────────────────────────┐
+│ ID │ Type         │ Reason                                               │
+├────┼──────────────┼──────────────────────────────────────────────────────┤
+│ 6  │ Null resp    │ Missing party (null element) - grouping question     │
+│ 7  │ Null resp    │ Missing age_group (null element) - grouping question │
+│ 8  │ Invalid val  │ Invalid approval (5) - not in any response group     │
+│ 9  │ Missing ent  │ Missing party (no element) - grouping question       │
+│ 10 │ Missing ent  │ Missing approval (no element) - response question    │
+└────┴──────────────┴──────────────────────────────────────────────────────┘
+
+Legend:
+  Null resp    = ResponseData element exists with response=null
+  Invalid val  = ResponseData element has invalid numeric value
+  Missing ent  = No ResponseData element created (MISSING in CSV)
 ```
 
 ## Split Generation
