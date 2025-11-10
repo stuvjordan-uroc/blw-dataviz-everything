@@ -5,7 +5,8 @@
   - Working on computation module...
     - (DONE) finish computations.ts
     - (DONE) test computations.ts
-    - delete and start over with update-statistics.ts
-    - test update-statistics.ts
+    - (DONE) delete and start over with update-statistics.ts
+    - (DONE) test update-statistics.ts
+    - (DONE) delete totalWeight from statistics table, generate migration, delete use of totalWeight in computation.ts, update tests of computation.ts to account for dropping of totalWeight.
   - Logic: Finish POST endpoint -- when enough posts come in, compute new statistics, then update respondents and responses table and statistics table all in one go.
 - api-polls-realtime -- realtime updates on statistics table for a session with a given ID.
