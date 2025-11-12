@@ -6,12 +6,11 @@
  * by multiple services throughout the monorepo.
  */
 
+export { Statistics } from "./statistics";
+
 // Export types
 export type {
-  ResponseData,
-  QuestionKey,
-  ResponseCounts,
-  RespondentRecord,
+  RespondentData,
   // Re-exported from shared-schemas for convenience
   SessionConfig,
   Split,
@@ -19,8 +18,3 @@ export type {
   ResponseGroup,
 } from "./types";
 
-// Export computation functions (full recomputation)
-export { computeSplitStatistics, createQuestionKey } from "./computations";
-
-// Export update functions (incremental updates)
-export { updateSplitStatistics } from "./computations";

@@ -1,22 +1,8 @@
 import { Controller, Post, Param, Body, ParseIntPipe } from "@nestjs/common";
 import { ResponsesService } from "./responses.service";
+import { submitResponsesSchema } from "shared-schemas";
 import { z } from "zod";
 import { ZodValidationPipe } from "../common/pipes/zod-validation.pipe";
-
-/**
- * DTO schema for submitting responses
- * Validates an array of response objects
- *
- * Each response must include:
- * - questionSessionId: The ID of the question from polls.questions table
- * - response: The response value (index into the responses array)
- */
-const submitResponsesSchema = z.array(
-  z.object({
-    questionSessionId: z.number().int(),
-    response: z.number().int().nullable(),
-  })
-);
 
 export type SubmitResponsesDto = z.infer<typeof submitResponsesSchema>;
 
@@ -27,7 +13,7 @@ export type SubmitResponsesDto = z.infer<typeof submitResponsesSchema>;
  */
 @Controller("sessions")
 export class ResponsesController {
-  constructor(private readonly responsesService: ResponsesService) {}
+  constructor(private readonly responsesService: ResponsesService) { }
 
   /**
    * POST /sessions/:sessionId/responses

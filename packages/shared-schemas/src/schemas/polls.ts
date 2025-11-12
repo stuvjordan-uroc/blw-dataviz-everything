@@ -32,11 +32,20 @@ export interface Question {
   subBattery: string;
 }
 
+export type ResponseQuestion = Question & {
+  responseGroups: {
+    expanded: ResponseGroup[];
+    collapsed: ResponseGroup[];
+  }
+}
+
+export type GroupingQuestion = Question & {
+  responseGroups: ResponseGroup[];
+}
+
 export interface SessionConfig {
-  responseQuestions: (Question & {
-    responseGroups: { expanded: ResponseGroup[]; collapsed: ResponseGroup[] };
-  })[];
-  groupingQuestions: (Question & { responseGroups: ResponseGroup[] })[];
+  responseQuestions: ResponseQuestion[];
+  groupingQuestions: GroupingQuestion[];
 }
 
 //sessions table
@@ -111,28 +120,29 @@ export const responses = pollsSchema.table(
 //types for session statistics
 
 // Response group with computed proportion statistic
-export interface ResponseGroupWithProportion extends ResponseGroup {
+export interface ResponseGroupWithStats extends ResponseGroup {
   proportion: number;
+  totalWeight: number; //total weight within response group
 }
 
 // Grouping criterion for a split (question + selected response group or null for "all")
-export interface SplitGroup {
+export interface Group {
   question: Question;
   responseGroup: ResponseGroup | null;
 }
 
 // Response question with computed statistics (used in Split)
-export interface SplitResponseQuestion extends Question {
+export interface ResponseQuestionWithStats extends Question {
   responseGroups: {
-    expanded: ResponseGroupWithProportion[];
-    collapsed: ResponseGroupWithProportion[];
+    expanded: ResponseGroupWithStats[];
+    collapsed: ResponseGroupWithStats[];
   };
+  totalWeight: number //total weight at question (summed across all response groups)
 }
 
 export interface Split {
-  groups: SplitGroup[];
-  responseQuestions: SplitResponseQuestion[];
-  totalWeight: number; // Sum of weights for all respondents matching this split's grouping criteria
+  groups: Group[];
+  responseQuestions: ResponseQuestionWithStats[];
 }
 
 //session_statistics table

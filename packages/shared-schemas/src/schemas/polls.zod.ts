@@ -6,6 +6,7 @@
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { sessions, questions, respondents, responses, sessionStatistics } from './polls';
 import { z } from 'zod';
+import type { ResponseGroup } from './polls';
 
 // ============================================================================
 // SESSION CONFIG VALIDATION SCHEMAS
@@ -32,21 +33,70 @@ export const questionSchema = z.object({
 });
 
 /**
+ * Helper function: Check if response group values are mutually exclusive
+ * Returns true if no value appears in more than one response group
+ */
+const hasExclusiveValues = (groups: ResponseGroup[]) => {
+  // Flatten all values from all groups into a single array
+  const allValues = groups.flatMap(g => g.values);
+  // Create a Set to find unique values
+  const uniqueValues = new Set(allValues);
+  // If the count of all values equals unique values, there are no duplicates
+  return allValues.length === uniqueValues.size;
+};
+
+/**
+ * Helper function: Check if two arrays of response groups have the same union of values
+ * Returns true if the set of all values in expanded equals the set of all values in collapsed
+ */
+const haveSameUnion = (expanded: ResponseGroup[], collapsed: ResponseGroup[]) => {
+  // Create sets of all values from expanded and collapsed groups
+  const expandedSet = new Set(expanded.flatMap(g => g.values));
+  const collapsedSet = new Set(collapsed.flatMap(g => g.values));
+
+  // Quick check: if sizes differ, the unions can't be equal
+  if (expandedSet.size !== collapsedSet.size) return false;
+
+  // Check that every value in expanded exists in collapsed
+  for (const value of expandedSet) {
+    if (!collapsedSet.has(value)) return false;
+  }
+  return true;
+};
+
+/**
  * Response question schema (includes expanded and collapsed response groups)
+ * 
+ * Validation rules:
+ * 1. Values within expanded response groups must be mutually exclusive
+ * 2. Values within collapsed response groups must be mutually exclusive
+ * 3. The union of expanded values must equal the union of collapsed values
  */
 export const responseQuestionSchema = questionSchema.extend({
   responseGroups: z.object({
     expanded: z.array(responseGroupSchema),
     collapsed: z.array(responseGroupSchema),
   }),
-});
+}).refine(
+  (data) => hasExclusiveValues(data.responseGroups.expanded),
+  { message: "Response group values in 'expanded' must be mutually exclusive (no value can appear in multiple groups)" }
+).refine(
+  (data) => hasExclusiveValues(data.responseGroups.collapsed),
+  { message: "Response group values in 'collapsed' must be mutually exclusive (no value can appear in multiple groups)" }
+).refine(
+  (data) => haveSameUnion(data.responseGroups.expanded, data.responseGroups.collapsed),
+  { message: "The union of 'expanded' and 'collapsed' response group values must be equal (same set of all values)" }
+);
 
 /**
  * Grouping question schema (includes single set of response groups)
  */
 export const groupingQuestionSchema = questionSchema.extend({
   responseGroups: z.array(responseGroupSchema),
-});
+}).refine(
+  (data) => hasExclusiveValues(data.responseGroups),
+  { message: "Response group values must be mutually exclusive (no value can appear in multiple groups)" }
+);
 
 /**
  * SessionConfig schema
@@ -100,6 +150,19 @@ export const selectRespondentSchema = createSelectSchema(respondents);
 
 export const insertResponseSchema = createInsertSchema(responses);
 export const selectResponseSchema = createSelectSchema(responses);
+
+/**
+ * Schema for submitting responses from a single respondent
+ * Validates an array of response objects, each containing:
+ * - questionSessionId: The ID of the question from polls.questions table
+ * - response: The response value (index into the responses array) or null
+ */
+export const submitResponsesSchema = z.array(
+  z.object({
+    questionSessionId: z.number().int(),
+    response: z.number().int().nullable(),
+  })
+);
 
 // ============================================================================
 // SESSION_STATISTICS TABLE SCHEMAS
