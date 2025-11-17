@@ -11,8 +11,10 @@ export {
   type Question,
   type SessionConfig,
   type Split,
+  type ResponseQuestionWithStats,
   type ResponseGroupWithStats,
-  type Group
+  type Group,
+  type VizConfig
 } from "./schemas/polls";
 export * from "./schemas/admin";
 
