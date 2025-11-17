@@ -2,5 +2,6 @@
   - (DONE) GET to for questions in a given session
   - (DONE) Endpoint: POST one respondent's responses to all questions from session.
   - (DONE) API inserts new record into polls.respondents and polls.responses for each received response at POST enpoint.
+  - shared-computation -- compute points from proportions and layout config
   - responses POST endpoint -- when enough posts come in, compute new statistics, then update respondents and responses table and statistics table all in one go.
 - api-polls-realtime -- realtime updates on statistics table for a session with a given ID.

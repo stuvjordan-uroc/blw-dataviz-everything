@@ -48,6 +48,17 @@ export interface SessionConfig {
   groupingQuestions: GroupingQuestion[];
 }
 
+export interface VizConfig {
+  vizWidth: number;
+  vizHeight: number;
+  pointRadius: number;
+  responseGap: number;
+  groupsVertical: Question[];
+  groupsHorizontal: Question[];
+  groupGapVertical: number;
+  groupGapHorizontal: number;
+}
+
 //sessions table
 export const sessions = pollsSchema.table("sessions", {
   id: serial("id").primaryKey(),
