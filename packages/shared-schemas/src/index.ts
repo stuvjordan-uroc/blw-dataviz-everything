@@ -14,7 +14,6 @@ export {
   type ResponseQuestionWithStats,
   type ResponseGroupWithStats,
   type Group,
-  type VizConfig
 } from "./schemas/polls";
 export * from "./schemas/admin";
 

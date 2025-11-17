@@ -36,27 +36,16 @@ export type ResponseQuestion = Question & {
   responseGroups: {
     expanded: ResponseGroup[];
     collapsed: ResponseGroup[];
-  }
-}
+  };
+};
 
 export type GroupingQuestion = Question & {
   responseGroups: ResponseGroup[];
-}
+};
 
 export interface SessionConfig {
   responseQuestions: ResponseQuestion[];
   groupingQuestions: GroupingQuestion[];
-}
-
-export interface VizConfig {
-  vizWidth: number;
-  vizHeight: number;
-  pointRadius: number;
-  responseGap: number;
-  groupsVertical: Question[];
-  groupsHorizontal: Question[];
-  groupGapVertical: number;
-  groupGapHorizontal: number;
 }
 
 //sessions table
@@ -148,7 +137,7 @@ export interface ResponseQuestionWithStats extends Question {
     expanded: ResponseGroupWithStats[];
     collapsed: ResponseGroupWithStats[];
   };
-  totalWeight: number //total weight at question (summed across all response groups)
+  totalWeight: number; //total weight at question (summed across all response groups)
 }
 
 export interface Split {
