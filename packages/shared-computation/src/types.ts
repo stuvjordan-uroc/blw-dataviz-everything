@@ -1,12 +1,14 @@
-export type {
+import type {
   SessionConfig,
   Split,
   Question,
   ResponseGroup,
 } from "shared-schemas";
 
+export type { SessionConfig, Split, Question, ResponseGroup };
 
-/**
+
+/*
  * RespondentData represents all of a respondent's responses to the questions
  * in a session. Each response includes the question identifier and the response value.
  * If a respondent did not answer a question, that question simply won't appear in the array.
@@ -21,3 +23,5 @@ export interface RespondentData {
     response: number | null;
   }[];
 }
+
+

@@ -123,6 +123,7 @@ export const responses = pollsSchema.table(
 export interface ResponseGroupWithStats extends ResponseGroup {
   proportion: number;
   totalWeight: number; //total weight within response group
+  totalCount: number; //total number of respondents within response group within split
 }
 
 // Grouping criterion for a split (question + selected response group or null for "all")
@@ -138,6 +139,7 @@ export interface ResponseQuestionWithStats extends Question {
     collapsed: ResponseGroupWithStats[];
   };
   totalWeight: number; //total weight at question (summed across all response groups)
+  totalCount: number; //total number of respondents responding to this question within split
 }
 
 export interface Split {

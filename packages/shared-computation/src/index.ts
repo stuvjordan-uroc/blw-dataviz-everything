@@ -7,6 +7,7 @@
  */
 
 export { Statistics } from "./statistics";
+export { SegmentViz } from "./segmentViz";
 
 // Export types
 export type {
@@ -17,4 +18,20 @@ export type {
   Question,
   ResponseGroup,
 } from "./types";
+
+export type {
+  StatisticsResult,
+  StatisticsUpdateResult,
+  ResponseGroupStatsDelta
+} from "./statistics";
+
+export type {
+  VizConfigSegments,
+  Point,
+  PointPosition,
+  ResponseGroupDisplay,
+  SegmentWithPositions,
+  SegmentVizView,
+  ResponseQuestionVisualization
+} from "./segmentViz";
 

@@ -1,6 +1,39 @@
-import { type SessionConfig, type Split, type ResponseGroup, type Question } from 'shared-schemas';
+import { type SessionConfig, type Split, type ResponseGroup, type Question, type Group } from 'shared-schemas';
 import type { RespondentData } from './types';
 import { getQuestionKey, createResponseMap } from './utils';
+
+/**
+ * Represents a change in statistics for a specific response group within a fully-specified split.
+ */
+export interface ResponseGroupStatsDelta {
+  /** The response question this delta applies to */
+  responseQuestion: Question;
+  /** The specific response group (from expanded groups) that changed */
+  responseGroup: ResponseGroup;
+  /** The grouping combination (fully-specified split's groups) */
+  groupingCombination: Group[];
+  /** Count before the update */
+  countBefore: number;
+  /** Count after the update */
+  countAfter: number;
+  /** The delta (countAfter - countBefore) */
+  delta: number;
+}
+
+/**
+ * Result returned by updateSplits method.
+ * Contains processing metadata and deltas for incremental updates.
+ */
+export interface StatisticsUpdateResult {
+  /** Number of valid respondents included in this update */
+  validCount: number;
+  /** Number of invalid respondents excluded from this update */
+  invalidCount: number;
+  /** Total number of respondents processed in this update */
+  totalProcessed: number;
+  /** Statistics deltas for each response group that changed */
+  deltas: ResponseGroupStatsDelta[];
+}
 
 /**
  * Result returned by static computeStatistics method.
@@ -317,15 +350,18 @@ export class Statistics {
             expanded: responseQuestion.responseGroups.expanded.map((rg) => ({
               ...rg,
               proportion: 0,
-              totalWeight: 0
+              totalWeight: 0,
+              totalCount: 0,
             })),
             collapsed: responseQuestion.responseGroups.collapsed.map((rg) => ({
               ...rg,
               proportion: 0,
-              totalWeight: 0
+              totalWeight: 0,
+              totalCount: 0
             })),
           },
-          totalWeight: 0
+          totalWeight: 0,
+          totalCount: 0
         })),
       });
     }
@@ -501,6 +537,7 @@ export class Statistics {
         for (const expandedGroup of responseQuestion.responseGroups.expanded) {
           if (expandedGroup.values.includes(respondentAnswer)) {
             expandedGroup.totalWeight += weight;
+            expandedGroup.totalCount += 1;
           }
         }
 
@@ -508,11 +545,13 @@ export class Statistics {
         for (const collapsedGroup of responseQuestion.responseGroups.collapsed) {
           if (collapsedGroup.values.includes(respondentAnswer)) {
             collapsedGroup.totalWeight += weight;
+            collapsedGroup.totalCount += 1;
           }
         }
 
-        // Step 3c: Update the total weight for this response question
+        // Step 3c: Update the total weight and total count for this response question
         responseQuestion.totalWeight += weight;
+        responseQuestion.totalCount += 1;
 
         // Sanity check: totalWeight should be positive after adding a validated respondent
         // If not, this indicates corrupted weight data (weight <= 0)
@@ -586,17 +625,29 @@ export class Statistics {
    * making it suitable for long-running processes that listen to live poll data
    * or other streaming response sources.
    * 
+   * Returns deltas showing which response groups in which grouping combinations
+   * had count increases, enabling efficient incremental visualization updates.
+   * 
    * @param respondentsData - Array of new respondent data to process and add to statistics
+   * @returns Update result with processing counts and deltas
    * @throws Error if weight data is corrupted (weight <= 0)
    * 
    * @example
    * ```typescript
    * const stats = new Statistics(sessionConfig);
    * // Later, as new data arrives...
-   * stats.updateSplits(newRespondents);
+   * const result = stats.updateSplits(newRespondents);
+   * console.log(`Added ${result.validCount} new respondents`);
+   * console.log(`Deltas: ${result.deltas.length} response groups changed`);
    * ```
    */
-  public updateSplits(respondentsData: RespondentData[]): void {
+  public updateSplits(respondentsData: RespondentData[]): StatisticsUpdateResult {
+    // Snapshot counts before processing
+    const beforeCounts = this.snapshotFullySpecifiedCounts();
+
+    const validCountBefore = this.validRespondentsCount;
+    const invalidCountBefore = this.invalidRespondentsCount;
+
     // Process each respondent's data
     for (const respondentData of respondentsData) {
       // Transform the respondent data into a map for efficient lookup
@@ -614,6 +665,151 @@ export class Statistics {
         this.invalidRespondentsCount++;
       }
     }
+
+    // Snapshot counts after processing
+    const afterCounts = this.snapshotFullySpecifiedCounts();
+
+    // Compute deltas
+    const deltas = this.computeDeltas(beforeCounts, afterCounts);
+
+    return {
+      validCount: this.validRespondentsCount - validCountBefore,
+      invalidCount: this.invalidRespondentsCount - invalidCountBefore,
+      totalProcessed: respondentsData.length,
+      deltas
+    };
+  }
+
+  /**
+   * Snapshot current counts for all response groups in fully-specified splits.
+   * Returns a nested map structure for efficient delta computation.
+   */
+  private snapshotFullySpecifiedCounts(): Map<string, Map<string, Map<string, number>>> {
+    // Structure: splitKey -> responseQuestionKey -> responseGroupKey -> count
+    const snapshot = new Map<string, Map<string, Map<string, number>>>();
+
+    // Filter to fully-specified splits
+    const fullySpecifiedSplits = this.splits.filter(split =>
+      split.groups.every(group => group.responseGroup !== null)
+    );
+
+    for (const split of fullySpecifiedSplits) {
+      // Create a unique key for this split based on its groups
+      const splitKey = this.createSplitKey(split);
+      const responseQuestionsMap = new Map<string, Map<string, number>>();
+
+      for (const rq of split.responseQuestions) {
+        const rqKey = getQuestionKey(rq);
+        const responseGroupsMap = new Map<string, number>();
+
+        for (const expandedGroup of rq.responseGroups.expanded) {
+          const rgKey = this.createResponseGroupKey(expandedGroup);
+          responseGroupsMap.set(rgKey, expandedGroup.totalCount);
+        }
+
+        responseQuestionsMap.set(rqKey, responseGroupsMap);
+      }
+
+      snapshot.set(splitKey, responseQuestionsMap);
+    }
+
+    return snapshot;
+  }
+
+  /**
+   * Create a unique key for a split based on its grouping combination.
+   */
+  private createSplitKey(split: Split): string {
+    // Sort by question key to ensure consistent ordering
+    const sortedGroups = [...split.groups].sort((a, b) =>
+      getQuestionKey(a.question).localeCompare(getQuestionKey(b.question))
+    );
+
+    return sortedGroups.map(g => {
+      if (g.responseGroup === null) {
+        return `${getQuestionKey(g.question)}:null`;
+      }
+      const sortedValues = [...g.responseGroup.values].sort((a, b) => a - b);
+      return `${getQuestionKey(g.question)}:[${sortedValues.join(',')}]`;
+    }).join('|');
+  }
+
+  /**
+   * Create a unique key for a response group based on its values.
+   */
+  private createResponseGroupKey(responseGroup: ResponseGroup): string {
+    const sortedValues = [...responseGroup.values].sort((a, b) => a - b);
+    return `[${sortedValues.join(',')}]`;
+  }
+
+  /**
+   * Compute deltas by comparing before and after snapshots.
+   */
+  private computeDeltas(
+    before: Map<string, Map<string, Map<string, number>>>,
+    after: Map<string, Map<string, Map<string, number>>>
+  ): ResponseGroupStatsDelta[] {
+    const deltas: ResponseGroupStatsDelta[] = [];
+
+    // Get fully-specified splits for reference
+    const fullySpecifiedSplits = this.splits.filter(split =>
+      split.groups.every(group => group.responseGroup !== null)
+    );
+
+    // Create a map for quick split lookup by key
+    const splitsByKey = new Map<string, Split>();
+    for (const split of fullySpecifiedSplits) {
+      splitsByKey.set(this.createSplitKey(split), split);
+    }
+
+    // Iterate through after counts
+    for (const [splitKey, afterResponseQuestions] of after) {
+      const beforeResponseQuestions = before.get(splitKey);
+      const split = splitsByKey.get(splitKey);
+
+      if (!split) continue;
+
+      for (const [rqKey, afterResponseGroups] of afterResponseQuestions) {
+        const beforeResponseGroups = beforeResponseQuestions?.get(rqKey);
+
+        // Find the response question object
+        const responseQuestion = split.responseQuestions.find(
+          rq => getQuestionKey(rq) === rqKey
+        );
+
+        if (!responseQuestion) continue;
+
+        for (const [rgKey, countAfter] of afterResponseGroups) {
+          const countBefore = beforeResponseGroups?.get(rgKey) || 0;
+          const delta = countAfter - countBefore;
+
+          // Only include if there was a change
+          if (delta > 0) {
+            // Find the response group object
+            const responseGroup = responseQuestion.responseGroups.expanded.find(
+              rg => this.createResponseGroupKey(rg) === rgKey
+            );
+
+            if (responseGroup) {
+              deltas.push({
+                responseQuestion: {
+                  varName: responseQuestion.varName,
+                  batteryName: responseQuestion.batteryName,
+                  subBattery: responseQuestion.subBattery
+                },
+                responseGroup: responseGroup,
+                groupingCombination: split.groups,
+                countBefore,
+                countAfter,
+                delta
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return deltas;
   }
 
 }
