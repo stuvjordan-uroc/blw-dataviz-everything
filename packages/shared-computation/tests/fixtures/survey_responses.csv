@@ -1,0 +1,56 @@
+# Survey responses fixture for shared-computation SegmentViz tests
+#
+# Values are encoded as 0-based indices (SegmentViz expects numeric codes):
+#   Mood: 0=very sad, 1=sad, 2=happy, 3=very happy
+#   Gender: 0=male, 1=female
+#   Height: 0=short, 1=tall
+#
+# Overall totals (20 complete responses; 6 responses contain NULL or SKIPPED and are excluded from proportions):
+#   Mood code 0 (very sad): 2 (10% of complete responses)
+#   Mood code 1 (sad):      4 (20% of complete responses)
+#   Mood code 2 (happy):    8 (40% of complete responses)
+#   Mood code 3 (very happy): 6 (30% of complete responses)
+#
+# NOTE: `SegmentViz` and the tests compute proportions excluding any respondent that has `NULL` or `SKIPPED` for any question. The CSV below contains 26 total rows, 6 of which are incomplete and should be ignored when computing proportions.
+#
+# Grouping by gender+height (each COMPLETE group has 5 responses):
+#   gender=0,height=0  (male,short)  (5 complete): mood counts -> 0:1 (20%), 1:1 (20%), 2:2 (40%), 3:1 (20%)
+#   gender=0,height=1  (male,tall)   (5 complete): mood counts -> 0:0 (0%),  1:1 (20%), 2:3 (60%), 3:1 (20%)
+#   gender=1,height=0  (female,short)(5 complete): mood counts -> 0:1 (20%), 1:1 (20%), 2:2 (40%), 3:1 (20%)
+#   gender=1,height=1  (female,tall) (5 complete): mood counts -> 0:0 (0%),  1:1 (20%), 2:1 (20%), 3:3 (60%)
+#
+# Grouping by height only (10 complete each):
+#  height=0 (short): mood counts -> 0:2 (20%), 1:2 (20%), 2:4 (40%), 3:2 (20%)
+#  height=1 (tall):  mood counts -> 0:0 (0%), 1:2 (20%), 2:4 (40%), 3:4 (40%)
+#
+# Grouping by gender only (10 complete each):
+#  gender=0 (male):   mood counts -> 0:1 (10%), 1:2 (20%), 2:5 (50%), 3:2 (20%)
+#  gender=1 (female): mood counts -> 0:1 (10%), 1:2 (20%), 2:3 (30%), 3:4 (40%)
+
+id,mood,gender,height
+1,0,0,0
+2,1,0,0
+3,2,0,0
+4,2,0,0
+5,3,0,0
+6,1,0,1
+7,2,0,1
+8,2,0,1
+9,2,0,1
+10,3,0,1
+11,0,1,0
+12,1,1,0
+13,2,1,0
+14,2,1,0
+15,3,1,0
+16,1,1,1
+17,2,1,1
+18,3,1,1
+19,3,1,1
+20,3,1,1
+21,NULL,0,0
+22,SKIPPED,1,1
+23,2,NULL,0
+24,3,SKIPPED,1
+25,1,0,NULL
+26,2,1,SKIPPED
