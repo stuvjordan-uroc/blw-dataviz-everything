@@ -1,6 +1,6 @@
 import type { SessionConfig, Question, ResponseGroup } from "shared-schemas";
 import { getQuestionKey } from '../utils';
-import type { VizConfigSegments, SegmentGroupGrid, SegmentGroupRow, SegmentGroupColumn, SegmentGroup, SegmentWithPositions, SegmentVizView, ResponseGroupDisplay } from './types';
+import type { VizConfigSegments, SegmentGroupGrid, SegmentGroupRow, SegmentGroupColumn, SegmentGroup, SegmentVizView, ResponseGroupDisplay } from './types';
 
 /**
  * Generate all possible combinations of active grouping questions.
@@ -168,33 +168,6 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
 }
 
 /**
- * Flatten the grid structure into a simple array of segments for the view.
- * This is what gets exposed in the final SegmentVizView.
- * Updates each segment's bounds to include both row and column positioning.
- */
-export function flattenGridToSegments(grid: SegmentGroupGrid): SegmentWithPositions[] {
-  const segments: SegmentWithPositions[] = [];
-
-  for (const row of grid.rows) {
-    for (let colIndex = 0; colIndex < row.cells.length; colIndex++) {
-      const cell = row.cells[colIndex];
-      const column = grid.columns[colIndex];
-
-      // Update each segment's bounds to include both row and column positioning
-      for (const segment of cell.segments) {
-        segment.bounds.y = row.y;
-        segment.bounds.height = row.height;
-        segment.bounds.x = column.x;
-        segment.bounds.width = column.width;
-        segments.push(segment);
-      }
-    }
-  }
-
-  return segments;
-}
-
-/**
  * Generate all views for a response question (all active question combinations × expanded/collapsed).
  * Note: This only sets up segment group bounds (vertical/horizontal layout).
  * Individual segment bounds within groups are set later when data is available.
@@ -266,16 +239,28 @@ function createView(
   // Step 2: Layout grid vertically (assign y, height to each row)
   layoutVertically(grid, activeVertical, vizHeight, vizConfigSegments);
 
-  // Step 3: Layout grid horizontally (assign x, width to each cell)
+  // Step 3: Layout grid horizontally (assign x, width to each column)
   layoutHorizontally(grid, activeHorizontal, vizWidth, vizConfigSegments);
 
-  // Step 4: Flatten grid into segments for the view
-  // Note: Individual segment bounds within groups will be set later by updateAllViewSegments()
-  const segments = flattenGridToSegments(grid);
+  // Step 4: Copy row/column positions to segments within each cell
+  // This sets the initial bounds for each segment based on its cell position
+  for (const row of grid.rows) {
+    for (let colIndex = 0; colIndex < row.cells.length; colIndex++) {
+      const cell = row.cells[colIndex];
+      const column = grid.columns[colIndex];
+
+      for (const segment of cell.segments) {
+        segment.bounds.y = row.y;
+        segment.bounds.height = row.height;
+        segment.bounds.x = column.x;
+        segment.bounds.width = column.width;
+      }
+    }
+  }
 
   return {
     activeGroupingQuestions: activeAll,
     responseGroupDisplay: display,
-    segments
+    grid
   };
 }

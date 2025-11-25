@@ -14,5 +14,9 @@ export type {
   ResponseGroupDisplay,
   SegmentWithPositions,
   SegmentVizView,
-  ResponseQuestionVisualization
+  ResponseQuestionVisualization,
+  SegmentGroup,
+  SegmentGroupRow,
+  SegmentGroupColumn,
+  SegmentGroupGrid
 } from './types';

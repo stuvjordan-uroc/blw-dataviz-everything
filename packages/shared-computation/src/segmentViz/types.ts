@@ -64,9 +64,12 @@ export interface SegmentVizView {
   // Whether to show expanded or collapsed response groups
   responseGroupDisplay: ResponseGroupDisplay;
 
-  // All segments in this view
-  // Length = (# of response groups) × (product of # response groups in each active grouping question)
-  segments: SegmentWithPositions[];
+  // 2D grid of segment groups for this view
+  // Grid structure preserves the hierarchical layout:
+  // - Rows correspond to vertical grouping combinations
+  // - Columns correspond to horizontal grouping combinations
+  // - Each cell (SegmentGroup) contains segments for one response group combination
+  grid: SegmentGroupGrid;
 }
 
 export interface ResponseQuestionVisualization {

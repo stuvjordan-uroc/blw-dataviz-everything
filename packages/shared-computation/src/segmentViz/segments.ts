@@ -37,10 +37,10 @@ export function updateAllViewSegments(
           ? rqFromSession.responseGroups.expanded
           : rqFromSession.responseGroups.collapsed;
 
-      // Step 1: Layout individual segments within their groups
-      layoutSegmentsVertically(view.segments);
+      // Step 1: Layout individual segments within the grid
+      layoutSegmentsVertically(view.grid);
       layoutSegmentsHorizontally(
-        view.segments,
+        view.grid,
         responseGroups,
         viz.responseQuestion,
         splits,
@@ -49,7 +49,7 @@ export function updateAllViewSegments(
 
       // Step 2: Position points within each segment
       positionPointsInSegments(
-        view.segments,
+        view.grid,
         viz.points
       );
     }

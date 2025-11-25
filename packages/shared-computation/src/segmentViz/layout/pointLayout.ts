@@ -1,33 +1,49 @@
 import type { ResponseGroup } from 'shared-schemas';
-import type { Point, PointPosition, SegmentWithPositions } from '../types';
+import type { Point, PointPosition, SegmentWithPositions, SegmentGroupGrid } from '../types';
 
 /**
  * Position points within segments using Poisson Disk Sampling.
  * This creates a natural-looking, uniform distribution with minimal overlap.
  * 
  * Called after segment bounds are set to populate pointPositions for each segment.
+ * Iterates over the grid structure to process all segments.
  */
 export function positionPointsInSegments(
-  segments: SegmentWithPositions[],
+  grid: SegmentGroupGrid,
   allPoints: Point[]
 ): void {
-  for (const segment of segments) {
-    // Find all points that belong to this segment
-    const segmentPoints = allPoints.filter(point =>
-      pointBelongsToSegment(point, segment)
-    );
-
-    if (segmentPoints.length === 0) {
-      segment.pointPositions = [];
-      continue;
+  // Iterate over each cell in the grid
+  for (const row of grid.rows) {
+    for (const cell of row.cells) {
+      for (const segment of cell.segments) {
+        positionPointsInSegment(segment, allPoints);
+      }
     }
-
-    // Position points using Poisson Disk Sampling
-    segment.pointPositions = poissonDiskSampling(
-      segment.bounds,
-      segmentPoints
-    );
   }
+}
+
+/**
+ * Position points within a single segment.
+ */
+function positionPointsInSegment(
+  segment: SegmentWithPositions,
+  allPoints: Point[]
+): void {
+  // Find all points that belong to this segment
+  const segmentPoints = allPoints.filter(point =>
+    pointBelongsToSegment(point, segment)
+  );
+
+  if (segmentPoints.length === 0) {
+    segment.pointPositions = [];
+    return;
+  }
+
+  // Position points using Poisson Disk Sampling
+  segment.pointPositions = poissonDiskSampling(
+    segment.bounds,
+    segmentPoints
+  );
 }
 
 /**
