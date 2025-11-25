@@ -9,6 +9,7 @@ import {
   vizConfig_bothVertically,
   vizConfig_noGroupings
 } from './fixtures/session_and_viz_configs';
+import { Column } from 'drizzle-orm';
 
 
 type Row = {
@@ -317,115 +318,42 @@ describe("SegmentViz bounding box", () => {
 })
 
 describe("SegmentViz segment groups layout", () => {
-
-  // one each
-  const oneEachViz = allSegmentViz.find((c) => c.name === ('oneEach' as any));
-  const viz = oneEachViz?.instance.getAllVisualizations()[0];
-  describe('oneEach viz views', () => {
-    const views = (viz && Array.isArray(viz.views)) ? viz.views : [];
-    views.forEach((view) => {
-      const questionKeyH = vizConfig_oneEach.groupingQuestionsHorizontal.map((q) => getQuestionKey(q))[0]
-      const questionKeyV = vizConfig_oneEach.groupingQuestionsVertical.map((q) => getQuestionKey(q))[0]
-      const activeQuestionKeys = view.activeGroupingQuestions.map((q) => getQuestionKey(q))
-      if (activeQuestionKeys.includes(questionKeyH)) {
-        if (activeQuestionKeys.includes(questionKeyV)) {
-          //tests where both vertical and horizontal questions are active.
-          describe('layout with both V and H questions active', () => {
-            view.grid.rows.forEach((row, rowIdx) => {
-              const expectedY = rowIdx * (vizConfig_oneEach.groupGapVertical + vizConfig_oneEach.minGroupHeight)
-              const expectedHeight = vizConfig_oneEach.minGroupHeight
-              test(`row ${rowIdx} y and height`, () => {
-                expect(row.y).toBeCloseTo(expectedY)
-                expect(row.height).toBeCloseTo(expectedHeight)
+  allSegmentViz.forEach((segmentVizInstance) => {
+    describe(`SegmentViz instance ${segmentVizInstance.name}`, () => {
+      const viz = segmentVizInstance.instance.getAllVisualizations()[0]
+      viz.views.forEach((view) => {
+        const segmentGroupWidth = (
+          segmentVizInstance.instance.getBoundingBox().width
+          - (view.grid.columns.length - 1) * segmentVizInstance.config.groupGapHorizontal
+        ) / view.grid.columns.length
+        const segmentGroupHeight = (
+          segmentVizInstance.instance.getBoundingBox().height
+          - (view.grid.rows.length - 1) * segmentVizInstance.config.groupGapVertical
+        ) / view.grid.rows.length
+        describe(`view with active questions ${view.activeGroupingQuestions.map((q) => getQuestionKey(q))} and response groups ${view.responseGroupDisplay}`, () => {
+          view.grid.columns.forEach((column, columnIdx) => {
+            describe(`segment group column index ${columnIdx}`, () => {
+              test("x", () => {
+                expect(column.x).toBe(columnIdx * (segmentGroupWidth + segmentVizInstance.config.groupGapHorizontal))
               })
-            })
-            const numResponseGaps = view.responseGroupDisplay === "expanded" ? 3 : 1;
-            view.grid.columns.forEach((column, columnIdx) => {
-              const expectedWidth = vizConfig_oneEach.minGroupAvailableWidth
-                + numResponseGaps * vizConfig_oneEach.responseGap
-              const expectedX = columnIdx * (
-                vizConfig_oneEach.groupGapHorizontal
-                + expectedWidth
-              )
-              test(`column ${columnIdx} x and width`, () => {
-                expect(column.x).toBeCloseTo(expectedX)
-                expect(column.width).toBeCloseTo(expectedWidth)
+              test("width", () => {
+                expect(column.width).toBe(segmentGroupWidth)
               })
             })
           })
-        } else {
-          //test case where horizontal is active and vertical is not
-          describe('layout with only H question active', () => {
-            const onlyRow = view.grid.rows[0]
-            test('just one row', () => {
-              expect(onlyRow).toBeDefined()
-              expect(onlyRow.y).toBeCloseTo(0)
-              const totalHeight = oneEachViz?.instance.getBoundingBox().height
-              expect(totalHeight).toBeDefined()
-              expect(onlyRow.height).toBeCloseTo(totalHeight!)
-            })
-            const numResponseGaps = view.responseGroupDisplay === "expanded" ? 3 : 1;
-            view.grid.columns.forEach((column, columnIdx) => {
-              const expectedWidth = vizConfig_oneEach.minGroupAvailableWidth
-                + numResponseGaps * vizConfig_oneEach.responseGap
-              const expectedX = columnIdx * (
-                vizConfig_oneEach.groupGapHorizontal
-                + expectedWidth
-              )
-              test(`column ${columnIdx} x and width`, () => {
-                expect(column.x).toBeCloseTo(expectedX)
-                expect(column.width).toBeCloseTo(expectedWidth)
+          view.grid.rows.forEach((row, rowIdx) => {
+            describe(`segment group row index ${rowIdx}`, () => {
+              test("y", () => {
+                expect(row.y).toBe(rowIdx * (segmentGroupHeight + segmentVizInstance.config.groupGapVertical))
+              })
+              test("height", () => {
+                expect(row.height).toBe(segmentGroupHeight)
               })
             })
           })
-        }
-      } else {
-        if (activeQuestionKeys.includes(questionKeyV)) {
-          //test case where vertical question is active and horizontal is not.
-          describe('layout with only V question active', () => {
-            view.grid.rows.forEach((row, rowIdx) => {
-              const expectedY = rowIdx * (vizConfig_oneEach.groupGapVertical + vizConfig_oneEach.minGroupHeight)
-              const expectedHeight = vizConfig_oneEach.minGroupHeight
-              test(`row ${rowIdx} y and height`, () => {
-                expect(row.y).toBeCloseTo(expectedY)
-                expect(row.height).toBeCloseTo(expectedHeight)
-              })
-            })
-            const onlyColumn = view.grid.columns[0]
-            test('just one column', () => {
-              expect(onlyColumn).toBeDefined()
-              expect(onlyColumn.x).toBeCloseTo(0)
-              const totalWidth = oneEachViz?.instance.getBoundingBox().width
-              expect(totalWidth).toBeDefined()
-              expect(onlyColumn.width).toBeCloseTo(totalWidth!)
-            })
-          })
-        } else {
-          //test case where neither horizontal nor vertical question is active
-          describe('layout with neither H nor V question active', () => {
-            const onlyRow = view.grid.rows[0]
-            test('just one row', () => {
-              expect(onlyRow).toBeDefined()
-              expect(onlyRow.y).toBeCloseTo(0)
-              const totalHeight = oneEachViz?.instance.getBoundingBox().height
-              expect(totalHeight).toBeDefined()
-              expect(onlyRow.height).toBeCloseTo(totalHeight!)
-            })
-            const onlyColumn = view.grid.columns[0]
-            test('just one column', () => {
-              expect(onlyColumn).toBeDefined()
-              expect(onlyColumn.x).toBeCloseTo(0)
-              const totalWidth = oneEachViz?.instance.getBoundingBox().width
-              expect(totalWidth).toBeDefined()
-              expect(onlyColumn.width).toBeCloseTo(totalWidth!)
-            })
-          })
-        }
-      }
-    });
-  });
-  //TODO bothHorontally layout
-  //TODO bothVertically layout
-  //TODO noGroupings layout
+        })
+      })
+    })
+  })
 });
 

@@ -86,22 +86,14 @@ export function calculateVizHeight(
  * This width is distributed among the active horizontal segment groups.
  */
 export function calculateSegmentGroupWidth(
-  activeHorizontal: Question[],
   vizWidth: number,
-  vizConfigSegments: VizConfigSegments
+  numColumns: number,
+  groupGapHorizontal: number
 ): number {
-  const numActiveGroups = activeHorizontal.length || 1; // At least 1 group
-
-  if (numActiveGroups === 1) {
-    return vizWidth;
-  }
-
-  // Subtract total group gaps
-  const totalGroupGaps = (numActiveGroups - 1) * vizConfigSegments.groupGapHorizontal;
-  const availableWidth = vizWidth - totalGroupGaps;
-
-  // Distribute equally among active groups
-  return availableWidth / numActiveGroups;
+  return (
+    vizWidth
+    - (numColumns - 1) * groupGapHorizontal
+  ) / numColumns
 }
 
 /**
@@ -111,22 +103,14 @@ export function calculateSegmentGroupWidth(
  * This height is distributed among the active vertical segment groups.
  */
 export function calculateSegmentGroupHeight(
-  activeVertical: Question[],
   vizHeight: number,
-  vizConfigSegments: VizConfigSegments
+  numRows: number,
+  groupGapVertical: number
 ): number {
-  const numActiveGroups = activeVertical.length || 1; // At least 1 group
-
-  if (numActiveGroups === 1) {
-    return vizHeight;
-  }
-
-  // Subtract total group gaps
-  const totalGroupGaps = (numActiveGroups - 1) * vizConfigSegments.groupGapVertical;
-  const availableHeight = vizHeight - totalGroupGaps;
-
-  // Distribute equally among active groups
-  return availableHeight / numActiveGroups;
+  return (
+    vizHeight
+    - (numRows - 1) * groupGapVertical
+  ) / numRows
 }
 
 /**

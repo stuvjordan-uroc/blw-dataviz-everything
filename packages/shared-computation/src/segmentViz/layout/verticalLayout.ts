@@ -26,20 +26,7 @@ export function layoutSegmentGroupsVertically(
   const numRows = grid.rows.length;
 
   // Calculate segment group height for this view
-  const segmentGroupHeight = calculateSegmentGroupHeight(
-    activeVertical,
-    vizHeight,
-    vizConfigSegments
-  );
-
-  // Special case: Only one row
-  if (numRows <= 1) {
-    if (numRows === 1) {
-      grid.rows[0].y = 0;
-      grid.rows[0].height = segmentGroupHeight;
-    }
-    return;
-  }
+  const segmentGroupHeight = calculateSegmentGroupHeight(vizHeight, numRows, vizConfigSegments.groupGapVertical)
 
   // Assign y and height to each row (top to bottom)
   let currentY = 0;

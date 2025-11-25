@@ -27,19 +27,10 @@ export function layoutSegmentGroupsHorizontally(
 
   // Calculate segment group width for this view
   const segmentGroupWidth = calculateSegmentGroupWidth(
-    activeHorizontal,
     vizWidth,
-    vizConfigSegments
+    numColumns,
+    vizConfigSegments.groupGapHorizontal
   );
-
-  // Special case: Only one column
-  if (numColumns <= 1) {
-    if (numColumns === 1) {
-      grid.columns[0].x = 0;
-      grid.columns[0].width = segmentGroupWidth;
-    }
-    return;
-  }
 
   // Assign x and width to each column (left to right)
   let currentX = 0;

@@ -1,3 +1,14 @@
+/**
+ * TODO
+ * 
+ * 1. implement coordinates of all segments (and points within segments) within each segment group, once data is passed to instance
+ * 2. test segment layout
+ * 3. write getter that returns all splits-with-segments as flat array.
+ * 4. cause updater that receives new responses to return diff of segments/splits
+ * 
+ */
+
+
 /*
  * SegmentViz - Visualization data generator for poll/survey responses
  *
