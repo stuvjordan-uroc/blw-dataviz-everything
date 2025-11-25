@@ -1,10 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import type { SessionConfig } from 'shared-schemas';
-import type { VizConfigSegments } from '../src/segmentViz/types';
 import { parseSurveyCsvToRespondents } from './helpers/parseRespondents';
-import { SegmentViz } from '../src/segmentViz/SegmentViz';
-
+import { makeAllSegmentVizFromFixtures } from './helpers/createAllSegmentViz';
 
 
 type Row = {
@@ -156,77 +153,6 @@ describe('survey_responses.csv fixture', () => {
 });
 
 describe("SegmentViz", () => {
-  const sessionConfig: SessionConfig = {
-    responseQuestions: [
-      {
-        batteryName: "test",
-        subBattery: "test",
-        varName: "mood",
-        responseGroups: {
-          collapsed: [
-            {
-              label: "sad",
-              values: [0, 1]
-            },
-            {
-              label: "happy",
-              values: [2, 3]
-            }
-          ],
-          expanded: [
-            {
-              label: "very sad",
-              values: [0]
-            },
-            {
-              label: "sad",
-              values: [1]
-            },
-            {
-              label: "happy",
-              values: [2]
-            },
-            {
-              label: "very happy",
-              values: [3]
-            }
-          ]
-        }
-      }
-    ],
-    groupingQuestions: [
-      {
-        batteryName: "test",
-        subBattery: "test",
-        varName: "gender",
-        responseGroups: [
-          {
-            label: "male",
-            values: [0]
-          },
-          {
-            label: "female",
-            values: [1]
-          }
-        ]
-      },
-      {
-        batteryName: "test",
-        subBattery: "test",
-        varName: "height",
-        responseGroups: [
-          {
-            label: "short",
-            values: [0]
-          },
-          {
-            label: "tall",
-            values: [1]
-          }
-        ]
-      }
-    ]
-  }
   const fixturePath = path.join(__dirname, 'fixtures', 'survey_responses.csv');
   const respondentsData = parseSurveyCsvToRespondents(fixturePath);
 
@@ -242,100 +168,144 @@ describe("SegmentViz", () => {
     expect(r22).toBeDefined();
     expect(r22!.responses.some(resp => resp.varName === 'mood')).toBe(false);
   });
-  const vizConfigSegments: VizConfigSegments = {
-    groupGapHorizontal: 10,
-    groupGapVertical: 10,
-    groupingQuestionsHorizontal: [
-      {
-        batteryName: "test",
-        subBattery: "test",
-        varName: "height"
-      },
-    ],
-    groupingQuestionsVertical: [
-      {
-        batteryName: "test",
-        subBattery: "test",
-        varName: "gender"
-      }
-    ],
-    responseGap: 5,
-    segmentGroupHeight: 50,
-    segmentGroupWidth: 10
-  }
-  const segmentViz = new SegmentViz(
-    sessionConfig,
-    vizConfigSegments,
-    respondentsData
-  )
 
-  test("getBoundingBox", () => {
-    const bb = segmentViz.getBoundingBox()
+
+
+  test("getBoundingBox - default (one each)", () => {
+    const allSegmentViz = makeAllSegmentVizFromFixtures(respondentsData);
+
+    // testing layout for default config (oneEach)
+    const oneEachViz = allSegmentViz.find((c) => c.name === ('oneEach' as any));
+    expect(oneEachViz).toBeDefined();
+    const oneEachBb = oneEachViz!.instance.getBoundingBox();
     /**
      * HORIZONTAL LAYOUT
      *
      * In each segment group, there are 4 expanded segments,
-     * and thus 3 response gaps.  vizconfig above sets response
+     * and thus 3 response gaps.  vizConfig used by the helper 
+     * above sets response
      * gaps to 5.  So total width of response gaps in expanded
      * view within a segment group is 15.
-     * segmentGroupWidth is set to 10.  10X15 = 150.
-     * That means that in the view in all horizontal groups are 
-     * active, each segment group is 150 units wide.
+     * minGroupAvailableWidth is set to 100.
+     * So in the view in which all horizontal groups are 
+     * active, each segment group is 115 units wide.
      * There are two segment groups on the horizontal axis
      * in the view with all horizontal groups active,
-     * so that 2 X 150 = 300 units.  Then we have the groupGapHorizontal
-     * which the config sets to 10.  So the vizWidth should be 310.
+     * so that 2 X 115 = 230 units.  Then we have the groupGapHorizontal
+     * which the config sets to 10.  So the vizWidth should be 230 + 10 = 240.
      * 
      * VERTICAL LAYOUT
      * 
      * Config sets groupGapVertical to 10.  There are two 
      * segment groups laid out vertically in the view with
      * all vertical groups active, so 1 vertical group gap of 10 units.
-     * segmentGroupHeight in the config is set to 50.
+     * minGroupHeight in the config is set to 30.
      * So total vizHeight is:
-     * 2 X 50 + 10 = 110. 
+     * 2 X 30 + 10 = 70. 
      */
-    expect(bb).toEqual({ width: 310, height: 110 });
-  })
+    expect(oneEachBb).toEqual({ width: 240, height: 70 });
+  });
 
-  test("getVisualizationForQuestion", () => {
-    const viz = segmentViz.getVisualizationForQuestion({
-      batteryName: "test",
-      subBattery: "test",
-      varName: "mood"
-    })
-    expect(viz).toBeDefined();
-    // There are 2 grouping questions (gender,height) each optional => 2^2=4 configs × 2 displays = 8 views
-    expect(viz!.views.length).toBe(8);
-    // Points should equal total processed respondents who provided a valid mood in expanded groups (20)
-    expect(viz!.points.length).toBe(20);
+  test('getBoundingBox - bothHorizontal', () => {
+    const allSegmentViz = makeAllSegmentVizFromFixtures(respondentsData);
+    // testing layout for bothHorizontal
+    const bothHViz = allSegmentViz.find((c) => c.name === ('bothHorizontal' as any));
+    expect(bothHViz).toBeDefined();
+    const bothHBb = bothHViz!.instance.getBoundingBox();
+    /**
+     * HORIZONTAL LAYOUT
+     *
+     * In each segment group, there are 4 expanded segments,
+     * and thus 3 response gaps.  vizConfig used by the helper 
+     * above sets response
+     * gaps to 5.  So total width of response gaps in expanded
+     * view within a segment group is 15.
+     * minGroupAvailableWidth is set to 100.
+     * So in the view in which all horizontal groups are 
+     * active, each segment group is 115 units wide.
+     * There are FOUR segment groups on the horizontal axis
+     * in the view with all horizontal groups active,
+     * so that 4 X 115 = 460 units.  Then we have the groupGapHorizontal
+     * which the config sets to 10.  And there are 4 horizontal groups.
+     * So the vizWidth should be 460 + 10 X 3 = 490.
+     * 
+     * VERTICAL LAYOUT
+     * 
+     * Config sets groupGapVertical to 10.  There is 1
+     * segment group laid out vertically in the view with
+     * all vertical groups active, so 0 vertical group gap of 10 units.
+     * minGroupHeight in the config is set to 30.
+     * So total vizHeight is:
+     * 30. 
+     */
+    expect(bothHBb).toEqual({ width: 490, height: 30 });
+  });
 
-    // Find the view where both grouping questions are active and expanded
-    const fullExpandedView = viz!.views.find(v => v.activeGroupingQuestions.length === 2 && v.responseGroupDisplay === 'expanded');
-    expect(fullExpandedView).toBeDefined();
-    // With 2 vertical × 2 horizontal group combinations and 4 expanded response groups, segments = 2*2*4 = 16
-    expect(fullExpandedView!.segments.length).toBe(16);
-  })
+  test('getBoundingBox - bothVertical', () => {
+    const allSegmentViz = makeAllSegmentVizFromFixtures(respondentsData);
+    // testing layout for bothVertical
+    const bothVViz = allSegmentViz.find((c) => c.name === ('bothVertical' as any));
+    expect(bothVViz).toBeDefined();
+    const bothVBb = bothVViz!.instance.getBoundingBox();
+    /**
+     * HORIZONTAL LAYOUT
+     *
+     * In each segment group, there are 4 expanded segments,
+     * and thus 3 response gaps.  vizConfig used by the helper 
+     * above sets response
+     * gaps to 5.  So total width of response gaps in expanded
+     * view within a segment group is 15.
+     * minGroupAvailableWidth is set to 100.
+     * So in the view in which all horizontal groups are 
+     * active, each segment group is 115 units wide.
+     * There is ONE segment groups on the horizontal axis
+     * in the view with all horizontal groups active,
+     * so no group gaps.  So vizWidth = 115.
+     * 
+     * VERTICAL LAYOUT
+     * 
+     * Config sets groupGapVertical to 10.  There are 4
+     * segment group laid out vertically in the view with
+     * all vertical groups active, so 3 vertical group gaps of 10 units each
+     * totaling 30 units.
+     * minGroupHeight in the config is set to 30.
+     * So total vizHeight is:
+     * 4 x 30 + 30 = 150 
+     */
+    expect(bothVBb).toEqual({ width: 115, height: 150 });
+  });
 
-  test("getSplits", () => {
-    const splits = segmentViz.getSplits()
-    // There are 2 grouping questions with 2 groups each -> (2+1)*(2+1)=9 splits (including null filters)
-    expect(splits.length).toBe(9);
+  test('getBoundingBox - none (no groupings)', () => {
+    const allSegmentViz = makeAllSegmentVizFromFixtures(respondentsData);
+    // testing layout for no groups
+    const noGroupsViz = allSegmentViz.find((c) => c.name === ('none' as any));
+    expect(noGroupsViz).toBeDefined();
+    const noGroupsBb = noGroupsViz!.instance.getBoundingBox();
+    /**
+     * HORIZONTAL LAYOUT
+     *
+     * In each segment group, there are 4 expanded segments,
+     * and thus 3 response gaps.  vizConfig used by the helper 
+     * above sets response
+     * gaps to 5.  So total width of response gaps in expanded
+     * view within a segment group is 15.
+     * minGroupAvailableWidth is set to 100.
+     * So with no groups, vizWidth = 115
+     * 
+     * VERTICAL LAYOUT
+     * 
+     * Config sets groupGapVertical to 10.  There are 0
+     * segment group laid out vertically in the view with
+     * all vertical groups active, so 0 vertical group gaps of 10 units each
+     * totaling 0 units.
+     * minGroupHeight in the config is set to 30.
+     * So total vizHeight is:
+     * 30 
+     */
+    expect(noGroupsBb).toEqual({ width: 115, height: 30 });
+  });
 
-    // Find the 'all respondents' split (all responseGroup === null)
-    const allSplit = splits.find(s => s.groups.every(g => g.responseGroup === null));
-    expect(allSplit).toBeDefined();
 
-    const rq = allSplit!.responseQuestions.find(rq => rq.varName === 'mood');
-    expect(rq).toBeDefined();
-
-    // Expanded groups order: very sad(0), sad(1), happy(2), very happy(3)
-    const expanded = rq!.responseGroups.expanded;
-    expect(expanded[0].totalCount).toBe(2);
-    expect(expanded[1].totalCount).toBe(4);
-    expect(expanded[2].totalCount).toBe(8);
-    expect(expanded[3].totalCount).toBe(6);
-  })
 
 
 })

@@ -254,12 +254,13 @@ function createView(
   layoutHorizontally: (grid: SegmentGroupGrid, activeHorizontal: Question[], vizWidth: number, config: VizConfigSegments) => void
 ): SegmentVizView {
   // Step 1: Generate segment group grid (2D structure)
+  // sets all layout parameters on each segment group (x,y,width,height) to 0
   const grid = generateSegmentGroups(
     responseQuestion,
     sessionConfig,
     activeHorizontal,
     activeVertical,
-    display
+    display //"expanded" | "collapsed"
   );
 
   // Step 2: Layout grid vertically (assign y, height to each row)

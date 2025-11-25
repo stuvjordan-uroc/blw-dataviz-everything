@@ -6,9 +6,10 @@ export interface VizConfigSegments {
   groupingQuestionsVertical: Question[];
   syntheticSampleSize?: number;
   responseGap: number;
+  minGroupAvailableWidth: number;
   groupGapHorizontal: number;
   groupGapVertical: number;
-  segmentGroupWidth: number;
+  minGroupHeight: number;
 }
 ```
 
@@ -24,24 +25,24 @@ We break the presentation of the configuration for the length parameters in the 
 
 - groupGapHorizontal. This is the width of the gap between segment groups along the horizontal axis in all views, specified in point radii. For instance, if you set groupGapHorizontal = 8, the gaps between segment groups along the horizontal axis in all views will be 8x the pointRadius.
 
-- segmentGroupWidth. This one is complicated. Hang on to your butts. This is the total width of a segment group _in the view in which all horizontal groups are active_, specified as a multiple of the total width of the response gaps _in the view in which the response groups of the response question are expanded_. For instance, suppose that there are 4 expanded response groups of the response question so that in any expanded view, each segment group contains 3 response gaps. Now suppose you set responseGap = 4. Then the total space taken up by response gaps within any segment group in any expanded view will be 3 X 4 point radius units. Now suppose you set segmentGroupWidth = 10. Then, the width of a segment group in the view in which all horizontal groups are active will be 10 X 3 X 4 point radius units.
+- minGroupAvailableWidth. This is the width of a segment group _when all horizontal groups are active_ _and when the response question response groups are expanded_ in point radius units, net of the total width taken up by response gaps. For instance, if response gap is 10, there are 4 response groups on the response question in the expanded view, and minGroupAvailableWidth = 100, then total width of a segment group in the view with all horizontal groups active will be 3 X 10 + 100 = 130.
 
-These three lengths fully determine the horizontal layout of the viz. Specifically, we take these three lengths and compute the total vizWidth as follows: First note that the three lengths determine the width of the segment groups in the view in which all horizontal groups are active and the response groups of the response question is expanded. Second note that groupGapHorizontal determines the width between these gaps. Then we fix the vizWidth as:
+These three lengths fully determine the horizontal layout of the viz. Specifically, we take these three lengths and compute the total vizWidth as follows: First note that the three lengths determine the width of the segment groups in the view in which all horizontal groups are active. Second note that groupGapHorizontal determines the width between these groups. Then we fix the vizWidth as:
 
-(# horizontal segment groups in view in which all horizontal groups are active) X (Width of segment groups in view in which all horizontal groups are active and response groups of response question are expanded) + (Width of group gaps) X (# horizontal segment groups in view in which all horizontal groups are active - 1)
+(# horizontal segment groups in view in which all horizontal groups are active) X (Width of segment groups in view in which all horizontal groups are active) + (Width of group gaps) X (# horizontal segment groups in view in which all horizontal groups are active - 1)
 
 This vizWidth of course is specified in point radii.
 
-This horizontal vizWidth is the same for ALL VIEWS. We simply keep the width of the responseGaps and the width of the groupGapHorizontal constant. As the number of response groups on the response question and/or active horizontal groups change, we simply expand the widths of the segment groups to take up the leftover space within the fixed vizWidth accordingly, with the left-most segment group starting at x = 0, and the right-most segment group ending at x = vizWidth.
+This horizontal vizWidth is the same for ALL VIEWS. We simply keep the width of the responseGaps and the width of the groupGapHorizontal constant. As the number of active horizontal groups change, we simply expand the widths of the segment groups to take up the leftover space within the fixed vizWidth accordingly, with the left-most segment group starting at x = 0, and the right-most segment group ending at x = vizWidth.
 
 #### Vertical Lengths
 
 - groupGapVertical. This is the width of the gap between segment groups along the vertical axis in all views, specified in point radii. For instance, if you set groupGapVertical = 20, the gaps between segment groups along the vertical axis in all views will be 20x the pointRadius
 
-- segmentGroupHeight. This is the total height of a segment group _in the view in which all vertical groups are active_, specified in point radii.
+- minGroupHeight. This is the total height of a segment group _in the view in which all vertical groups are active_, specified in point radii.
 
 These two lengths fully determine the vertical layout of the viz. Specifically, we take these two lengths and compute the total vizHeight as follows:
 
-(# vertical grouping questions) X segmentGroupHeight + (# vertical grouping questions - 1) X groupGapVertical
+(# segment groups along vertical axis when all vertical grouping questions active) X minGroupHeight + (# segment groups along vertical axis when all vertical grouping questions active - 1) X groupGapVertical
 
-This vertical vizHeight is the same for ALL VIEWS. We simply keep the height of the groupGapVertical constant. As the number of active vertical groups change, we simply expand the heights of the segment groups to take up the leftover space within the fixed vizWidth accordingly, with the top segment group always starting at y=0 and the bottom segment group ending at y = vizHeight.
+This vertical vizHeight is the same for ALL VIEWS. We simply keep the height of the groupGapVertical constant. As the number of active vertical groups change, we increase the heights of the segment groups to take up the leftover space within the fixed vizWidth accordingly, with the top segment group always starting at y=0 and the bottom segment group ending at y = vizHeight.

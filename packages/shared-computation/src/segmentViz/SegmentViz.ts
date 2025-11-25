@@ -58,7 +58,12 @@ export class SegmentViz {
       weightQuestion
     );
 
-    // Initialize visualization for each response question
+    // Initialize visualization for each response question.
+    // Note: This step lays out the segment groups for each view,
+    // Not the segments themselves.  (via layoutSegmentGroupsVertically
+    // and layoutSegmentGroupsHorizontally) Segment group layouts
+    // only depend on the configs...they do not require data!
+    // So no data is passed to the generateAllViews function!
     for (const responseQuestion of sessionConfig.responseQuestions) {
       const viz: ResponseQuestionVisualization = {
         responseQuestion,
@@ -70,8 +75,8 @@ export class SegmentViz {
           vizConfigSegments,
           this.vizWidth,
           this.vizHeight,
-          layoutSegmentGroupsVertically,
-          layoutSegmentGroupsHorizontally
+          layoutSegmentGroupsVertically,  //(grid: SegmentGroupGrid, activeVertical: Question[], vizHeight: number, config: VizConfigSegments) => void,
+          layoutSegmentGroupsHorizontally //(grid: SegmentGroupGrid, activeHorizontal: Question[], vizWidth: number, config: VizConfigSegments) => void
         )
       };
       this.responseQuestionVisualizations.push(viz);

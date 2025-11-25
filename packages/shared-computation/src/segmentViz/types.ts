@@ -11,14 +11,14 @@ import type { Question, ResponseGroup } from "shared-schemas";
  * and all coordinates scale accordingly.
  */
 export interface VizConfigSegments {
-  responseGap: number;              // Gap between segments (in point radii)
-  groupGapHorizontal: number;       // Gap between horizontal segment groups (in point radii)
-  groupGapVertical: number;         // Gap between vertical segment groups (in point radii)
-  segmentGroupWidth: number;        // Width multiplier for segment groups (unitless)
-  segmentGroupHeight: number;       // Height multiplier for segment groups (unitless)
   groupingQuestionsHorizontal: Question[];
   groupingQuestionsVertical: Question[];
   syntheticSampleSize?: number;
+  responseGap: number;              // Gap between segments (in point radii)
+  minGroupAvailableWidth: number;   // Width of segment group, net of response gaps, in view where all horizontal questions are active, and response question response groups are expanded
+  groupGapHorizontal: number;       // Gap between horizontal segment groups (in point radii)
+  groupGapVertical: number;         // Gap between vertical segment groups (in point radii)
+  minGroupHeight: number;           // Height of segment group in view where all vertical grouping questions are active.
 }
 
 export interface Point {
