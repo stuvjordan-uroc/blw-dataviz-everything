@@ -9,6 +9,8 @@ export {
   // Export types for computation
   type ResponseGroup,
   type Question,
+  type ResponseQuestion,
+  type GroupingQuestion,
   type SessionConfig,
   type Split,
   type ResponseQuestionWithStats,
