@@ -1,3 +1,15 @@
+//===========================
+// TODO
+//===========================
+/*
++ Initialization logic is drafted but not tested
++ Need to add...
+--> subscriber logic so that statistics updates propagate automatically.
+--> getting functions for callers to get vizMap
+--> subscription logic so that callers can get diffs when viz is updated.
+*/
+
+
 import { Statistics } from "../statistics";
 import { initialize } from "./initialize";
 import { validateConfig } from "./validate";
@@ -43,7 +55,8 @@ export class SegmentViz {
    * of segments into which the points are mapped.
    * 
    * Note that if statistics haven't yet been computed for
-   * a given split, the array of points for that split is left un-populated
+   * a given split, the array of segments for the segment group
+   * depicting that split is set to null
    * 
    * @param statsInstanceRef 
    * @param segmentVizConfig 

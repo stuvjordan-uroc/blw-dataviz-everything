@@ -10,6 +10,7 @@ import {
   boolean,
 } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
+import type { ResponseQuestion, GroupingQuestion } from "shared-computation"
 
 /* CREATE POLLS SCHEMA AND ITS TABLES */
 
@@ -17,31 +18,6 @@ import { questions as questionsDef } from "./questions";
 
 export const pollsSchema = pgSchema("polls");
 
-//types for session configuration
-
-export interface ResponseGroup {
-  label: string;
-  values: number[]; //must be indices of responses column of questions.questions
-}
-
-export interface Question {
-  varName: string;
-  batteryName: string;
-  // subBattery is required (empty string '' for questions without a sub-battery)
-  // This matches the database constraint where subBattery is part of the primary key
-  subBattery: string;
-}
-
-export type ResponseQuestion = Question & {
-  responseGroups: {
-    expanded: ResponseGroup[];
-    collapsed: ResponseGroup[];
-  };
-};
-
-export type GroupingQuestion = Question & {
-  responseGroups: ResponseGroup[];
-};
 
 export interface SessionConfig {
   responseQuestions: ResponseQuestion[];
@@ -119,33 +95,13 @@ export const responses = pollsSchema.table(
 
 //types for session statistics
 
-// Response group with computed proportion statistic
-export interface ResponseGroupWithStats extends ResponseGroup {
-  proportion: number;
-  totalWeight: number; //total weight within response group
-  totalCount: number; //total number of respondents within response group within split
-}
 
-// Grouping criterion for a split (question + selected response group or null for "all")
-export interface Group {
-  question: Question;
-  responseGroup: ResponseGroup | null;
-}
 
-// Response question with computed statistics (used in Split)
-export interface ResponseQuestionWithStats extends Question {
-  responseGroups: {
-    expanded: ResponseGroupWithStats[];
-    collapsed: ResponseGroupWithStats[];
-  };
-  totalWeight: number; //total weight at question (summed across all response groups)
-  totalCount: number; //total number of respondents responding to this question within split
-}
 
-export interface Split {
-  groups: Group[];
-  responseQuestions: ResponseQuestionWithStats[];
-}
+
+
+
+
 
 //session_statistics table
 export const sessionStatistics = pollsSchema.table("session_statistics", {

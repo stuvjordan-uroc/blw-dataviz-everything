@@ -5,18 +5,9 @@ export {
   questions as pollQuestions,
   respondents,
   responses,
-  sessionStatistics,
-  // Export types for computation
-  type ResponseGroup,
-  type Question,
-  type ResponseQuestion,
-  type GroupingQuestion,
-  type SessionConfig,
-  type Split,
-  type ResponseQuestionWithStats,
-  type ResponseGroupWithStats,
-  type Group,
+  sessionStatistics
 } from "./schemas/polls";
+export type { Question } from "./schemas/questions"
 export * from "./schemas/admin";
 
 // Re-export Zod validation schemas

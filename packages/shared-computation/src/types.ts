@@ -1,11 +1,52 @@
 import type {
-  SessionConfig,
-  Split,
-  Question,
-  ResponseGroup,
+  Question
 } from "shared-schemas";
 
-export type { SessionConfig, Split, Question, ResponseGroup };
+export type { Question };
+
+export interface ResponseGroup {
+  label: string;
+  values: number[]; //must be indices of responses column of questions.questions
+}
+
+export type ResponseQuestion = Question & {
+  responseGroups: {
+    expanded: ResponseGroup[];
+    collapsed: ResponseGroup[];
+  };
+};
+
+export type GroupingQuestion = Question & {
+  responseGroups: ResponseGroup[];
+};
+
+export interface Split {
+  groups: Group[];
+  responseQuestions: ResponseQuestionWithStats[];
+}
+
+// Response question with computed statistics (used in Split)
+export interface ResponseQuestionWithStats extends Question {
+  responseGroups: {
+    expanded: ResponseGroupWithStats[];
+    collapsed: ResponseGroupWithStats[];
+  };
+  totalWeight: number; //total weight at question (summed across all response groups)
+  totalCount: number; //total number of respondents responding to this question within split
+}
+
+// Grouping criterion for a split (question + selected response group or null for "all")
+export interface Group {
+  question: Question;
+  responseGroup: ResponseGroup | null;
+}
+
+// Response group with computed proportion statistic
+export interface ResponseGroupWithStats extends ResponseGroup {
+  proportion: number;
+  totalWeight: number; //total weight within response group
+  totalCount: number; //total number of respondents within response group within split
+}
 
 
 /*

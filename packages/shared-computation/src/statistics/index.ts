@@ -1,6 +1,24 @@
-import { type SessionConfig, type Split, type ResponseGroup, type Question, type Group } from 'shared-schemas';
-import type { RespondentData } from './types';
-import { getQuestionKey, createResponseMap } from './utils';
+import { type Split, type ResponseGroup, type Question, type Group, type RespondentData, ResponseQuestion, GroupingQuestion } from "../types";
+import { getQuestionKey, createResponseMap } from '../utils';
+
+export type StatsConfig = {
+  responseQuestions: ResponseQuestion[],
+  groupingQuestions: GroupingQuestion[]
+}
+
+/**
+ * Callback function type for statistics subscribers.
+ * Called whenever the statistics are updated with new data.
+ */
+export type StatisticsSubscriber = (updateResult: StatisticsUpdateResult) => void;
+
+/**
+ * Subscription handle that allows unsubscribing.
+ */
+export interface StatisticsSubscription {
+  /** Unsubscribe from updates */
+  unsubscribe: () => void;
+}
 
 /**
  * Represents a change in statistics for a specific response group within a fully-specified split.
@@ -69,10 +87,10 @@ export interface StatisticsResult {
  * 
  * ```typescript
  * // Create empty instance
- * const stats = new Statistics(sessionConfig);
+ * const stats = new Statistics(StatsConfig);
  * 
  * // Or initialize with data
- * const stats = new Statistics(sessionConfig, initialRespondents, weightQuestion);
+ * const stats = new Statistics(StatsConfig, initialRespondents, weightQuestion);
  * 
  * // Update with new data as it arrives
  * stats.updateSplits(newBatch);
@@ -107,7 +125,7 @@ export interface StatisticsResult {
  * @example
  * ```typescript
  * // Typical usage for a live poll
- * const stats = new Statistics(sessionConfig, [], weightQuestion);
+ * const stats = new Statistics(StatsConfig, [], weightQuestion);
  * 
  * // As data streams in...
  * pollStream.on('data', (batch) => {
@@ -122,22 +140,27 @@ export interface StatisticsResult {
  * ```
  */
 export class Statistics {
-  private readonly sessionConfig: SessionConfig;
+  private readonly statsConfig: StatsConfig;
   private readonly splits: Split[];
   private readonly weightQuestion?: Question;
   private validRespondentsCount: number = 0;
   private invalidRespondentsCount: number = 0;
 
+  // Subscription management
+  private subscribers: Set<StatisticsSubscriber> = new Set();
+  private nextSubscriberId = 0;
+  private subscriberIds: Map<StatisticsSubscriber, number> = new Map();
+
   /**
    * Create a new Statistics instance.
    * 
-   * @param sessionConfig - The session configuration defining response and grouping questions
+   * @param StatsConfig - The session configuration defining response and grouping questions
    * @param respondentsData - Optional array of respondent data to compute statistics from
    * @param weightQuestion - Optional question to use for weighting respondents
    */
-  constructor(sessionConfig: SessionConfig, respondentsData?: RespondentData[], weightQuestion?: Question) {
-    this.sessionConfig = sessionConfig;
-    this.splits = this.initializeSplits(sessionConfig);
+  constructor(statsConfig: StatsConfig, respondentsData?: RespondentData[], weightQuestion?: Question) {
+    this.statsConfig = statsConfig;
+    this.splits = this.initializeSplits(statsConfig);
     if (weightQuestion) {
       this.weightQuestion = weightQuestion;
     }
@@ -175,7 +198,7 @@ export class Statistics {
    * The method can either compute statistics from scratch or update existing splits that
    * were previously computed and stored externally (e.g., in a database or on disk).
    * 
-   * @param sessionConfig - The session configuration defining response and grouping questions
+   * @param statsConfig - The session configuration defining response and grouping questions
    * @param respondentsData - Array of respondent data to process
    * @param weightQuestion - Optional question to use for weighting respondents
    * @param existingSplits - Optional pre-existing splits to update (if omitted, starts from scratch)
@@ -186,7 +209,7 @@ export class Statistics {
    * ```typescript
    * // Compute from scratch (batch processing)
    * const result = Statistics.computeStatistics(
-   *   sessionConfig,
+   *   StatsConfig,
    *   allRespondents,
    *   weightQuestion
    * );
@@ -199,7 +222,7 @@ export class Statistics {
    * // Update existing splits from database
    * const existingSplits = await loadSplitsFromDB(sessionId);
    * const result = Statistics.computeStatistics(
-   *   sessionConfig,
+   *   StatsConfig,
    *   newRespondents,
    *   weightQuestion,
    *   existingSplits
@@ -208,7 +231,7 @@ export class Statistics {
    * ```
    */
   static computeStatistics(
-    sessionConfig: SessionConfig,
+    statsConfig: StatsConfig,
     respondentsData: RespondentData[],
     weightQuestion?: Question,
     existingSplits?: Split[]
@@ -217,7 +240,7 @@ export class Statistics {
     // If existingSplits provided, start with empty data (we'll replace splits below)
     // Otherwise, let constructor initialize splits from scratch
     const temp = new Statistics(
-      sessionConfig,
+      statsConfig,
       existingSplits ? [] : [],
       weightQuestion
     );
@@ -271,12 +294,12 @@ export class Statistics {
    *   8. [A:null, B:RG4] - Respondents in RG4 (any value for A)
    *   9. [A:null, B:null] - All respondents (no filters)
    * 
-   * @param sessionConfig - Session configuration with grouping questions
+   * @param StatsConfig - Session configuration with grouping questions
    * @returns Array of Split objects with groups populated but responseQuestions empty (to be filled in Step 4)
    */
-  private initializeSplits(sessionConfig: SessionConfig): Split[] {
+  private initializeSplits(statsConfig: StatsConfig): Split[] {
     // If there are no grouping questions, return a single split with no grouping filters
-    if (sessionConfig.groupingQuestions.length === 0) {
+    if (statsConfig.groupingQuestions.length === 0) {
       return [
         {
           groups: [],
@@ -289,7 +312,7 @@ export class Statistics {
     // Each option is either a ResponseGroup or null
     const optionsPerQuestion: (ResponseGroup | null)[][] = [];
 
-    for (const groupingQuestion of sessionConfig.groupingQuestions) {
+    for (const groupingQuestion of statsConfig.groupingQuestions) {
       // For this question, create an array of all its response groups plus null
       const options: (ResponseGroup | null)[] = [
         ...groupingQuestion.responseGroups,
@@ -324,8 +347,8 @@ export class Statistics {
       // Each element pairs a grouping question with its selected response group (or null)
       const groups: Split["groups"] = [];
 
-      for (let i = 0; i < sessionConfig.groupingQuestions.length; i++) {
-        const question = sessionConfig.groupingQuestions[i];
+      for (let i = 0; i < statsConfig.groupingQuestions.length; i++) {
+        const question = statsConfig.groupingQuestions[i];
         const responseGroup = combination[i]; // Can be ResponseGroup or null
 
         groups.push({
@@ -342,7 +365,7 @@ export class Statistics {
       // responseQuestions and totalWeight will be populated in Step 4 with computed proportions
       splits.push({
         groups: groups,
-        responseQuestions: sessionConfig.responseQuestions.map((responseQuestion) => ({
+        responseQuestions: statsConfig.responseQuestions.map((responseQuestion) => ({
           varName: responseQuestion.varName,
           batteryName: responseQuestion.batteryName,
           subBattery: responseQuestion.subBattery,
@@ -375,7 +398,7 @@ export class Statistics {
    * A respondent is considered valid if ALL of the following conditions are met:
    * 1. Has answered ALL grouping questions (i.e., there is a response in the responses array for each grouping question)
    * 2. If weightQuestion is defined, has answered the weightQuestion with a non-null value
-   * 3. Has answered each grouping question with a response that is included in one of that grouping question's response groups (from sessionConfig)
+   * 3. Has answered each grouping question with a response that is included in one of that grouping question's response groups (from StatsConfig)
    * 4. Has answered at least one of the response questions specified in the session config
    * 5. For at least one response question that the respondent answered, has given an answer that belongs to one of that response question's expanded response groups
    * 
@@ -385,7 +408,7 @@ export class Statistics {
   private validateRespondentData(responseMap: Map<string, number | null>): boolean {
     // Conditions 1 and 3: Check that ALL grouping questions have been answered AND
     // that each response is included in one of that question's response groups
-    for (const groupingQuestion of this.sessionConfig.groupingQuestions) {
+    for (const groupingQuestion of this.statsConfig.groupingQuestions) {
       const key = getQuestionKey(groupingQuestion);
 
       // Condition 1: Check the question was answered
@@ -419,7 +442,7 @@ export class Statistics {
     // AND that at least one of those answers belongs to an expanded response group
     let hasValidResponseQuestion = false;
 
-    for (const responseQuestion of this.sessionConfig.responseQuestions) {
+    for (const responseQuestion of this.statsConfig.responseQuestions) {
       const key = getQuestionKey(responseQuestion);
       const response = responseMap.get(key);
 
@@ -595,8 +618,8 @@ export class Statistics {
    * Expose the session configuration used to construct this Statistics instance.
    * This is a read-only accessor intended for external validators and helpers.
    */
-  public getSessionConfig(): SessionConfig {
-    return this.sessionConfig;
+  public getStatsConfig(): StatsConfig {
+    return this.statsConfig;
   }
 
   /**
@@ -627,6 +650,74 @@ export class Statistics {
   }
 
   /**
+   * Subscribe to statistics updates.
+   * 
+   * The callback will be invoked whenever updateSplits() is called,
+   * after the statistics have been updated. The callback receives
+   * the full update result including deltas.
+   * 
+   * Multiple subscribers can be registered, and they will all be
+   * notified in the order they subscribed.
+   * 
+   * @param callback - Function to call when statistics are updated
+   * @returns Subscription object with unsubscribe method
+   * 
+   * @example
+   * ```typescript
+   * const stats = new Statistics(config);
+   * const viz = new SegmentViz(stats, vizConfig);
+   * 
+   * // SegmentViz automatically subscribes in its constructor
+   * // Or manually:
+   * const subscription = stats.subscribe((updateResult) => {
+   *   console.log(`Received ${updateResult.deltas.length} deltas`);
+   *   // Update visualization
+   * });
+   * 
+   * // Later, to stop receiving updates:
+   * subscription.unsubscribe();
+   * ```
+   */
+  public subscribe(callback: StatisticsSubscriber): StatisticsSubscription {
+    this.subscribers.add(callback);
+    const subscriberId = this.nextSubscriberId++;
+    this.subscriberIds.set(callback, subscriberId);
+
+    return {
+      unsubscribe: () => {
+        this.subscribers.delete(callback);
+        this.subscriberIds.delete(callback);
+      }
+    };
+  }
+
+  /**
+   * Notify all subscribers of an update.
+   * Called internally after updateSplits processes new data.
+   */
+  private notifySubscribers(updateResult: StatisticsUpdateResult): void {
+    // Create a copy of subscribers to avoid issues if a subscriber unsubscribes during notification
+    const subscribersArray = Array.from(this.subscribers);
+
+    for (const subscriber of subscribersArray) {
+      try {
+        subscriber(updateResult);
+      } catch (error) {
+        // Log error but continue notifying other subscribers
+        console.error('Error in statistics subscriber:', error);
+      }
+    }
+  }
+
+  /**
+   * Get the number of active subscribers.
+   * Useful for debugging and monitoring.
+   */
+  public getSubscriberCount(): number {
+    return this.subscribers.size;
+  }
+
+  /**
    * Update the splits with new respondent data.
    * 
    * This method allows incremental updates to statistics as new data arrives,
@@ -642,7 +733,7 @@ export class Statistics {
    * 
    * @example
    * ```typescript
-   * const stats = new Statistics(sessionConfig);
+   * const stats = new Statistics(StatsConfig);
    * // Later, as new data arrives...
    * const result = stats.updateSplits(newRespondents);
    * console.log(`Added ${result.validCount} new respondents`);
@@ -680,12 +771,17 @@ export class Statistics {
     // Compute deltas
     const deltas = this.computeDeltas(beforeCounts, afterCounts);
 
-    return {
+    const updateResult: StatisticsUpdateResult = {
       validCount: this.validRespondentsCount - validCountBefore,
       invalidCount: this.invalidRespondentsCount - invalidCountBefore,
       totalProcessed: respondentsData.length,
       deltas
     };
+
+    // Notify all subscribers
+    this.notifySubscribers(updateResult);
+
+    return updateResult;
   }
 
   /**
