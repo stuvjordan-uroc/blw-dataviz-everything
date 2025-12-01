@@ -592,6 +592,14 @@ export class Statistics {
   }
 
   /**
+   * Expose the session configuration used to construct this Statistics instance.
+   * This is a read-only accessor intended for external validators and helpers.
+   */
+  public getSessionConfig(): SessionConfig {
+    return this.sessionConfig;
+  }
+
+  /**
    * Get the count of valid respondents that were successfully processed.
    * 
    * @returns Number of respondents who passed validation and were included in statistics
