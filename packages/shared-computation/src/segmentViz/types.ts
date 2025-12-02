@@ -30,13 +30,14 @@ export interface PointPosition {
 }
 
 export interface SegmentGroup {
-  splitIndex: number,
+  splitIndex: number;
+  basisSplitIndices: number[];
   segmentGroup: {
     x: number,
     y: number,
     width: number,
     height: number
-  },
+  };
   segments: null | {
     collapsed: {
       pointPositions: PointPosition[];
@@ -45,7 +46,7 @@ export interface SegmentGroup {
       width: number;
       height: number;
       responseGroupIndex: number;
-    }[],
+    }[];
     expanded: {
       pointPositions: PointPosition[];
       x: number;
@@ -53,6 +54,6 @@ export interface SegmentGroup {
       width: number;
       height: number;
       responseGroupIndex: number;
-    }[]
+    }[];
   }
 }

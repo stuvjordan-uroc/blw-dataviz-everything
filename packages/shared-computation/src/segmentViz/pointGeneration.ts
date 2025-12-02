@@ -73,8 +73,8 @@ export interface GeneratePointsParams {
   responseQuestion: ResponseQuestion;
   /** All splits from the statistics instance */
   allSplits: Split[];
-  /** Question keys excluded from the visualization */
-  groupingQuestionsExcludedKeys: string[];
+  /** Fully specified split indices for this response question*/
+  fullySpecifiedSplitIndices: number[];
   /** Grouping questions mapped to X axis */
   groupingQuestionsX: GroupingQuestion[];
   /** Grouping questions mapped to Y axis */
@@ -96,63 +96,57 @@ export interface GeneratePointsParams {
  * - Have computed statistics (positive totalCount)
  * 
  * @param params - Parameters for point generation
- * @returns Array of VizPoints ready to be positioned in segments
+ * @returns Map taking each fully specified split index to an array of VizPoints ready to be positioned in segments
  */
 export function generatePoints(
   {
     responseQuestion,
     allSplits,
-    groupingQuestionsExcludedKeys,
+    fullySpecifiedSplitIndices,
     groupingQuestionsX,
     groupingQuestionsY,
     syntheticSampleSize
   }: GeneratePointsParams
 ): VizPoint[] {
-  const points: VizPoint[] = [];
+
+  //create the points array
+  const points: VizPoint[] = []
+
+  //loop through the splits
   let splitIdx = -1;
   for (const split of allSplits) {
     splitIdx++;
-    //get the grouping question keys that are null at this split
-    const nullKeys = split.groups
-      .filter((group) => group.responseGroup === null)
-      .map((group) => getQuestionKey(group.question))
 
-
-    //if any of the excluded grouping questions are NOT in the list of null questions on this split,
-    //move on to the next split.
-    if (groupingQuestionsExcludedKeys.some((gqKey) => !nullKeys.includes(gqKey))) {
+    //skip if the current split is not fully specified for the provided grouping questions.
+    if (!fullySpecifiedSplitIndices.includes(splitIdx)) {
       continue;
     }
 
-    //This split is needed for initializing the points array only if it is not null
-    //on every grouping question included in this viz
+    //We now know that this split is fully specified
+    // and so should be used in populating the points array
 
-    if (
-      groupingQuestionsX.some((gqX) => nullKeys.includes(getQuestionKey(gqX))) ||
-      groupingQuestionsY.some((gqY) => nullKeys.includes(getQuestionKey(gqY)))
-    ) {
-      continue;
-    }
+    //find the response question in the split
+    const splitRQ = split.responseQuestions.find((rq) => getQuestionKey(rq) === getQuestionKey(responseQuestion))
 
-    //We now know that this split should be used in populating the points array
+    //populate points from this split only if splitRQ is defined
+    //and if there is data within this split that allows for
+    //point allocation
 
-    //here we need to branch depending on whether a synthetic sample has been requested
-    if (syntheticSampleSize) {
-      //find the responseQuestion in the split
-      const splitRQ = split.responseQuestions.find((rq) => getQuestionKey(rq) === getQuestionKey(responseQuestion))
-      if (splitRQ && splitRQ.totalCount > 0) {
-        //in this case, we know the synthetic sample size, and we have the data required to allocate points 
-        // across response groups
+    if (splitRQ && splitRQ.totalCount > 0) {
+
+      //here we branch depending on whether a synthetic sample is requested
+
+      if (syntheticSampleSize) {
 
         //compute the synthetic counts for the response groups
         const responseGroupsWithSyntheticCounts = addSyntheticCounts(splitRQ.responseGroups.expanded, syntheticSampleSize)
 
-        //add points to the points array for each expanded response group, using the synthetic counts
-        let lastId = points.length > 0 ? points[points.length - 1].id : 0;
+        //add points to the points array for each expanded response group, 
+        // using the synthetic counts to determine the number of points.
         responseGroupsWithSyntheticCounts.forEach((rg) => {
           points.push(
-            ...(Array(rg.syntheticCount)).fill(0).map((_, idx) => ({
-              id: lastId + 1 + idx,
+            ...(Array(rg.syntheticCount)).fill(0).map((_, pointIdx) => ({
+              id: pointIdx, //ids are unique only within the split and expanded response group.
               expandedResponseGroup: rg,
               splitGroups: split.groups.filter((group) => (
                 groupingQuestionsX.map((gqX) => getQuestionKey(gqX)).includes(getQuestionKey(group.question)) ||
@@ -161,32 +155,17 @@ export function generatePoints(
               fullySpecifiedSplitIndex: splitIdx
             }))
           )
-          lastId = lastId + rg.syntheticCount;
         })
-      }
 
-      //Note...if we cannot identify splitRQ or if the totalCount is not positive
-      //There is no data to inform how to allocate points across response groups on the response
-      //question, so we do not allocate any points for this split.
-    } else {
-      //here, there is no synthetic sample requested.
-      //so the points will represent actual responses from the data.
-
-      //find the responseQuestion in the split
-      const splitRQ = split.responseQuestions.find((rq) => getQuestionKey(rq) === getQuestionKey(responseQuestion))
-
-      if (splitRQ && splitRQ.totalCount > 0) {
-
-        //this is the only case where we have data that will allow us to allocate points.
+      } else {
 
 
-        //get the id number of the last assigned point
-        let lastId = points.length > 0 ? points[points.length - 1].id : 0;
-        //loop through the expanded responses of the response group
+        //add points to the points array for each expanded response group, 
+        // using the total count to determine the number of points.
         splitRQ.responseGroups.expanded.forEach((rg) => {
           points.push(
-            ...(Array(rg.totalCount)).fill(0).map((_, idx) => ({
-              id: lastId + 1 + idx,
+            ...(Array(rg.totalCount)).fill(0).map((_, pointIdx) => ({
+              id: pointIdx, //ids are unique only within the split and expanded response groups
               expandedResponseGroup: rg,
               splitGroups: split.groups.filter((group) => (
                 groupingQuestionsX.map((gqX) => getQuestionKey(gqX)).includes(getQuestionKey(group.question)) ||
@@ -195,13 +174,8 @@ export function generatePoints(
               fullySpecifiedSplitIndex: splitIdx
             }))
           )
-          lastId = lastId + rg.totalCount;
         })
       }
-
-      //Note...if we cannot identify splitRQ or if the totalCount is not positive
-      //There is no data to inform how to allocate points across response groups on the response
-      //question, so we do not allocate any points for this split.
     }
   }
   return points;

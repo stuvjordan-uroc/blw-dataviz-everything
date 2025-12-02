@@ -3,16 +3,40 @@ import { SegmentVizConfig, SegmentGroup, VizPoint } from "./types";
 import { Statistics } from "../statistics";
 import { getQuestionKey } from '../utils';
 import { computeSegmentGroupBounds, positionPointsInSegment } from "./geometry";
-import { getActiveQuestionsInSplit, getNumberSegmentGroups, getIndices, getIndicesOfBasisSplits } from "./splitAnalysis";
+import { getActiveQuestionsInSplit, getNumberSegmentGroups, getIndices, getIndicesOfBasisSplits, getFullySpecifiedSplitIndices, getBasisSplitIndices } from "./splitAnalysis";
 import { generatePoints } from "./pointGeneration";
 
 
 
-export function initialize(statsInstanceRef: Statistics, segmentVizConfig: SegmentVizConfig, vizWidth: number, vizHeight: number) {
+export function initialize(
+  statsInstanceRef: Statistics,
+  segmentVizConfig: SegmentVizConfig,
+  vizWidth: number,
+  vizHeight: number) {
+
   //this will map each response question key to a visualization for that response question
-  const vizMap: Map<string, { segmentGroups: SegmentGroup[], points: VizPoint[] }> = new Map();
+  const vizMap: Map<
+    string,
+    {
+      groupingQuestions: {
+        x: GroupingQuestion[];
+        y: GroupingQuestion[];
+        excludedQuestionKeys: string[];
+      };
+      fullySpecifiedSplitIndices: number[];
+      segmentGroups: SegmentGroup[];
+      points: VizPoint[]
+    }
+  > = new Map();
+
   //we'll need the stats config for a bunch of the computations that follow
   const statsConfig = statsInstanceRef.getStatsConfig();
+
+  //get all the splits from the stats instance...we'll need it to populate 
+  //the points arrays and segment groups for each response question
+  const allSplits = statsInstanceRef.getSplits()
+
+  //loop through the response questions to construct the viz for each one
   for (const responseQuestion of statsConfig.responseQuestions) {
 
     //if this response question is not included in the viz config, go to the next one
@@ -20,9 +44,15 @@ export function initialize(statsInstanceRef: Statistics, segmentVizConfig: Segme
       continue;
     }
 
+
+    //======================================================
+    // COMPUTE GROUPING QUESTIONS FOR THIS RESPONSE QUESTION
+    //======================================================
+
     //construct the lists of x and y grouping questions that are included in the viz of this response question
     //It's critical that these list have the same ordering as the keys in segmentVizConfig groupingQuestionKeys.
     //That allows us to correctly order the segment groups along the x and y axes in the viz.
+
     const groupingQuestionsX: GroupingQuestion[] = [];
     for (const gqKey of segmentVizConfig.groupingQuestionKeys.x) {
       if (gqKey === getQuestionKey(responseQuestion)) {
@@ -52,22 +82,47 @@ export function initialize(statsInstanceRef: Statistics, segmentVizConfig: Segme
         !groupingQuestionsY.map((gqY) => getQuestionKey(gqY)).includes(gqKey)
       ))
 
-    //get all the splits from the stats instance
-    const allSplits = statsInstanceRef.getSplits()
+    //============================================================================
+    // GET THE INDICES OF THE FULLY SPECIFIED SPLITS FOR THIS RESPONSE QUESTION
+    //===========================================================================
 
-    //initialize the points array for this response question.
+    // These are the splits that are null on all the excluded questions and 
+    // not null on all the included questions.
+
+    // These splits drive the population of the points array
+
+    const fullySpecifiedSplitIndices = getFullySpecifiedSplitIndices({
+      allSplits: allSplits,
+      groupingQuestionsExcludedKeys: groupingQuestionsExcludedKeys,
+      groupingQuestionsX: groupingQuestionsX,
+      groupingQuestionsY: groupingQuestionsY
+    })
+
+    //==============================================================================
+    // POPULATE THE POINTS ARRAY FROM THE SPLITS
+    //==============================================================================
+
+    //points will be populated for each fully specified split
+    //for this response question
+    //Note that this populates points ONLY for the fully specified splits
+    //for which data has been provided to the stats instance
+    //from which it can compute stats for that instance.
     const points = generatePoints({
       responseQuestion: responseQuestion,
       allSplits: allSplits,
-      groupingQuestionsExcludedKeys: groupingQuestionsExcludedKeys,
+      fullySpecifiedSplitIndices: fullySpecifiedSplitIndices,
       groupingQuestionsX: groupingQuestionsX,
       groupingQuestionsY: groupingQuestionsY,
       syntheticSampleSize: segmentVizConfig.syntheticSampleSize
     })
 
-    //initialize the segment groups
+    //==============================================================================
+    // COMPUTE THE SEGMENT GROUP BOUNDS, AND THE SEGMENTS WITHIN EACH GROUP
+    //==============================================================================
 
-    //we're going to build an array of segment groups, one group in the array for each split.
+    //we're going to build an array of segment groups, one group in the array 
+    //for each split that is null on all the excluded questions.
+
     let splitIdx = -1;
     const segmentGroups: SegmentGroup[] = [];
     //loop through the splits
@@ -111,11 +166,18 @@ export function initialize(statsInstanceRef: Statistics, segmentVizConfig: Segme
       //whether we specify segment bounds at this point depends on whether proportions
       //have been computed for the response groups for this split.
       //This is determined by the initializePoints function above.  It only
-      //puts points into the points array corresponding to fully-specified splits for which there
-      //is data required to compute proportions.
+      //puts points into the points array corresponding to 
+      // fully-specified splits for which there is data required to compute proportions.
       //So the first thing we need to do is check whether there are points in the points
       //array that belong to this split.
-      const basisSplitIndices = getIndicesOfBasisSplits(split, allSplits, groupingQuestionsExcludedKeys)
+
+      //find the basis splits for the current split
+      const basisSplitIndices = getBasisSplitIndices({
+        split: split,
+        allBasisSplitIndices: fullySpecifiedSplitIndices,
+        allSplits: allSplits
+      })
+      //check whether all basis splits are populated
       const allBasisSplitsPopulated = basisSplitIndices.every((basisSplitIndex) => {
         let found = false;
         for (const point of points) {
@@ -126,8 +188,12 @@ export function initialize(statsInstanceRef: Statistics, segmentVizConfig: Segme
         }
         return found;
       })
+
+
       //we also need to get the proportions for the current response group into order to compute segments
       const responseQuestionWithStats = split.responseQuestions.find((rq) => getQuestionKey(rq) === getQuestionKey(responseQuestion))
+
+      //now we can decide whether to populate the segments
       if (allBasisSplitsPopulated && responseQuestionWithStats) {
         //get the response groups with stats
         const responseGroupsWithStats = responseQuestionWithStats.responseGroups;
@@ -182,6 +248,7 @@ export function initialize(statsInstanceRef: Statistics, segmentVizConfig: Segme
         })
         segmentGroups.push({
           splitIndex: splitIdx,
+          basisSplitIndices: basisSplitIndices,
           segmentGroup: segmentGroup,
           segments: {
             collapsed: segmentsCollapsed,
@@ -191,12 +258,19 @@ export function initialize(statsInstanceRef: Statistics, segmentVizConfig: Segme
       } else {
         segmentGroups.push({
           splitIndex: splitIdx,
+          basisSplitIndices: basisSplitIndices,
           segmentGroup: segmentGroup,
           segments: null
         })
       }
     }
     vizMap.set(getQuestionKey(responseQuestion), {
+      groupingQuestions: {
+        x: groupingQuestionsX,
+        y: groupingQuestionsY,
+        excludedQuestionKeys: groupingQuestionsExcludedKeys
+      },
+      fullySpecifiedSplitIndices: fullySpecifiedSplitIndices,
       segmentGroups: segmentGroups,
       points: points
     })

@@ -125,70 +125,110 @@ export function getIndices(activeQuestions: { x: (GroupingQuestion & { rgIdx: nu
   return { x, y };
 }
 
-/**
- * Find indices of all fully-specified "basis" splits that are contained within a parent split.
- * 
- * A basis split is one that:
- * 1. Has no null response groups (is fully specified) for all relevant grouping questions
- * 2. Matches the parent split's response groups where the parent is specified
- * 3. Can have any response group value where the parent is null (unspecified)
- * 
- * @param split - The parent split to find basis splits for
- * @param allSplits - All splits from the statistics instance
- * @param excludedQuestionKeys - Question keys to ignore (not part of this visualization)
- * @returns Array of indices into allSplits that are basis splits for the parent
- */
-export function getIndicesOfBasisSplits(split: Split, allSplits: Split[], excludedQuestionKeys: string[]): number[] {
-  // Build a map of the split's groups for quick lookup by question key
-  const parentGroupMap: Map<string, Group> = new Map();
-  for (const g of split.groups) {
-    parentGroupMap.set(getQuestionKey(g.question), g);
-  }
+interface GetBasisSplitIndicesProps {
+  split: Split;
+  allBasisSplitIndices: number[];
+  allSplits: Split[];
+}
+export function getBasisSplitIndices({
+  split,
+  allBasisSplitIndices,
+  allSplits
+}: GetBasisSplitIndicesProps): number[] {
 
-  // Relevant keys are those present on the split that are NOT excluded
-  const relevantKeys = Array.from(parentGroupMap.keys()).filter((k) => !excludedQuestionKeys.includes(k));
-
+  // array to hold the indices
   const indices: number[] = [];
 
-  allSplits.forEach((candidateSplit, idx) => {
-    // Build a map for the candidate split
-    const candMap: Map<string, Group> = new Map();
-    for (const g of candidateSplit.groups) {
-      candMap.set(getQuestionKey(g.question), g);
+  // non-null groups of provided split
+  const nonNullGroups = split.groups.filter((group) => group.responseGroup !== null)
+
+  if (nonNullGroups.length === 0) {
+    return allBasisSplitIndices;
+  }
+
+  // loop through all the splits
+  let currentSplitIdx = -1;
+  for (const currentSplit of allSplits) {
+
+    currentSplitIdx++;
+
+    //must be a basis split for SOME splits
+    if (!(allBasisSplitIndices.includes(currentSplitIdx))) {
+      continue;
     }
 
-    // Candidate must be fully specified (no nulls) for every relevant key
-    let isBasis = true;
-    for (const key of relevantKeys) {
-      const parentG = parentGroupMap.get(key);
-      const candG = candMap.get(key);
+    //we now know this is a basis split
 
-      // Candidate must have this grouping question
-      if (!candG) {
-        isBasis = false;
-        break;
-      }
+    //It is a basis split for the split passed to this function
+    //if it matches the split on all its non-null groups.
 
-      // Candidate must be fully specified for this question
-      if (candG.responseGroup === null) {
-        isBasis = false;
-        break;
-      }
+    const currentSplitIsBasis = nonNullGroups
+      .every((group) => {
+        const matchingGroup = currentSplit.groups.find((matchGroup) => getQuestionKey(matchGroup.question) === getQuestionKey(group.question));
+        return (
+          matchingGroup &&
+          matchingGroup.responseGroup &&
+          matchingGroup.responseGroup.label === group.responseGroup?.label
+        )
+      }) //test whether every non-null group matches every group in the current split
 
-      // If the parent split specifies a particular responseGroup (not null),
-      // the candidate must match that same responseGroup label to be contained.
-      if (parentG && parentG.responseGroup !== null) {
-        if (parentG.responseGroup.label !== candG.responseGroup!.label) {
-          isBasis = false;
-          break;
-        }
-      }
-      // If parentG.responseGroup is null, candidate can be any response (already
-      // ensured it's specified), so that key is fine.
+    if (currentSplitIsBasis) {
+      indices.push(currentSplitIdx)
     }
 
-    if (isBasis) indices.push(idx);
-  });
-
+  }
   return indices;
+}
+
+
+
+interface GetFullySpecifiedSplitIndicesProps {
+  allSplits: Split[],
+  groupingQuestionsExcludedKeys: string[],
+  groupingQuestionsX: GroupingQuestion[],
+  groupingQuestionsY: GroupingQuestion[]
+}
+/**
+ * Given arrays of included and excluded grouping questions,
+ * a fully specified split is null on all the excluded questions,
+ * and not null on all the included questions.
+ * 
+ * This function loops through the array of splits provided
+ * and returns the indices of the splits that are fully specified
+ * for the included and excluded grouping questions passed.
+ * 
+ * @param GetFullySpecifiedSplitIndicesProps
+ * @returns number[]
+ */
+export function getFullySpecifiedSplitIndices({
+  allSplits,
+  groupingQuestionsExcludedKeys,
+  groupingQuestionsX,
+  groupingQuestionsY
+}: GetFullySpecifiedSplitIndicesProps): number[] {
+  const indices: number[] = [];
+  let splitIdx = -1;
+  for (const split of allSplits) {
+    splitIdx++;
+    //get the grouping question keys that are null at this split
+    const nullKeys = split.groups
+      .filter((group) => group.responseGroup === null)
+      .map((group) => getQuestionKey(group.question))
+    //if any of the excluded grouping questions are NOT in the list of null questions on this split,
+    //move on to the next split.
+    if (groupingQuestionsExcludedKeys.some((gqKey) => !nullKeys.includes(gqKey))) {
+      continue;
+    }
+    //this split is fully specified only if it is not null
+    //on all the included grouping questions
+    if (
+      groupingQuestionsX.some((gqX) => nullKeys.includes(getQuestionKey(gqX))) ||
+      groupingQuestionsY.some((gqY) => nullKeys.includes(getQuestionKey(gqY)))
+    ) {
+      continue;
+    }
+    //we now know that this split is fully specified
+    indices.push(splitIdx)
+  }
+  return indices
 }
