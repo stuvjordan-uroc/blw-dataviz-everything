@@ -2,11 +2,9 @@
 // TODO
 //===========================
 /*
-+ Initialization logic is drafted but not tested
-+ Need to add...
---> subscriber logic so that statistics updates propagate automatically.
---> getting functions for callers to get vizMap
---> subscription logic so that callers can get diffs when viz is updated.
++ Draft update logic for hydration of segment groups
++ Test initializtion and hydration logic induced by the constructor
++ Test update logic
 */
 
 
@@ -15,9 +13,9 @@ import { initialize } from "./initialize";
 import { validateConfig } from "./validate";
 import { getVizHeight, getVizWidth } from "./widthHeight";
 import type { GroupingQuestion } from "../types";
-import type { SegmentGroup, SegmentVizConfig, VizPoint } from "./types";
+import type { PointSet, SegmentGroup, SegmentVizConfig } from "./types";
 import { getQuestionKey } from '../utils';
-import { point } from "drizzle-orm/pg-core";
+import { populatePoints } from "./pointGeneration";
 
 /**
  * Class holding a segment-based visualization of grouped
@@ -47,7 +45,7 @@ export class SegmentViz {
       },
       fullySpecifiedSplitIndices: number[];
       segmentGroups: SegmentGroup[],
-      points: VizPoint[]
+      points: PointSet[];  // Array of point sets, one per (split, expanded response group) combination
     }
   >
   //subscription to stats instance ref
@@ -133,110 +131,19 @@ export class SegmentViz {
       const viz = this.vizMap.get(getQuestionKey(responseQuestion))
       if (viz) {
         // ============================
-        //  UPDATE THE POINTS ARRAY
+        //  UPDATE THE POINT SETS
         //=============================
-
-        //TODO -- Split at the top based on whether a synthetic sample is requested
-        //The strategies for the two cases are totally different.
-        const pointsDiff = {
-          added: [] as VizPoint[],
-          removed: [] as VizPoint[]
-        }
-        //loop through all the fully specified splits
-        let splitIdx = -1;
-        for (const split of this.statsInstanceRef.getSplits()) {
-          splitIdx++;
-          //only changes to fully specified splits can affect the points array 
-          if (!viz.fullySpecifiedSplitIndices.includes(splitIdx)) {
-            continue;
-          }
-
-          const matchingSplitDelta = deltas.find((splitDelta) => splitDelta.splitIndex === splitIdx);
-          //no changes to make unless there is a delta for this split
-          if (matchingSplitDelta) {
-
-            //find the response question delta for this viz
-            const rqDelta = matchingSplitDelta.responseQuestionChanges.find((rqc) => rqc.responseQuestionKey === getQuestionKey(responseQuestion));
-
-            //no change to make unless there is a change to the response question for this viz
-            if (rqDelta) {
-              //now the logic depends on whether we're working with a synthetic sample
-              if (this.segmentVizConfig.syntheticSampleSize) {
-                //changes to the points depend on all expanded response groups
-                rqDelta.expandedGroupChanges.forEach((egc) => { egc.})
-                //TODO
-              } else {
-                //we can change points one-expanded-response-group-at-a-time
-                for (const responseGroupChanges of rqDelta.expandedGroupChanges) {
-                  const countChange = responseGroupChanges.countAfter - responseGroupChanges.countBefore;
-                  if (countChange > 0) {
-                    //add points here
-
-                    //get the highest id for the points in the current split and changed expanded response group.
-                    const highestId = Math.max(
-                      -1,
-                      ...viz.points
-                        .filter((point) => (
-                          point.expandedResponseGroup.label === responseGroupChanges.responseGroupLabel &&
-                          point.fullySpecifiedSplitIndex === splitIdx
-                        ))
-                        .map((point) => point.id)
-                    )
-
-                    //get the full response group
-                    const fullResponseGroup = responseQuestion.responseGroups.expanded
-                      .find((rg) => rg.label === responseGroupChanges.responseGroupLabel)
-
-                    if (fullResponseGroup) {
-                      //add the points
-                      const newPoints = Array(countChange).map((_, newPointIdx) => ({
-                        id: highestId + 1 + newPointIdx,
-                        splitGroups: split.groups.filter((group) => (
-                          viz.groupingQuestions.x.map((gqX) => getQuestionKey(gqX)).includes(getQuestionKey(group.question)) ||
-                          viz.groupingQuestions.y.map((gqY) => getQuestionKey(gqY)).includes(getQuestionKey(group.question))
-                        )),
-                        fullySpecifiedSplitIndex: splitIdx,
-                        expandedResponseGroup: fullResponseGroup
-                      }))
-                      viz.points.push(
-                        ...newPoints
-                      )
-                      pointsDiff.added.push(...newPoints)
-                    }
-                  }
-                  if (countChange < 0) {
-                    //get the full response group
-                    const fullResponseGroup = responseQuestion.responseGroups.expanded
-                      .find((rg) => rg.label === responseGroupChanges.responseGroupLabel)
-                    if (fullResponseGroup) {
-                      //remove points here
-                      const pointsKept: VizPoint[] = [];
-                      const pointsRemoved: VizPoint[] = [];
-                      let currentPointIdx = -1;
-                      for (const currentPoint of viz.points) {
-                        currentPointIdx++;
-                        if (pointsRemoved.length >= -countChange) {
-                          pointsKept.push(...viz.points.slice(currentPointIdx))
-                          break;
-                        }
-                        if (
-                          currentPoint.expandedResponseGroup.label === fullResponseGroup.label &&
-                          currentPoint.fullySpecifiedSplitIndex === splitIdx
-                        ) {
-                          pointsRemoved.push(currentPoint)
-                        } else {
-                          pointsKept.push(currentPoint)
-                        }
-                      }
-                      viz.points = pointsKept;
-                      pointsDiff.removed.push(...pointsRemoved)
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        const newPointSets = populatePoints({
+          prevPointSets: viz.points,
+          allSplits: this.statsInstanceRef.getSplits(),
+          fullySpecifiedSplitIndices: viz.fullySpecifiedSplitIndices,
+          responseQuestion: responseQuestion
+        })
+        viz.points = newPointSets;
+        //to do...this needs to be added to the diffMap at the current response question
+        // ============================
+        //  UPDATE THE SEGMENTS BOUNDS AND POINT POSITIONS WITHIN EACH SEGMENT GROUP
+        //=============================
       }
     }
   }

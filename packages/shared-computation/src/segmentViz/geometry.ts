@@ -1,4 +1,4 @@
-import { VizPoint, PointPosition } from "./types";
+import { PointPosition } from "./types";
 
 /**
  * Compute the bounds (x, y, width, height) for a segment group in the visualization grid.
@@ -81,12 +81,12 @@ function distance(p1: { x: number; y: number }, p2: { x: number; y: number }): n
  * Uses a spatial grid and active list to efficiently generate non-overlapping
  * point positions with minimum distance constraints.
  * 
- * @param points - Array of VizPoints to position
+ * @param points - Array of point IDs to position
  * @param segmentBounds - The bounds of the segment containing the points
  * @returns Array of point positions with coordinates
  */
 export function positionPointsInSegment(
-  points: VizPoint[],
+  points: string[],
   segmentBounds: { x: number; y: number; width: number; height: number }
 ): PointPosition[] {
   const minDistance = 2.5; // Points must be at least 2.5 point radii apart
@@ -104,8 +104,8 @@ export function positionPointsInSegment(
   // Handle empty or too-small bounds
   if (innerBounds.width <= 0 || innerBounds.height <= 0) {
     // Fall back to placing all points at center
-    return points.map(p => ({
-      id: p.id,
+    return points.map(id => ({
+      id,
       x: segmentBounds.x + segmentBounds.width / 2,
       y: segmentBounds.y + segmentBounds.height / 2
     }));
@@ -157,7 +157,7 @@ export function positionPointsInSegment(
   // Place first point randomly
   if (points.length > 0) {
     const firstPos: PointPosition = {
-      id: points[0].id,
+      id: points[0],
       x: innerBounds.x + Math.random() * innerBounds.width,
       y: innerBounds.y + Math.random() * innerBounds.height
     };
@@ -168,7 +168,7 @@ export function positionPointsInSegment(
 
   // Process remaining points
   for (let i = 1; i < points.length; i++) {
-    const point = points[i];
+    const pointId = points[i];
     let placed = false;
 
     // Try to place near an active point
@@ -192,7 +192,7 @@ export function positionPointsInSegment(
 
         if (isValidPosition(candidate.x, candidate.y)) {
           const newPos: PointPosition = {
-            id: point.id,
+            id: pointId,
             x: candidate.x,
             y: candidate.y
           };
@@ -223,7 +223,7 @@ export function positionPointsInSegment(
 
         if (isValidPosition(candidate.x, candidate.y)) {
           const newPos: PointPosition = {
-            id: point.id,
+            id: pointId,
             x: candidate.x,
             y: candidate.y
           };
@@ -238,7 +238,7 @@ export function positionPointsInSegment(
       // Last resort: place anyway even if overlapping
       if (!fallbackPlaced) {
         const newPos: PointPosition = {
-          id: point.id,
+          id: pointId,
           x: innerBounds.x + Math.random() * innerBounds.width,
           y: innerBounds.y + Math.random() * innerBounds.height
         };

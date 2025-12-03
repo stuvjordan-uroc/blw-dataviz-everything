@@ -1,10 +1,11 @@
 import { GroupingQuestion } from "../types";
-import { SegmentVizConfig, SegmentGroup, VizPoint } from "./types";
+import { SegmentVizConfig, SegmentGroup, PointSet } from './types';
 import { Statistics } from "../statistics";
 import { getQuestionKey } from '../utils';
 import { computeSegmentGroupBounds, positionPointsInSegment } from "./geometry";
-import { getActiveQuestionsInSplit, getNumberSegmentGroups, getIndices, getIndicesOfBasisSplits, getFullySpecifiedSplitIndices, getBasisSplitIndices } from "./splitAnalysis";
-import { generatePoints } from "./pointGeneration";
+import { getActiveQuestionsInSplit, getNumberSegmentGroups, getIndices, getFullySpecifiedSplitIndices, getBasisSplitIndices } from "./splitAnalysis";
+import { populatePoints } from "./pointGeneration";
+import { populateVizSegments } from "./segments";
 
 
 
@@ -25,7 +26,7 @@ export function initialize(
       };
       fullySpecifiedSplitIndices: number[];
       segmentGroups: SegmentGroup[];
-      points: VizPoint[]
+      points: PointSet[];
     }
   > = new Map();
 
@@ -104,24 +105,23 @@ export function initialize(
 
     //points will be populated for each fully specified split
     //for this response question
-    //Note that this populates points ONLY for the fully specified splits
-    //for which data has been provided to the stats instance
-    //from which it can compute stats for that instance.
-    const points = generatePoints({
+    const newPointSets = populatePoints({
+      prevPointSets: [],
       responseQuestion: responseQuestion,
       allSplits: allSplits,
       fullySpecifiedSplitIndices: fullySpecifiedSplitIndices,
-      groupingQuestionsX: groupingQuestionsX,
-      groupingQuestionsY: groupingQuestionsY,
       syntheticSampleSize: segmentVizConfig.syntheticSampleSize
     })
 
-    //==============================================================================
-    // COMPUTE THE SEGMENT GROUP BOUNDS, AND THE SEGMENTS WITHIN EACH GROUP
-    //==============================================================================
+    //TODO:  update the rest of code now that the points object has a new type.
+    //Then go back to the updating callback
 
-    //we're going to build an array of segment groups, one group in the array 
-    //for each split that is null on all the excluded questions.
+    //=============================================================================
+    // SET THE SEGMENT GROUP BOUNDS
+    //=============================================================================
+    //note that these depend only on the config for the viz and the stats instance
+    //ref.  They do NOT depend on the data in the stats instance,
+    //and thus they do not change if/when data is hydrated or updated.
 
     let splitIdx = -1;
     const segmentGroups: SegmentGroup[] = [];
@@ -162,108 +162,42 @@ export function initialize(
         segmentVizConfig.groupGapY
       )
 
-      //compute the segment bounds for this split
-      //whether we specify segment bounds at this point depends on whether proportions
-      //have been computed for the response groups for this split.
-      //This is determined by the initializePoints function above.  It only
-      //puts points into the points array corresponding to 
-      // fully-specified splits for which there is data required to compute proportions.
-      //So the first thing we need to do is check whether there are points in the points
-      //array that belong to this split.
-
       //find the basis splits for the current split
       const basisSplitIndices = getBasisSplitIndices({
         split: split,
         allBasisSplitIndices: fullySpecifiedSplitIndices,
         allSplits: allSplits
       })
-      //check whether all basis splits are populated
-      const allBasisSplitsPopulated = basisSplitIndices.every((basisSplitIndex) => {
-        let found = false;
-        for (const point of points) {
-          if (point.fullySpecifiedSplitIndex === basisSplitIndex) {
-            found = true;
-            break;
-          }
-        }
-        return found;
+
+      //push this segment group onto the segment groups array
+      segmentGroups.push({
+        splitIndex: splitIdx,
+        basisSplitIndices: basisSplitIndices,
+        segmentGroup: segmentGroup,
+        segments: null
       })
-
-
-      //we also need to get the proportions for the current response group into order to compute segments
-      const responseQuestionWithStats = split.responseQuestions.find((rq) => getQuestionKey(rq) === getQuestionKey(responseQuestion))
-
-      //now we can decide whether to populate the segments
-      if (allBasisSplitsPopulated && responseQuestionWithStats) {
-        //get the response groups with stats
-        const responseGroupsWithStats = responseQuestionWithStats.responseGroups;
-        //get the points that need to be positioned within segments for this split.
-        const pointsForSplit = points.filter((point) => basisSplitIndices.includes(point.fullySpecifiedSplitIndex))
-        //collapsed segments - compute bounds and position points
-        let currentX = 0;
-        const segmentsCollapsed = responseGroupsWithStats.collapsed.map((rg, rgIdx) => {
-          const pointsInSegment = pointsForSplit.filter((point: VizPoint) =>
-            point.expandedResponseGroup.values.every((value: number) => rg.values.includes(value))
-          );
-          const widthToBeDistributed = (
-            segmentGroup.width
-            - (responseGroupsWithStats.collapsed.length - 1) * segmentVizConfig.responseGap
-            - responseGroupsWithStats.collapsed.length * 2
-          );
-          const segmentBounds = {
-            x: currentX,
-            y: segmentGroup.y,
-            width: 2 + widthToBeDistributed * rg.proportion,
-            height: segmentGroup.height,
-          };
-          currentX += segmentBounds.width + segmentVizConfig.responseGap;
-          return {
-            ...segmentBounds,
-            pointPositions: positionPointsInSegment(pointsInSegment, segmentBounds),
-            responseGroupIndex: rgIdx
-          };
-        });
-
-        //expanded segments - compute bounds and position points
-        currentX = 0;
-        const segmentsExpanded = responseGroupsWithStats.expanded.map((rg, rgIdx) => {
-          const pointsInSegment = pointsForSplit.filter((point: VizPoint) => point.expandedResponseGroup.label === rg.label);
-          const widthToBeDistributed = (
-            segmentGroup.width
-            - (responseGroupsWithStats.expanded.length - 1) * segmentVizConfig.responseGap
-            - responseGroupsWithStats.expanded.length * 2
-          );
-          const segmentBounds = {
-            x: currentX,
-            y: segmentGroup.y,
-            width: 2 + widthToBeDistributed * rg.proportion,
-            height: segmentGroup.height,
-          };
-          currentX += segmentBounds.width + segmentVizConfig.responseGap;
-          return {
-            ...segmentBounds,
-            pointPositions: positionPointsInSegment(pointsInSegment, segmentBounds),
-            responseGroupIndex: rgIdx
-          };
-        })
-        segmentGroups.push({
-          splitIndex: splitIdx,
-          basisSplitIndices: basisSplitIndices,
-          segmentGroup: segmentGroup,
-          segments: {
-            collapsed: segmentsCollapsed,
-            expanded: segmentsExpanded
-          }
-        })
-      } else {
-        segmentGroups.push({
-          splitIndex: splitIdx,
-          basisSplitIndices: basisSplitIndices,
-          segmentGroup: segmentGroup,
-          segments: null
-        })
-      }
     }
+
+    //==============================================================================
+    // POPULATE SEGMENTS WITHIN EACH GROUP, WHERE DATA IS AVAILABLE
+    //==============================================================================
+
+    //segmentGroups now holds the un-hydrated segment groups
+    //newPointSets now holds the hydrated points
+    //to hydrate the segments within the segments groups, 
+    // we now need to use the data from statsInstanceRef
+
+    const hydratedSegmentGroups = populateVizSegments({
+      responseQuestion: responseQuestion,
+      responseGap: segmentVizConfig.responseGap,
+      segmentGroups: segmentGroups,
+      pointSets: newPointSets,
+      allSplits: allSplits
+    })
+
+    //===========================================================================
+    // SET THE KEY + VALUE IN THE VIZMAP FOR THIS RESPONSE QUESTION
+    //===========================================================================
     vizMap.set(getQuestionKey(responseQuestion), {
       groupingQuestions: {
         x: groupingQuestionsX,
@@ -271,9 +205,11 @@ export function initialize(
         excludedQuestionKeys: groupingQuestionsExcludedKeys
       },
       fullySpecifiedSplitIndices: fullySpecifiedSplitIndices,
-      segmentGroups: segmentGroups,
-      points: points
+      points: newPointSets,
+      segmentGroups: hydratedSegmentGroups
     })
+
+
   }
   return vizMap;
 }

@@ -1,4 +1,3 @@
-import type { Group, ResponseGroup } from "shared-schemas";
 export interface SegmentVizConfig {
   //questions
   responseQuestionKeys: string[];
@@ -16,18 +15,42 @@ export interface SegmentVizConfig {
   responseGap: number; //x-axis gap between segments within a segment group
 }
 
-export interface VizPoint {
-  id: number,
-  splitGroups: Group[],
-  expandedResponseGroup: ResponseGroup,
-  fullySpecifiedSplitIndex: number
+export interface PointSet {
+  fullySpecifiedSplitIndex: number,
+  responseGroupIndex: {
+    expanded: number,
+    collapsed: number
+  },
+  currentIds: string[];  // Composite IDs: "${splitIdx}-${ergIdx}-${localId}"
+  addedIds: string[];    // Composite IDs of points added in this update
+  removedIds: string[];  // Composite IDs of points removed in this update
 }
 
+
 export interface PointPosition {
-  id: number;
+  id: string;
   x: number;
   y: number;
 }
+
+export interface Segments {
+  collapsed: {
+    pointPositions: PointPosition[];
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    responseGroupIndex: number;
+  }[];
+  expanded: {
+    pointPositions: PointPosition[];
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    responseGroupIndex: number;
+  }[];
+};
 
 export interface SegmentGroup {
   splitIndex: number;
@@ -38,22 +61,5 @@ export interface SegmentGroup {
     width: number,
     height: number
   };
-  segments: null | {
-    collapsed: {
-      pointPositions: PointPosition[];
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      responseGroupIndex: number;
-    }[];
-    expanded: {
-      pointPositions: PointPosition[];
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      responseGroupIndex: number;
-    }[];
-  }
+  segments: null | Segments
 }
