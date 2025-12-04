@@ -1,359 +1,590 @@
-import fs from 'fs';
-import path from 'path';
-import { parseSurveyCsvToRespondents } from './helpers/parseRespondents';
-import { makeAllSegmentVizFromFixtures } from './helpers/createAllSegmentViz';
-import { getQuestionKey } from '../src/utils';
+/**
+ * Tests for SegmentViz class initialization without data.
+ *
+ * These tests verify that SegmentViz correctly performs computational tasks
+ * that don't require the connected Statistics instance to be hydrated with data:
+ * 1. Computing vizWidth and vizHeight
+ * 2. Constructing grouping questions for each response question
+ * 3. Creating empty point sets
+ * 4. Computing segment group bounds
+ */
+
+import { Statistics, type StatsConfig } from "../src/statistics";
+import { SegmentViz } from "../src/segmentViz";
+import type { SegmentVizConfig } from "../src/segmentViz/types";
 import {
-  vizConfig_oneEach,
-  vizConfig_bothHorizontally,
-  vizConfig_bothVertically,
-  vizConfig_noGroupings
-} from './fixtures/session_and_viz_configs';
-import { Column } from 'drizzle-orm';
+  ageGroupingQuestion,
+  genderGroupingQuestion,
+  partisanshipGroupingQuestion,
+  favorabilityResponseQuestion,
+  partisanshipResponseQuestion,
+} from "./fixtures/segmentViz-fixtures";
+import { getQuestionKey } from "../src/utils";
 
+/**
+ * Helper to find a segment group by split characteristics.
+ */
+function findSegmentGroupBySplit(
+  segmentGroups: any[],
+  splits: any[],
+  ageLabelOrNull: string | null,
+  genderLabelOrNull: string | null
+): any {
+  return segmentGroups.find((sg) => {
+    const split = splits[sg.splitIndex];
+    const ageGroup = split.groups.find(
+      (g: any) => g.question.varName === "age"
+    );
+    const genderGroup = split.groups.find(
+      (g: any) => g.question.varName === "gender"
+    );
 
-type Row = {
-  id: string | number;
-  // in the coded fixture moods/gender/height are numeric codes, but NULL and SKIPPED remain strings
-  mood: number | 'NULL' | 'SKIPPED' | string;
-  gender: number | 'NULL' | 'SKIPPED' | string;
-  height: number | 'NULL' | 'SKIPPED' | string;
-};
+    const ageMatch =
+      ageLabelOrNull === null
+        ? ageGroup.responseGroup === null
+        : ageGroup.responseGroup?.label === ageLabelOrNull;
 
-function loadCsvIgnoringComments(filePath: string): Row[] {
-  const content = fs.readFileSync(filePath, 'utf8');
-  const lines = content.split(/\r?\n/);
-  const dataLines = lines.filter(l => l.trim().length > 0 && !l.trim().startsWith('#'));
-  const header = dataLines.shift();
-  if (!header) return [];
-  const headerCols = header.split(',').map(h => h.trim());
-  return dataLines.map(line => {
-    const cols = line.split(',');
-    const obj: any = {};
-    headerCols.forEach((h, i) => {
-      const raw = cols[i] ? cols[i].trim() : '';
-      if (/^\d+$/.test(raw)) {
-        obj[h] = Number(raw);
-      } else {
-        obj[h] = raw;
-      }
-    });
-    return obj as Row;
+    const genderMatch =
+      genderLabelOrNull === null
+        ? genderGroup.responseGroup === null
+        : genderGroup.responseGroup?.label === genderLabelOrNull;
+
+    return ageMatch && genderMatch;
   });
 }
 
-describe('survey_responses.csv fixture', () => {
-  const fixturePath = path.join(__dirname, 'fixtures', 'survey_responses.csv');
-  let rows: Row[];
+describe("SegmentViz - Initialization (No Data)", () => {
+  describe("Viz dimensions computation", () => {
+    let stats: Statistics;
+    let segmentViz: SegmentViz;
 
-  beforeAll(() => {
-    rows = loadCsvIgnoringComments(fixturePath);
+    beforeAll(() => {
+      const statsConfig: StatsConfig = {
+        responseQuestions: [favorabilityResponseQuestion],
+        groupingQuestions: [ageGroupingQuestion, genderGroupingQuestion],
+      };
+
+      // Create Statistics instance with no data
+      stats = new Statistics(statsConfig);
+
+      const vizConfig: SegmentVizConfig = {
+        responseQuestionKeys: [getQuestionKey(favorabilityResponseQuestion)],
+        groupingQuestionKeys: {
+          x: [getQuestionKey(ageGroupingQuestion)],
+          y: [getQuestionKey(genderGroupingQuestion)],
+        },
+        minGroupAvailableWidth: 100,
+        minGroupHeight: 100,
+        groupGapX: 10,
+        groupGapY: 10,
+        responseGap: 1, // Zero for easier arithmetic
+      };
+
+      segmentViz = new SegmentViz(stats, vizConfig);
+    });
+
+    it("should compute vizWidth correctly", () => {
+      // VizWidth calculation:
+      // - X-axis grouping questions: age (2 groups)
+      // - Max response groups across all response questions: favorability has 4 expanded groups
+      //
+      // Formula: (numGroupsX - 1) * groupGapX + numGroupsX * ((maxRespGroups - 1) * responseGap + maxRespGroups * 2 + minGroupAvailableWidth)
+      //        = (2 - 1) * 10 + 2 * ((4 - 1) * 1 + 4 * 2 + 100)
+      //        = 10 + 2 * (3 + 8 + 100)
+      //        = 10 + 2 * 111
+      //        = 10 + 222
+      //        = 232
+
+      expect(segmentViz["vizWidth"]).toBe(232);
+    });
+
+    it("should compute vizHeight correctly", () => {
+      // VizHeight calculation:
+      // - Y-axis grouping questions: gender (2 groups)
+      //
+      // Formula: (numGroupsY - 1) * groupGapY + numGroupsY * minGroupHeight
+      //        = (2 - 1) * 10 + 2 * 100
+      //        = 10 + 200
+      //        = 210
+
+      expect(segmentViz["vizHeight"]).toBe(210);
+    });
   });
 
-  test('has 26 rows total (including NULL/SKIPPED incomplete responses)', () => {
-    expect(rows.length).toBe(26);
+  describe("Grouping questions construction", () => {
+    describe("when response question is not a grouping question", () => {
+      let segmentViz: SegmentViz;
+      let vizMap: any;
+
+      beforeAll(() => {
+        const statsConfig: StatsConfig = {
+          responseQuestions: [favorabilityResponseQuestion],
+          groupingQuestions: [ageGroupingQuestion, genderGroupingQuestion],
+        };
+
+        const stats = new Statistics(statsConfig);
+
+        const vizConfig: SegmentVizConfig = {
+          responseQuestionKeys: [getQuestionKey(favorabilityResponseQuestion)],
+          groupingQuestionKeys: {
+            x: [getQuestionKey(ageGroupingQuestion)],
+            y: [getQuestionKey(genderGroupingQuestion)],
+          },
+          minGroupAvailableWidth: 100,
+          minGroupHeight: 100,
+          groupGapX: 10,
+          groupGapY: 10,
+          responseGap: 1,
+        };
+
+        segmentViz = new SegmentViz(stats, vizConfig);
+        vizMap = segmentViz["vizMap"];
+      });
+
+      it("should include all configured grouping questions", () => {
+        const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
+
+        expect(favViz.groupingQuestions.x).toHaveLength(1);
+        expect(favViz.groupingQuestions.x[0].varName).toBe("age");
+
+        expect(favViz.groupingQuestions.y).toHaveLength(1);
+        expect(favViz.groupingQuestions.y[0].varName).toBe("gender");
+      });
+
+      it("should have no excluded grouping questions", () => {
+        const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
+        expect(favViz.groupingQuestions.excludedQuestionKeys).toHaveLength(0);
+      });
+    });
+
+    describe("when response question IS a grouping question", () => {
+      let segmentViz: SegmentViz;
+      let vizMap: any;
+
+      beforeAll(() => {
+        const statsConfig: StatsConfig = {
+          responseQuestions: [
+            favorabilityResponseQuestion,
+            partisanshipResponseQuestion,
+          ],
+          groupingQuestions: [
+            ageGroupingQuestion,
+            partisanshipGroupingQuestion,
+          ],
+        };
+
+        const stats = new Statistics(statsConfig);
+
+        const vizConfig: SegmentVizConfig = {
+          responseQuestionKeys: [
+            getQuestionKey(favorabilityResponseQuestion),
+            getQuestionKey(partisanshipResponseQuestion),
+          ],
+          groupingQuestionKeys: {
+            x: [
+              getQuestionKey(ageGroupingQuestion),
+              getQuestionKey(partisanshipGroupingQuestion),
+            ],
+            y: [],
+          },
+          minGroupAvailableWidth: 100,
+          minGroupHeight: 100,
+          groupGapX: 10,
+          groupGapY: 1,
+          responseGap: 1,
+        };
+
+        segmentViz = new SegmentViz(stats, vizConfig);
+        vizMap = segmentViz["vizMap"];
+      });
+
+      it("should exclude partisanship from its own viz grouping questions", () => {
+        const partViz = vizMap.get(
+          getQuestionKey(partisanshipResponseQuestion)
+        );
+
+        // X-axis should only have age (partisanship excluded because it's the response question)
+        expect(partViz.groupingQuestions.x).toHaveLength(1);
+        expect(partViz.groupingQuestions.x[0].varName).toBe("age");
+
+        // Y-axis should be empty
+        expect(partViz.groupingQuestions.y).toHaveLength(0);
+
+        // Partisanship should be in excluded list
+        expect(partViz.groupingQuestions.excludedQuestionKeys).toContain(
+          getQuestionKey(partisanshipGroupingQuestion)
+        );
+      });
+
+      it("should include partisanship in favorability viz grouping questions", () => {
+        const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
+
+        // X-axis should have both age and partisanship
+        expect(favViz.groupingQuestions.x).toHaveLength(2);
+        expect(favViz.groupingQuestions.x[0].varName).toBe("age");
+        expect(favViz.groupingQuestions.x[1].varName).toBe("partisanship");
+
+        // No excluded questions
+        expect(favViz.groupingQuestions.excludedQuestionKeys).toHaveLength(0);
+      });
+    });
   });
 
-  // Helper to filter only complete rows (no NULL or SKIPPED in any field)
-  function completeRows(input: Row[]) {
-    return input.filter(r => {
-      return (
-        typeof r.mood === 'number' &&
-        typeof r.gender === 'number' &&
-        typeof r.height === 'number'
+  describe("Point sets creation", () => {
+    let stats: Statistics;
+    let segmentViz: SegmentViz;
+    let vizMap: any;
+
+    beforeAll(() => {
+      const statsConfig: StatsConfig = {
+        responseQuestions: [favorabilityResponseQuestion],
+        groupingQuestions: [ageGroupingQuestion, genderGroupingQuestion],
+      };
+
+      stats = new Statistics(statsConfig);
+
+      const vizConfig: SegmentVizConfig = {
+        responseQuestionKeys: [getQuestionKey(favorabilityResponseQuestion)],
+        groupingQuestionKeys: {
+          x: [getQuestionKey(ageGroupingQuestion)],
+          y: [getQuestionKey(genderGroupingQuestion)],
+        },
+        minGroupAvailableWidth: 100,
+        minGroupHeight: 100,
+        groupGapX: 10,
+        groupGapY: 10,
+        responseGap: 1,
+      };
+
+      segmentViz = new SegmentViz(stats, vizConfig);
+      vizMap = segmentViz["vizMap"];
+    });
+
+    it("should create one point set per fully-specified split", () => {
+      const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
+
+      // With 2 grouping questions (age, gender), each with 2 groups,
+      // we have 2 * 2 = 4 fully-specified splits
+      expect(favViz.points).toHaveLength(4 * 4); // 4 splits × 4 expanded response groups
+    });
+
+    it("should have empty point ID arrays (no data)", () => {
+      const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
+
+      for (const pointSet of favViz.points) {
+        expect(pointSet.currentIds).toEqual([]);
+        expect(pointSet.addedIds).toEqual([]);
+        expect(pointSet.removedIds).toEqual([]);
+      }
+    });
+
+    it("should have correct response group indices", () => {
+      const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
+
+      // Favorability response groups:
+      // Expanded: [strongly_favorable(1), favorable(2), unfavorable(3), strongly_unfavorable(4)]
+      // Collapsed: [all_favorable(1,2), all_unfavorable(3,4)]
+      //
+      // Expected mapping (computed from values):
+      // - Expanded group 0 (values: [1]) -> Collapsed group 0 (values: [1,2]) ✓ (1 is in [1,2])
+      // - Expanded group 1 (values: [2]) -> Collapsed group 0 (values: [1,2]) ✓ (2 is in [1,2])
+      // - Expanded group 2 (values: [3]) -> Collapsed group 1 (values: [3,4]) ✓ (3 is in [3,4])
+      // - Expanded group 3 (values: [4]) -> Collapsed group 1 (values: [3,4]) ✓ (4 is in [3,4])
+
+      const expandedGroups =
+        favorabilityResponseQuestion.responseGroups.expanded;
+      const collapsedGroups =
+        favorabilityResponseQuestion.responseGroups.collapsed;
+
+      // For each point set, verify the mapping
+      for (const pointSet of favViz.points) {
+        const expandedIdx = pointSet.responseGroupIndex.expanded;
+        const collapsedIdx = pointSet.responseGroupIndex.collapsed;
+
+        // Get the value(s) from the expanded group
+        const expandedValues = expandedGroups[expandedIdx].values;
+
+        // Get the values from the collapsed group
+        const collapsedValues = collapsedGroups[collapsedIdx].values;
+
+        // Verify that all expanded values are contained in the collapsed values
+        for (const expVal of expandedValues) {
+          expect(collapsedValues).toContain(expVal);
+        }
+      }
+    });
+
+    it("should map expanded groups to collapsed groups correctly for favorability", () => {
+      const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
+
+      // Find point sets for each expanded group (using first fully-specified split)
+      const fullySpecifiedSplitIdx = favViz.fullySpecifiedSplitIndices[0];
+
+      const pointSetsForSplit = favViz.points.filter(
+        (ps: any) => ps.fullySpecifiedSplitIndex === fullySpecifiedSplitIdx
       );
+
+      // Verify we have one point set per expanded group
+      expect(pointSetsForSplit).toHaveLength(4);
+
+      // Group by collapsed index
+      const byCollapsedIdx: Record<number, number[]> = {};
+      for (const ps of pointSetsForSplit) {
+        const collapsedIdx = ps.responseGroupIndex.collapsed;
+        if (!byCollapsedIdx[collapsedIdx]) {
+          byCollapsedIdx[collapsedIdx] = [];
+        }
+        byCollapsedIdx[collapsedIdx].push(ps.responseGroupIndex.expanded);
+      }
+
+      // Collapsed group 0 (all_favorable: values [1,2]) should contain expanded groups 0 and 1
+      expect(byCollapsedIdx[0].sort()).toEqual([0, 1]);
+
+      // Collapsed group 1 (all_unfavorable: values [3,4]) should contain expanded groups 2 and 3
+      expect(byCollapsedIdx[1].sort()).toEqual([2, 3]);
     });
-  }
-
-  test('overall mood counts match expected totals (excluding incomplete responses)', () => {
-    const complete = completeRows(rows);
-    expect(complete.length).toBe(20);
-
-    const counts = complete.reduce<Record<number | string, number>>((acc, r) => {
-      const key = r.mood as number | string;
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {} as Record<number | string, number>);
-
-    expect(counts[0]).toBe(2); // very sad
-    expect(counts[1]).toBe(4); // sad
-    expect(counts[2]).toBe(8); // happy
-    expect(counts[3]).toBe(6); // very happy
   });
 
-  test('grouped by gender+height have expected breakdowns', () => {
-    const complete = completeRows(rows);
-    const groups: Record<string, { [k: number]: number; total: number }> = {};
-    complete.forEach(r => {
-      const key = `${r.gender}|${r.height}`;
-      groups[key] = groups[key] || ({ 0: 0, 1: 0, 2: 0, 3: 0, total: 0 } as any);
-      const moodKey = r.mood as number;
-      groups[key][moodKey] = (groups[key][moodKey] || 0) + 1;
-      groups[key].total++;
+  describe("Segment group bounds computation", () => {
+    let stats: Statistics;
+    let segmentViz: SegmentViz;
+    let vizMap: any;
+    let splits: any[];
+
+    beforeAll(() => {
+      const statsConfig: StatsConfig = {
+        responseQuestions: [favorabilityResponseQuestion],
+        groupingQuestions: [ageGroupingQuestion, genderGroupingQuestion],
+      };
+
+      stats = new Statistics(statsConfig);
+      splits = stats.getSplits();
+
+      const vizConfig: SegmentVizConfig = {
+        responseQuestionKeys: [getQuestionKey(favorabilityResponseQuestion)],
+        groupingQuestionKeys: {
+          x: [getQuestionKey(ageGroupingQuestion)],
+          y: [getQuestionKey(genderGroupingQuestion)],
+        },
+        minGroupAvailableWidth: 100,
+        minGroupHeight: 100,
+        groupGapX: 10,
+        groupGapY: 10,
+        responseGap: 1,
+      };
+
+      segmentViz = new SegmentViz(stats, vizConfig);
+      vizMap = segmentViz["vizMap"];
     });
 
-    expect(groups['0|0'].total).toBe(5);
-    expect(groups['0|0'][0]).toBe(1);
-    expect(groups['0|0'][1]).toBe(1);
-    expect(groups['0|0'][2]).toBe(2);
-    expect(groups['0|0'][3]).toBe(1);
+    describe("Visual layout (2x2 grid)", () => {
+      // Visual layout (not to scale):
+      //
+      //        young (x=0)         old (x=121)
+      //        width=111          width=111
+      //   ┌─────────────────┬──┬─────────────────┐
+      //   │                 │10│                 │
+      // f │  young_female   │  │  old_female     │ height=100
+      // e │  (0,0)          │  │  (1,0)          │ y=0
+      // m │                 │  │                 │
+      //   ├─────────────────┼──┼─────────────────┤
+      //   │       gap = 10  │  │                 │
+      // m ├─────────────────┼──┼─────────────────┤
+      // a │                 │10│                 │
+      // l │  young_male     │  │  old_male       │ height=100
+      // e │  (0,1)          │  │  (1,1)          │ y=110
+      //   │                 │  │                 │
+      //   └─────────────────┴──┴─────────────────┘
+      //
+      // Aggregated splits overlay this grid:
+      //
+      // young_allGenders (age=young, gender=null):
+      //   Sees 2×1 grid (2 age groups, 1 implicit Y group)
+      //   Occupies full height at x=0: { x: 0, y: 0, width: 111, height: 210 }
+      //
+      // allAges_male (age=null, gender=male):
+      //   Sees 1×2 grid (1 implicit X group, 2 gender groups)
+      //   Occupies full width at y=110: { x: 0, y: 110, width: 232, height: 100 }
+      //
+      // allAges_allGenders (both null):
+      //   Sees 1×1 grid
+      //   Occupies entire viz: { x: 0, y: 0, width: 232, height: 210 }
 
-    expect(groups['0|1'].total).toBe(5);
-    expect(groups['0|1'][0]).toBe(0);
-    expect(groups['0|1'][1]).toBe(1);
-    expect(groups['0|1'][2]).toBe(3);
-    expect(groups['0|1'][3]).toBe(1);
+      it("should create segment groups for all relevant splits", () => {
+        const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
 
-    expect(groups['1|0'].total).toBe(5);
-    expect(groups['1|0'][0]).toBe(1);
-    expect(groups['1|0'][1]).toBe(1);
-    expect(groups['1|0'][2]).toBe(2);
-    expect(groups['1|0'][3]).toBe(1);
+        // With 2 grouping questions (age, gender), we have:
+        // - 4 fully-specified splits (2 × 2)
+        // - 4 partially-aggregated splits (2 with age null, 2 with gender null)
+        // - 1 fully-aggregated split (both null)
+        // Total: 9 segment groups
 
-    expect(groups['1|1'].total).toBe(5);
-    expect(groups['1|1'][0]).toBe(0);
-    expect(groups['1|1'][1]).toBe(1);
-    expect(groups['1|1'][2]).toBe(1);
-    expect(groups['1|1'][3]).toBe(3);
-  });
+        expect(favViz.segmentGroups).toHaveLength(9);
+      });
+    });
 
-  test('grouped by height only produce expected tall/short distributions', () => {
-    const complete = completeRows(rows);
-    const byHeight = complete.reduce<Record<number | string, { [k: number]: number }>>((acc, r) => {
-      const h = r.height as number | string;
-      acc[h] = acc[h] || ({ 0: 0, 1: 0, 2: 0, 3: 0 } as any);
-      const moodKey = r.mood as number;
-      acc[h][moodKey] = (acc[h][moodKey] || 0) + 1;
-      return acc;
-    }, {} as any);
+    describe("Fully-specified split", () => {
+      it("should compute bounds correctly for a randomly selected fully-specified split", () => {
+        const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
 
-    expect(byHeight[0][0]).toBe(2);
-    expect(byHeight[0][1]).toBe(2);
-    expect(byHeight[0][2]).toBe(4);
-    expect(byHeight[0][3]).toBe(2);
+        // Randomly select one of the 4 fully-specified splits
+        const fullySpecifiedOptions = [
+          { age: "young", gender: "male" },
+          { age: "young", gender: "female" },
+          { age: "old", gender: "male" },
+          { age: "old", gender: "female" },
+        ];
+        const selected =
+          fullySpecifiedOptions[
+            Math.floor(Math.random() * fullySpecifiedOptions.length)
+          ];
 
-    expect(byHeight[1][0]).toBe(0);
-    expect(byHeight[1][1]).toBe(2);
-    expect(byHeight[1][2]).toBe(4);
-    expect(byHeight[1][3]).toBe(4);
-  });
+        const segmentGroup = findSegmentGroupBySplit(
+          favViz.segmentGroups,
+          splits,
+          selected.age,
+          selected.gender
+        );
 
-  test('grouped by gender only produce expected male/female distributions', () => {
-    const complete = completeRows(rows);
-    const byGender = complete.reduce<Record<number | string, { [k: number]: number }>>((acc, r) => {
-      const g = r.gender as number | string;
-      acc[g] = acc[g] || ({ 0: 0, 1: 0, 2: 0, 3: 0 } as any);
-      const moodKey = r.mood as number;
-      acc[g][moodKey] = (acc[g][moodKey] || 0) + 1;
-      return acc;
-    }, {} as any);
+        expect(segmentGroup).toBeDefined();
 
-    expect(byGender[0][0]).toBe(1);
-    expect(byGender[0][1]).toBe(2);
-    expect(byGender[0][2]).toBe(5);
-    expect(byGender[0][3]).toBe(2);
+        // This split sees a 2×2 grid (2 age groups × 2 gender groups)
+        // numSegmentGroups: { x: 2, y: 2 }
+        //
+        // segmentGroupWidth = (vizWidth - (numGroupsX - 1) * groupGapX) / numGroupsX
+        //                   = (232 - (2 - 1) * 10) / 2
+        //                   = (232 - 10) / 2
+        //                   = 222 / 2
+        //                   = 111
+        //
+        // segmentGroupHeight = (vizHeight - (numGroupsY - 1) * groupGapY) / numGroupsY
+        //                    = (210 - (2 - 1) * 10) / 2
+        //                    = (210 - 10) / 2
+        //                    = 200 / 2
+        //                    = 100
 
-    expect(byGender[1][0]).toBe(1);
-    expect(byGender[1][1]).toBe(2);
-    expect(byGender[1][2]).toBe(3);
-    expect(byGender[1][3]).toBe(4);
+        expect(segmentGroup.segmentGroup.width).toBe(111);
+        expect(segmentGroup.segmentGroup.height).toBe(100);
+
+        // Position depends on which split was selected:
+        // young=0, old=1; male=0, female=1
+        const xIdx = selected.age === "young" ? 0 : 1;
+        const yIdx = selected.gender === "male" ? 0 : 1;
+
+        // x = xIdx * (segmentGroupWidth + groupGapX)
+        //   = xIdx * (111 + 10)
+        //   = xIdx * 121
+        const expectedX = xIdx * 121;
+
+        // y = yIdx * (segmentGroupHeight + groupGapY)
+        //   = yIdx * (100 + 10)
+        //   = yIdx * 110
+        const expectedY = yIdx * 110;
+
+        expect(segmentGroup.segmentGroup.x).toBe(expectedX);
+        expect(segmentGroup.segmentGroup.y).toBe(expectedY);
+      });
+    });
+
+    describe("Partially-aggregated split", () => {
+      it("should compute bounds correctly for a randomly selected partially-aggregated split", () => {
+        const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
+
+        // Randomly select one of the partially-aggregated splits
+        const partialOptions = [
+          { age: "young", gender: null, desc: "young_allGenders" },
+          { age: "old", gender: null, desc: "old_allGenders" },
+          { age: null, gender: "male", desc: "allAges_male" },
+          { age: null, gender: "female", desc: "allAges_female" },
+        ];
+        const selected =
+          partialOptions[Math.floor(Math.random() * partialOptions.length)];
+
+        const segmentGroup = findSegmentGroupBySplit(
+          favViz.segmentGroups,
+          splits,
+          selected.age,
+          selected.gender
+        );
+
+        expect(segmentGroup).toBeDefined();
+
+        if (selected.age !== null && selected.gender === null) {
+          // Age is specified, gender is null
+          // This split sees a 2×1 grid (2 age groups × 1 implicit Y group)
+          // numSegmentGroups: { x: 2, y: 1 }
+          //
+          // segmentGroupWidth = (232 - (2-1)*10) / 2 = 222 / 2 = 111
+          // segmentGroupHeight = (210 - (1-1)*10) / 1 = 210 / 1 = 210 (full height!)
+          //
+          // xIdx = age === 'young' ? 0 : 1
+          // yIdx = 0 (only one Y group)
+          //
+          // x = xIdx * (111 + 10) = xIdx * 121
+          // y = 0 * (210 + 10) = 0
+
+          expect(segmentGroup.segmentGroup.width).toBe(111);
+          expect(segmentGroup.segmentGroup.height).toBe(210);
+
+          const xIdx = selected.age === "young" ? 0 : 1;
+          expect(segmentGroup.segmentGroup.x).toBe(xIdx * 121);
+          expect(segmentGroup.segmentGroup.y).toBe(0);
+        } else if (selected.age === null && selected.gender !== null) {
+          // Gender is specified, age is null
+          // This split sees a 1×2 grid (1 implicit X group × 2 gender groups)
+          // numSegmentGroups: { x: 1, y: 2 }
+          //
+          // segmentGroupWidth = (232 - (1-1)*10) / 1 = 232 / 1 = 232 (full width!)
+          // segmentGroupHeight = (210 - (2-1)*10) / 2 = 200 / 2 = 100
+          //
+          // xIdx = 0 (only one X group)
+          // yIdx = gender === 'male' ? 0 : 1
+          //
+          // x = 0 * (232 + 10) = 0
+          // y = yIdx * (100 + 10) = yIdx * 110
+
+          expect(segmentGroup.segmentGroup.width).toBe(232);
+          expect(segmentGroup.segmentGroup.height).toBe(100);
+
+          const yIdx = selected.gender === "male" ? 0 : 1;
+          expect(segmentGroup.segmentGroup.x).toBe(0);
+          expect(segmentGroup.segmentGroup.y).toBe(yIdx * 110);
+        }
+      });
+    });
+
+    describe("Fully-aggregated split", () => {
+      it("should compute bounds correctly for the all-null split", () => {
+        const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
+
+        const segmentGroup = findSegmentGroupBySplit(
+          favViz.segmentGroups,
+          splits,
+          null,
+          null
+        );
+
+        expect(segmentGroup).toBeDefined();
+
+        // age=null, gender=null
+        // This split sees a 1×1 grid (1 implicit X group × 1 implicit Y group)
+        // numSegmentGroups: { x: 1, y: 1 }
+        //
+        // segmentGroupWidth = (232 - (1-1)*10) / 1 = 232 / 1 = 232 (full width)
+        // segmentGroupHeight = (210 - (1-1)*10) / 1 = 210 / 1 = 210 (full height)
+        //
+        // segmentGroupIndices: { x: 0, y: 0 } (no active grouping questions)
+        //
+        // x = 0 * (232 + 10) = 0
+        // y = 0 * (210 + 10) = 0
+
+        expect(segmentGroup.segmentGroup).toEqual({
+          x: 0,
+          y: 0,
+          width: 232,
+          height: 210,
+        });
+      });
+    });
   });
 });
-
-const fixturePath = path.join(__dirname, 'fixtures', 'survey_responses.csv');
-const respondentsData = parseSurveyCsvToRespondents(fixturePath);
-
-describe("Respondent data fixture", () => {
-  test('parseSurveyCsvToRespondents produces RespondentData entries with NULL->null and SKIPPED->omitted', () => {
-    // fixture has 26 respondent rows
-    expect(respondentsData.length).toBe(26);
-    // find respondent 21 which had mood=NULL (we expect a response entry for mood with response: null)
-    const r21 = respondentsData.find(r => r.respondentId === 21);
-    expect(r21).toBeDefined();
-    expect(r21!.responses.some(resp => resp.varName === 'mood' && resp.response === null)).toBe(true);
-    // find respondent 22 which had mood=SKIPPED (no mood response)
-    const r22 = respondentsData.find(r => r.respondentId === 22);
-    expect(r22).toBeDefined();
-    expect(r22!.responses.some(resp => resp.varName === 'mood')).toBe(false);
-  });
-})
-
-const allSegmentViz = makeAllSegmentVizFromFixtures(respondentsData);
-
-describe("SegmentViz bounding box", () => {
-
-  test("getBoundingBox - default (one each)", () => {
-
-
-    // testing layout for default config (oneEach)
-    const oneEachViz = allSegmentViz.find((c) => c.name === ('oneEach' as any));
-    expect(oneEachViz).toBeDefined();
-    const oneEachBb = oneEachViz!.instance.getBoundingBox();
-    /**
-     * HORIZONTAL LAYOUT
-     *
-     * In each segment group, there are 4 expanded segments,
-     * and thus 3 response gaps.  vizConfig used by the helper 
-     * above sets response
-     * gaps to 5.  So total width of response gaps in expanded
-     * view within a segment group is 15.
-     * minGroupAvailableWidth is set to 100.
-     * So in the view in which all horizontal groups are 
-     * active, each segment group is 115 units wide.
-     * There are two segment groups on the horizontal axis
-     * in the view with all horizontal groups active,
-     * so that 2 X 115 = 230 units.  Then we have the groupGapHorizontal
-     * which the config sets to 10.  So the vizWidth should be 230 + 10 = 240.
-     * 
-     * VERTICAL LAYOUT
-     * 
-     * Config sets groupGapVertical to 10.  There are two 
-     * segment groups laid out vertically in the view with
-     * all vertical groups active, so 1 vertical group gap of 10 units.
-     * minGroupHeight in the config is set to 30.
-     * So total vizHeight is:
-     * 2 X 30 + 10 = 70. 
-     */
-    expect(oneEachBb).toEqual({ width: 240, height: 70 });
-  });
-
-  test('getBoundingBox - bothHorizontal', () => {
-    const allSegmentViz = makeAllSegmentVizFromFixtures(respondentsData);
-    // testing layout for bothHorizontal
-    const bothHViz = allSegmentViz.find((c) => c.name === ('bothHorizontal' as any));
-    expect(bothHViz).toBeDefined();
-    const bothHBb = bothHViz!.instance.getBoundingBox();
-    /**
-     * HORIZONTAL LAYOUT
-     *
-     * In each segment group, there are 4 expanded segments,
-     * and thus 3 response gaps.  vizConfig used by the helper 
-     * above sets response
-     * gaps to 5.  So total width of response gaps in expanded
-     * view within a segment group is 15.
-     * minGroupAvailableWidth is set to 100.
-     * So in the view in which all horizontal groups are 
-     * active, each segment group is 115 units wide.
-     * There are FOUR segment groups on the horizontal axis
-     * in the view with all horizontal groups active,
-     * so that 4 X 115 = 460 units.  Then we have the groupGapHorizontal
-     * which the config sets to 10.  And there are 4 horizontal groups.
-     * So the vizWidth should be 460 + 10 X 3 = 490.
-     * 
-     * VERTICAL LAYOUT
-     * 
-     * Config sets groupGapVertical to 10.  There is 1
-     * segment group laid out vertically in the view with
-     * all vertical groups active, so 0 vertical group gap of 10 units.
-     * minGroupHeight in the config is set to 30.
-     * So total vizHeight is:
-     * 30. 
-     */
-    expect(bothHBb).toEqual({ width: 490, height: 30 });
-  });
-
-  test('getBoundingBox - bothVertical', () => {
-    const allSegmentViz = makeAllSegmentVizFromFixtures(respondentsData);
-    // testing layout for bothVertical
-    const bothVViz = allSegmentViz.find((c) => c.name === ('bothVertical' as any));
-    expect(bothVViz).toBeDefined();
-    const bothVBb = bothVViz!.instance.getBoundingBox();
-    /**
-     * HORIZONTAL LAYOUT
-     *
-     * In each segment group, there are 4 expanded segments,
-     * and thus 3 response gaps.  vizConfig used by the helper 
-     * above sets response
-     * gaps to 5.  So total width of response gaps in expanded
-     * view within a segment group is 15.
-     * minGroupAvailableWidth is set to 100.
-     * So in the view in which all horizontal groups are 
-     * active, each segment group is 115 units wide.
-     * There is ONE segment groups on the horizontal axis
-     * in the view with all horizontal groups active,
-     * so no group gaps.  So vizWidth = 115.
-     * 
-     * VERTICAL LAYOUT
-     * 
-     * Config sets groupGapVertical to 10.  There are 4
-     * segment group laid out vertically in the view with
-     * all vertical groups active, so 3 vertical group gaps of 10 units each
-     * totaling 30 units.
-     * minGroupHeight in the config is set to 30.
-     * So total vizHeight is:
-     * 4 x 30 + 30 = 150 
-     */
-    expect(bothVBb).toEqual({ width: 115, height: 150 });
-  });
-
-  test('getBoundingBox - none (no groupings)', () => {
-    const allSegmentViz = makeAllSegmentVizFromFixtures(respondentsData);
-    // testing layout for no groups
-    const noGroupsViz = allSegmentViz.find((c) => c.name === ('none' as any));
-    expect(noGroupsViz).toBeDefined();
-    const noGroupsBb = noGroupsViz!.instance.getBoundingBox();
-    /**
-     * HORIZONTAL LAYOUT
-     *
-     * In each segment group, there are 4 expanded segments,
-     * and thus 3 response gaps.  vizConfig used by the helper 
-     * above sets response
-     * gaps to 5.  So total width of response gaps in expanded
-     * view within a segment group is 15.
-     * minGroupAvailableWidth is set to 100.
-     * So with no groups, vizWidth = 115
-     * 
-     * VERTICAL LAYOUT
-     * 
-     * Config sets groupGapVertical to 10.  There are 0
-     * segment group laid out vertically in the view with
-     * all vertical groups active, so 0 vertical group gaps of 10 units each
-     * totaling 0 units.
-     * minGroupHeight in the config is set to 30.
-     * So total vizHeight is:
-     * 30 
-     */
-    expect(noGroupsBb).toEqual({ width: 115, height: 30 });
-  });
-})
-
-describe("SegmentViz segment groups layout", () => {
-  allSegmentViz.forEach((segmentVizInstance) => {
-    describe(`SegmentViz instance ${segmentVizInstance.name}`, () => {
-      const viz = segmentVizInstance.instance.getAllVisualizations()[0]
-      viz.views.forEach((view) => {
-        const segmentGroupWidth = (
-          segmentVizInstance.instance.getBoundingBox().width
-          - (view.grid.columns.length - 1) * segmentVizInstance.config.groupGapHorizontal
-        ) / view.grid.columns.length
-        const segmentGroupHeight = (
-          segmentVizInstance.instance.getBoundingBox().height
-          - (view.grid.rows.length - 1) * segmentVizInstance.config.groupGapVertical
-        ) / view.grid.rows.length
-        describe(`view with active questions ${view.activeGroupingQuestions.map((q) => getQuestionKey(q))} and response groups ${view.responseGroupDisplay}`, () => {
-          view.grid.columns.forEach((column, columnIdx) => {
-            describe(`segment group column index ${columnIdx}`, () => {
-              test("x", () => {
-                expect(column.x).toBe(columnIdx * (segmentGroupWidth + segmentVizInstance.config.groupGapHorizontal))
-              })
-              test("width", () => {
-                expect(column.width).toBe(segmentGroupWidth)
-              })
-            })
-          })
-          view.grid.rows.forEach((row, rowIdx) => {
-            describe(`segment group row index ${rowIdx}`, () => {
-              test("y", () => {
-                expect(row.y).toBe(rowIdx * (segmentGroupHeight + segmentVizInstance.config.groupGapVertical))
-              })
-              test("height", () => {
-                expect(row.height).toBe(segmentGroupHeight)
-              })
-            })
-          })
-        })
-      })
-    })
-  })
-});
-
