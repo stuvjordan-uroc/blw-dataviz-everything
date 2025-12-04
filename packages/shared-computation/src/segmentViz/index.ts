@@ -125,6 +125,8 @@ export class SegmentViz {
    * @returns Array of visualization diffs describing the changes
    */
   private updateFromDeltas(deltas: SplitDelta[]): SegmentVizDiff[] {
+    //get all the splits
+    const allSplits = this.statsInstanceRef.getSplits();
     //diffMap will take each response question to a diff of its viz.
     const diffMap = new Map();
     //create a new vizMap.  This will replace the old one
@@ -146,7 +148,7 @@ export class SegmentViz {
         //=============================
         const newPointSets = populatePoints({
           prevPointSets: oldViz.points,
-          allSplits: this.statsInstanceRef.getSplits(),
+          allSplits: allSplits,
           fullySpecifiedSplitIndices: oldViz.fullySpecifiedSplitIndices,
           responseQuestion: responseQuestion
         })
@@ -162,7 +164,7 @@ export class SegmentViz {
           staleSegmentGroups: oldViz.segmentGroups,
           updatedPointSets: newPointSets,
           splitDeltas: deltas,
-          allSplits: this.statsInstanceRef.getSplits(),
+          allSplits: allSplits,
           responseGap: this.segmentVizConfig.responseGap
         })
       }
