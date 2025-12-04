@@ -63,3 +63,35 @@ export interface SegmentGroup {
   };
   segments: null | Segments
 }
+
+export interface SegmentBoundsDelta {
+  responseGroupIndex: number;
+  xBefore: number;
+  xAfter: number;
+  widthBefore: number;
+  widthAfter: number;
+}
+
+export interface SegmentPointsDelta {
+  responseGroupIndex: number;
+  addedPoints: PointPosition[];
+  removedPoints: PointPosition[];
+  movedPoints: {
+    id: string;
+    xBefore: number;
+    yBefore: number;
+    xAfter: number;
+    yAfter: number;
+  }[];
+}
+
+export interface SegmentGroupSegmentsDelta {
+  collapsed: {
+    boundsDelta: SegmentBoundsDelta[];
+    pointsDelta: SegmentPointsDelta[];
+  };
+  expanded: {
+    boundsDelta: SegmentBoundsDelta[];
+    pointsDelta: SegmentPointsDelta[];
+  };
+}

@@ -16,6 +16,7 @@ import type { GroupingQuestion } from "../types";
 import type { PointSet, SegmentGroup, SegmentVizConfig } from "./types";
 import { getQuestionKey } from '../utils';
 import { populatePoints } from "./pointGeneration";
+import { updateSegmentGroups } from "./segments";
 
 /**
  * Class holding a segment-based visualization of grouped
@@ -126,24 +127,44 @@ export class SegmentViz {
   private updateFromDeltas(deltas: SplitDelta[]): SegmentVizDiff[] {
     //diffMap will take each response question to a diff of its viz.
     const diffMap = new Map();
+    //create a new vizMap.  This will replace the old one
+    //in the vizMap field only after ALL updates have been processed
+    const newVizMap = new Map();
+
+
 
     for (const responseQuestion of this.statsInstanceRef.getStatsConfig().responseQuestions) {
-      const viz = this.vizMap.get(getQuestionKey(responseQuestion))
-      if (viz) {
-        // ============================
+      const oldViz = this.vizMap.get(getQuestionKey(responseQuestion))
+      if (oldViz) {
+        //===================================================================
+        // DUPLICATE THE GROUPING QUESTIONS AND FULLY SPECIFIED SPLIT INDICES
+        //===================================================================
+        const newGroupingQuestions = oldViz.groupingQuestions;
+        const newFullySpecifiedSplitIndices = oldViz.fullySpecifiedSplitIndices;
+        //============================
         //  UPDATE THE POINT SETS
         //=============================
         const newPointSets = populatePoints({
-          prevPointSets: viz.points,
+          prevPointSets: oldViz.points,
           allSplits: this.statsInstanceRef.getSplits(),
-          fullySpecifiedSplitIndices: viz.fullySpecifiedSplitIndices,
+          fullySpecifiedSplitIndices: oldViz.fullySpecifiedSplitIndices,
           responseQuestion: responseQuestion
         })
-        viz.points = newPointSets;
-        //to do...this needs to be added to the diffMap at the current response question
+
+        //TO DO...this needs to be added to the diffMap at the current response question
+
         // ============================
         //  UPDATE THE SEGMENTS BOUNDS AND POINT POSITIONS WITHIN EACH SEGMENT GROUP
         //=============================
+
+        const newSegmentGroupsWithDeltas = updateSegmentGroups({
+          responseQuestion: responseQuestion,
+          staleSegmentGroups: oldViz.segmentGroups,
+          updatedPointSets: newPointSets,
+          splitDeltas: deltas,
+          allSplits: this.statsInstanceRef.getSplits(),
+          responseGap: this.segmentVizConfig.responseGap
+        })
       }
     }
   }

@@ -2,7 +2,7 @@ import { GroupingQuestion } from "../types";
 import { SegmentVizConfig, SegmentGroup, PointSet } from './types';
 import { Statistics } from "../statistics";
 import { getQuestionKey } from '../utils';
-import { computeSegmentGroupBounds, positionPointsInSegment } from "./geometry";
+import { computeSegmentGroupBounds } from "./geometry";
 import { getActiveQuestionsInSplit, getNumberSegmentGroups, getIndices, getFullySpecifiedSplitIndices, getBasisSplitIndices } from "./splitAnalysis";
 import { populatePoints } from "./pointGeneration";
 import { populateVizSegments } from "./segments";
