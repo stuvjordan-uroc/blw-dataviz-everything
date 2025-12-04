@@ -1,4 +1,4 @@
-- shared-computation. See todo list at top of segmentViz.ts
+- shared-computation. See todo list at top of segmentViz/index.ts
 - api-polls-public endpoints and logic
   - (DONE) GET to for questions in a given session
   - (DONE) Endpoint: POST one respondent's responses to all questions from session.

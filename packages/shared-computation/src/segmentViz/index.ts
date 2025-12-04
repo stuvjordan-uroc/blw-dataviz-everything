@@ -7,14 +7,22 @@
 + Test update logic
 */
 
-
-import { SplitDelta, Statistics, StatisticsSubscription, StatisticsUpdateResult } from "../statistics";
+import {
+  SplitDelta,
+  Statistics,
+  StatisticsSubscription,
+  StatisticsUpdateResult,
+} from "../statistics";
 import { initialize } from "./initialize";
 import { validateConfig } from "./validate";
 import { getVizHeight, getVizWidth } from "./widthHeight";
-import type { GroupingQuestion } from "../types";
-import type { PointSet, SegmentGroup, SegmentVizConfig } from "./types";
-import { getQuestionKey } from '../utils';
+import type {
+  SegmentGroupSegmentsDelta,
+  SegmentsDiffMap,
+  SegmentVizConfig,
+  Viz,
+} from "./types";
+import { getQuestionKey } from "../utils";
 import { populatePoints } from "./pointGeneration";
 import { updateSegmentGroups } from "./segments";
 
@@ -36,22 +44,11 @@ export class SegmentViz {
   //vizHeight
   private vizHeight: number;
   //vizMap
-  private vizMap: Map<
-    string,
-    {
-      groupingQuestions: {
-        x: GroupingQuestion[];
-        y: GroupingQuestion[];
-        excludedQuestionKeys: string[];
-      },
-      fullySpecifiedSplitIndices: number[];
-      segmentGroups: SegmentGroup[],
-      points: PointSet[];  // Array of point sets, one per (split, expanded response group) combination
-    }
-  >
+  private vizMap: Map<string, Viz>;
   //subscription to stats instance ref
   private statsSubscription: StatisticsSubscription;
-
+  //segmentsDiffMap
+  private segmentsDiffMap: SegmentsDiffMap;
 
   //=========================================
   // CONSTRUCTOR
@@ -61,25 +58,28 @@ export class SegmentViz {
    * Validates that the response questions and grouping questions
    * in the config are specified in the config for the Statistics instance
    * and that all lengths in the config are positive.
-   * 
+   *
    * If validation checks pass, computes common width and height
    * for all response questions.
-   * 
+   *
    * Then populates a map from each response question to a vizualization.
-   * 
+   *
    * A visualization consists of an array of points to be mapped, along
    * with an array of "splits" on the grouping variables,
    * each of which is identified with a "segment group", consisting
    * of segments into which the points are mapped.
-   * 
+   *
    * Note that if statistics haven't yet been computed for
    * a given split, the array of segments for the segment group
    * depicting that split is set to null
-   * 
-   * @param statsInstanceRef 
-   * @param segmentVizConfig 
+   *
+   * @param statsInstanceRef
+   * @param segmentVizConfig
    */
-  constructor(statsInstanceRef: Statistics, segmentVizConfig: SegmentVizConfig) {
+  constructor(
+    statsInstanceRef: Statistics,
+    segmentVizConfig: SegmentVizConfig
+  ) {
     //validate config
     validateConfig(statsInstanceRef, segmentVizConfig);
     //set the stats instance and config fields
@@ -92,12 +92,21 @@ export class SegmentViz {
     //(1) constructs the arrays of x- and y-axis grouping questions for the response question, and the question keys of the questions excluded from the viz
     //(2) uses the stats instance to compute the points to be used in the visualization (see pointGeneration.ts)
     //(3) uses the viz config and splits from the stats instance to compute the segment group bounds for each split
-    //(4) uses the points computed in step (2) along with the splits to compute the bounds of the segments in each segment group and the positions for the points in each segment. 
-    this.vizMap = initialize(this.statsInstanceRef, this.segmentVizConfig, this.vizWidth, this.vizHeight)
+    //(4) uses the points computed in step (2) along with the splits to compute the bounds of the segments in each segment group and the positions for the points in each segment.
+    this.vizMap = initialize(
+      this.statsInstanceRef,
+      this.segmentVizConfig,
+      this.vizWidth,
+      this.vizHeight
+    );
+    //initilize the segmentsDiffMap
+    this.segmentsDiffMap = new Map(
+      segmentVizConfig.responseQuestionKeys.map((rqKey) => [rqKey, []])
+    );
     //subscribe to statistics updates
     this.statsSubscription = this.statsInstanceRef.subscribe((updateResult) => {
       this.handleStatisticsUpdate(updateResult);
-    })
+    });
   }
 
   //========================================================
@@ -107,12 +116,12 @@ export class SegmentViz {
   /**
    * Handle updates from the Statistics instance.
    * Called automatically when the Statistics instance processes new data.
-   * 
+   *
    * @param updateResult - The result from Statistics.updateSplits()
    */
   private handleStatisticsUpdate(updateResult: StatisticsUpdateResult): void {
     // Process the deltas and update the visualization
-    const vizDiffs = this.updateFromDeltas(updateResult.deltas);
+    this.segmentsDiffMap = this.updateFromDeltas(updateResult.deltas);
 
     // Could emit events here if SegmentViz itself is observable
     // this.notifyObservers(vizDiffs);
@@ -120,57 +129,91 @@ export class SegmentViz {
 
   /**
    * Update visualization based on statistics deltas.
-   * 
+   *
    * @param deltas - Array of response group statistics deltas
    * @returns Array of visualization diffs describing the changes
    */
-  private updateFromDeltas(deltas: SplitDelta[]): SegmentVizDiff[] {
-    //get all the splits
+  private updateFromDeltas(deltas: SplitDelta[]): SegmentsDiffMap {
+    //get all the updated splits
     const allSplits = this.statsInstanceRef.getSplits();
+
     //diffMap will take each response question to a diff of its viz.
-    const diffMap = new Map();
+    const diffMap: SegmentsDiffMap = new Map();
+
     //create a new vizMap.  This will replace the old one
     //in the vizMap field only after ALL updates have been processed
-    const newVizMap = new Map();
+    //insuring that all updates to the vizMap field are applied at once
+    const newVizMap: Map<string, Viz> = new Map();
 
+    //loop through the response questions to construct a new entry for the new vizmap
+    //for each one
+    for (const responseQuestion of this.statsInstanceRef.getStatsConfig()
+      .responseQuestions) {
+      //get the existing viz for this reaponse question
+      const oldViz = this.vizMap.get(getQuestionKey(responseQuestion));
 
-
-    for (const responseQuestion of this.statsInstanceRef.getStatsConfig().responseQuestions) {
-      const oldViz = this.vizMap.get(getQuestionKey(responseQuestion))
+      //we're not making a viz for this response question if we can't find it in the old viz!
       if (oldViz) {
         //===================================================================
         // DUPLICATE THE GROUPING QUESTIONS AND FULLY SPECIFIED SPLIT INDICES
         //===================================================================
+        //they do not change with updates to the statistics!
+
         const newGroupingQuestions = oldViz.groupingQuestions;
         const newFullySpecifiedSplitIndices = oldViz.fullySpecifiedSplitIndices;
+
         //============================
         //  UPDATE THE POINT SETS
         //=============================
+
         const newPointSets = populatePoints({
           prevPointSets: oldViz.points,
           allSplits: allSplits,
           fullySpecifiedSplitIndices: oldViz.fullySpecifiedSplitIndices,
-          responseQuestion: responseQuestion
-        })
-
-        //TO DO...this needs to be added to the diffMap at the current response question
+          responseQuestion: responseQuestion,
+        });
 
         // ============================
         //  UPDATE THE SEGMENTS BOUNDS AND POINT POSITIONS WITHIN EACH SEGMENT GROUP
         //=============================
 
-        const newSegmentGroupsWithDeltas = updateSegmentGroups({
+        const newSegmentGroupsAndDiffs = updateSegmentGroups({
           responseQuestion: responseQuestion,
           staleSegmentGroups: oldViz.segmentGroups,
           updatedPointSets: newPointSets,
           splitDeltas: deltas,
           allSplits: allSplits,
-          responseGap: this.segmentVizConfig.responseGap
-        })
+          responseGap: this.segmentVizConfig.responseGap,
+        });
+
+        // ============================
+        //  POPULATE THE VIZ MAP AND DIFF MAP FOR THIS RESPONSE QUESTION
+        //=============================
+
+        //new viz map entry
+        newVizMap.set(getQuestionKey(responseQuestion), {
+          groupingQuestions: newGroupingQuestions,
+          fullySpecifiedSplitIndices: newFullySpecifiedSplitIndices,
+          points: newPointSets,
+          segmentGroups: newSegmentGroupsAndDiffs.map(
+            ({ segmentGroup }) => segmentGroup
+          ),
+        });
+
+        //diff map entry
+        diffMap.set(
+          getQuestionKey(responseQuestion),
+          newSegmentGroupsAndDiffs
+            .filter(({ delta }) => delta !== null)
+            .map(({ segmentGroup, delta }) => ({
+              splitIndex: segmentGroup.splitIndex,
+              segmentsDelta: delta as SegmentGroupSegmentsDelta,
+            }))
+        );
       }
     }
+    return diffMap;
   }
-
 
   //==============================================================
   // PUBLIC METHODS
@@ -184,15 +227,17 @@ export class SegmentViz {
     this.statsSubscription.unsubscribe();
   }
 
-
-
   /**
    * Get the current visualization state for a response question.
-   * 
+   *
    * @param responseQuestionKey - The key of the response question
    * @returns The segment groups and points for that question, or undefined if not found
    */
   public getVisualization(responseQuestionKey: string) {
     return this.vizMap.get(responseQuestionKey);
+  }
+
+  public getSegmentsDiffMap(responseQuestionKey: string) {
+    return this.segmentsDiffMap.get(responseQuestionKey);
   }
 }
