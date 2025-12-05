@@ -25,8 +25,7 @@ export type {
 export type {
   StatsConfig,
   StatisticsResult,
-  StatisticsUpdateResult,
-  ResponseGroupStatsDelta
+  StatisticsUpdateResult
 } from "./statistics";
 
 

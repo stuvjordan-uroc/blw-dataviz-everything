@@ -1,4 +1,56 @@
-import { PointPosition } from "./types";
+import { PointPosition, SegmentVizConfig } from "./types";
+import { Statistics } from "../statistics";
+import { getQuestionKey } from "../utils";
+
+export function getVizWidth(
+  statsInstanceRef: Statistics,
+  segmentVizConfig: SegmentVizConfig
+) {
+  let maxSegmentGroupsX = 0;
+  const statsConfig = statsInstanceRef.getStatsConfig();
+  for (const groupingQuestion of statsConfig.groupingQuestions) {
+    const isX = segmentVizConfig.groupingQuestionKeys.x.find(
+      (gqk) => gqk === getQuestionKey(groupingQuestion)
+    );
+    if (isX) {
+      maxSegmentGroupsX += groupingQuestion.responseGroups.length;
+    }
+  }
+  const maxResponseGroups = Math.max(
+    1,
+    ...statsConfig.responseQuestions.map(
+      (rq) => rq.responseGroups.expanded.length
+    )
+  );
+  return (
+    (maxSegmentGroupsX - 1) * segmentVizConfig.groupGapX + //gaps between groups
+    maxSegmentGroupsX * //groups
+    ((maxResponseGroups - 1) * segmentVizConfig.responseGap + //gaps within groups between response groups
+      maxResponseGroups * segmentVizConfig.baseSegmentWidth + //base width of each response group 
+      segmentVizConfig.minGroupAvailableWidth) //minimum available width to distributed between response groups
+  );
+}
+
+export function getVizHeight(
+  statsInstanceRef: Statistics,
+  segmentVizConfig: SegmentVizConfig
+) {
+  let maxSegmentGroupsY = 0;
+  const statsConfig = statsInstanceRef.getStatsConfig();
+  for (const groupingQuestion of statsConfig.groupingQuestions) {
+    const isY = segmentVizConfig.groupingQuestionKeys.y.find(
+      (gqk) => gqk === getQuestionKey(groupingQuestion)
+    );
+    if (isY) {
+      maxSegmentGroupsY += groupingQuestion.responseGroups.length;
+    }
+  }
+  return (
+    (maxSegmentGroupsY - 1) * segmentVizConfig.groupGapY + //gaps between groups
+    maxSegmentGroupsY * segmentVizConfig.minGroupHeight //heights of groups
+  );
+}
+
 
 /**
  * Compute the bounds (x, y, width, height) for a segment group in the visualization grid.
@@ -34,7 +86,7 @@ export function computeSegmentGroupBounds(
  * Compute bounds for segments within a segment group.
  * 
  * Distributes width among response groups based on their proportions,
- * accounting for gaps between segments and minimum base widths.
+ * accounting for gaps between segments and base width.
  * 
  * @param responseGroupsWithStats - Array of response groups with computed statistics
  * @param segmentGroupBounds - The bounds of the containing segment group
@@ -44,12 +96,13 @@ export function computeSegmentGroupBounds(
 export function computeSegmentBounds<T extends { proportion: number }>(
   responseGroupsWithStats: T[],
   segmentGroupBounds: { x: number; y: number; width: number; height: number },
-  responseGap: number
+  responseGap: number,
+  baseWidth: number,
 ): Array<{ x: number; y: number; width: number; height: number; responseGroupIndex: number }> {
   const widthToBeDistributed = (
     segmentGroupBounds.width
     - (responseGroupsWithStats.length - 1) * responseGap
-    - responseGroupsWithStats.length * 2 // base width for each segment
+    - responseGroupsWithStats.length * baseWidth
   );
 
   let currentX = 0;
@@ -57,7 +110,7 @@ export function computeSegmentBounds<T extends { proportion: number }>(
     const segmentBounds = {
       x: currentX,
       y: segmentGroupBounds.y,
-      width: 2 + widthToBeDistributed * rg.proportion,
+      width: baseWidth + widthToBeDistributed * rg.proportion,
       height: segmentGroupBounds.height,
       responseGroupIndex: rgIdx
     };

@@ -113,8 +113,7 @@ export function initialize(
       syntheticSampleSize: segmentVizConfig.syntheticSampleSize
     })
 
-    //TODO:  update the rest of code now that the points object has a new type.
-    //Then go back to the updating callback
+
 
     //=============================================================================
     // SET THE SEGMENT GROUP BOUNDS
@@ -190,6 +189,7 @@ export function initialize(
     const hydratedSegmentGroups = populateVizSegments({
       responseQuestion: responseQuestion,
       responseGap: segmentVizConfig.responseGap,
+      baseWidth: segmentVizConfig.baseSegmentWidth,
       segmentGroups: segmentGroups,
       pointSets: newPointSets,
       allSplits: allSplits

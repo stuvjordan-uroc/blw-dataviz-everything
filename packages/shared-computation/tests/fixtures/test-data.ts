@@ -233,6 +233,72 @@ export const wave2Data = {
 };
 
 /**
+ * Wave 3 Test Data
+ *
+ * Populates previously unpopulated splits to test newly-populated split behavior.
+ * This wave adds respondents to oldMales and youngFemales, which had zero respondents
+ * in Waves 1 and 2.
+ *
+ * Use case: Testing delta computation when splits go from unpopulated (0) to populated (>0).
+ */
+
+export const wave3Data = {
+  /**
+   * Split: age=old (2), gender=male (1) - NEWLY POPULATED
+   *
+   * New respondents:
+   * - id 11: strongly_favorable (1), weight 2
+   * - id 12: unfavorable (3), weight 1
+   *
+   * After wave 3, oldMales will have:
+   * - Total: count=2, weight=3
+   * - strongly_favorable: count=1, weight=2, proportion=2/3
+   * - favorable: count=0, weight=0, proportion=0
+   * - unfavorable: count=1, weight=1, proportion=1/3
+   * - strongly_unfavorable: count=0, weight=0, proportion=0
+   *
+   * Collapsed:
+   * - all_favorable: count=1, weight=2, proportion=2/3
+   * - all_unfavorable: count=1, weight=1, proportion=1/3
+   *
+   * Delta from Wave 2 (unpopulated → populated):
+   * - This split did not exist before (no before values)
+   * - After values should appear in delta
+   */
+  oldMales: [
+    { id: 11, age: 2, gender: 1, favorability: 1, weight: 2 },
+    { id: 12, age: 2, gender: 1, favorability: 3, weight: 1 },
+  ] as TabularRespondent[],
+
+  /**
+   * Split: age=young (1), gender=female (2) - NEWLY POPULATED
+   *
+   * New respondents:
+   * - id 13: favorable (2), weight 1
+   * - id 14: strongly_unfavorable (4), weight 3
+   *
+   * After wave 3, youngFemales will have:
+   * - Total: count=2, weight=4
+   * - strongly_favorable: count=0, weight=0, proportion=0
+   * - favorable: count=1, weight=1, proportion=1/4
+   * - unfavorable: count=0, weight=0, proportion=0
+   * - strongly_unfavorable: count=1, weight=3, proportion=3/4
+   *
+   * Collapsed:
+   * - all_favorable: count=1, weight=1, proportion=1/4
+   * - all_unfavorable: count=1, weight=3, proportion=3/4
+   *
+   * Delta from Wave 2 (unpopulated → populated):
+   * - This split did not exist before (no before values)
+   * - After values should appear in delta
+   */
+  youngFemales: [
+    { id: 13, age: 1, gender: 2, favorability: 2, weight: 1 },
+    { id: 14, age: 1, gender: 2, favorability: 4, weight: 3 },
+  ] as TabularRespondent[],
+};
+
+/**
  * Expected statistics after Wave 1
  *
  * These values are hand-calculated from wave1Data above.
@@ -469,6 +535,268 @@ export const expectedWave2Deltas = {
           weightAfter: 5,
           proportionBefore: 4 / 5,
           proportionAfter: 5 / 8,
+        },
+      },
+    },
+  },
+};
+
+/**
+ * Expected statistics after Wave 3 (cumulative: Wave 1 + Wave 2 + Wave 3)
+ *
+ * Wave 3 adds two NEW splits (oldMales, youngFemales) while leaving existing
+ * splits (youngMales, oldFemales) unchanged.
+ */
+
+export const expectedWave3Stats = {
+  // Existing splits remain unchanged from Wave 2
+  youngMales: expectedWave2Stats.youngMales,
+  oldFemales: expectedWave2Stats.oldFemales,
+
+  // Newly populated splits
+  oldMales: {
+    favorability: {
+      totalCount: 2,
+      totalWeight: 3,
+      expanded: {
+        strongly_favorable: { count: 1, weight: 2, proportion: 2 / 3 },
+        favorable: { count: 0, weight: 0, proportion: 0 },
+        unfavorable: { count: 1, weight: 1, proportion: 1 / 3 },
+        strongly_unfavorable: { count: 0, weight: 0, proportion: 0 },
+      },
+      collapsed: {
+        all_favorable: { count: 1, weight: 2, proportion: 2 / 3 },
+        all_unfavorable: { count: 1, weight: 1, proportion: 1 / 3 },
+      },
+    },
+  },
+  youngFemales: {
+    favorability: {
+      totalCount: 2,
+      totalWeight: 4,
+      expanded: {
+        strongly_favorable: { count: 0, weight: 0, proportion: 0 },
+        favorable: { count: 1, weight: 1, proportion: 1 / 4 },
+        unfavorable: { count: 0, weight: 0, proportion: 0 },
+        strongly_unfavorable: { count: 1, weight: 3, proportion: 3 / 4 },
+      },
+      collapsed: {
+        all_favorable: { count: 1, weight: 1, proportion: 1 / 4 },
+        all_unfavorable: { count: 1, weight: 3, proportion: 3 / 4 },
+      },
+    },
+  },
+  // Aggregated split now includes all 4 fully-specified splits
+  allRespondents: {
+    favorability: {
+      totalCount: 14,
+      totalWeight: 23,
+      expanded: {
+        strongly_favorable: { count: 3, weight: 7, proportion: 7 / 23 },
+        favorable: { count: 4, weight: 6, proportion: 6 / 23 },
+        unfavorable: { count: 5, weight: 5, proportion: 5 / 23 },
+        strongly_unfavorable: { count: 2, weight: 5, proportion: 5 / 23 },
+      },
+      collapsed: {
+        all_favorable: { count: 7, weight: 13, proportion: 13 / 23 },
+        all_unfavorable: { count: 7, weight: 10, proportion: 10 / 23 },
+      },
+    },
+  },
+};
+
+/**
+ * Expected deltas for Wave 3 update
+ *
+ * Wave 3 creates NEWLY POPULATED splits. The delta computation should:
+ * - Include oldMales and youngFemales (new splits)
+ * - NOT include youngMales and oldFemales (unchanged)
+ * - Update aggregated split (allRespondents)
+ *
+ * For newly populated splits, there are no "before" values since the split
+ * didn't exist previously.
+ */
+
+export const expectedWave3Deltas = {
+  // Newly populated split: oldMales (was unpopulated, now has 2 respondents)
+  oldMales: {
+    favorability: {
+      totalCountBefore: 0, // Did not exist
+      totalCountAfter: 2,
+      totalWeightBefore: 0, // Did not exist
+      totalWeightAfter: 3,
+      expanded: {
+        strongly_favorable: {
+          countBefore: 0,
+          countAfter: 1,
+          weightBefore: 0,
+          weightAfter: 2,
+          proportionBefore: 0, // Or undefined/null, depending on implementation
+          proportionAfter: 2 / 3,
+        },
+        favorable: {
+          countBefore: 0,
+          countAfter: 0,
+          weightBefore: 0,
+          weightAfter: 0,
+          proportionBefore: 0,
+          proportionAfter: 0,
+        },
+        unfavorable: {
+          countBefore: 0,
+          countAfter: 1,
+          weightBefore: 0,
+          weightAfter: 1,
+          proportionBefore: 0,
+          proportionAfter: 1 / 3,
+        },
+        strongly_unfavorable: {
+          countBefore: 0,
+          countAfter: 0,
+          weightBefore: 0,
+          weightAfter: 0,
+          proportionBefore: 0,
+          proportionAfter: 0,
+        },
+      },
+      collapsed: {
+        all_favorable: {
+          countBefore: 0,
+          countAfter: 1,
+          weightBefore: 0,
+          weightAfter: 2,
+          proportionBefore: 0,
+          proportionAfter: 2 / 3,
+        },
+        all_unfavorable: {
+          countBefore: 0,
+          countAfter: 1,
+          weightBefore: 0,
+          weightAfter: 1,
+          proportionBefore: 0,
+          proportionAfter: 1 / 3,
+        },
+      },
+    },
+  },
+  // Newly populated split: youngFemales (was unpopulated, now has 2 respondents)
+  youngFemales: {
+    favorability: {
+      totalCountBefore: 0,
+      totalCountAfter: 2,
+      totalWeightBefore: 0,
+      totalWeightAfter: 4,
+      expanded: {
+        strongly_favorable: {
+          countBefore: 0,
+          countAfter: 0,
+          weightBefore: 0,
+          weightAfter: 0,
+          proportionBefore: 0,
+          proportionAfter: 0,
+        },
+        favorable: {
+          countBefore: 0,
+          countAfter: 1,
+          weightBefore: 0,
+          weightAfter: 1,
+          proportionBefore: 0,
+          proportionAfter: 1 / 4,
+        },
+        unfavorable: {
+          countBefore: 0,
+          countAfter: 0,
+          weightBefore: 0,
+          weightAfter: 0,
+          proportionBefore: 0,
+          proportionAfter: 0,
+        },
+        strongly_unfavorable: {
+          countBefore: 0,
+          countAfter: 1,
+          weightBefore: 0,
+          weightAfter: 3,
+          proportionBefore: 0,
+          proportionAfter: 3 / 4,
+        },
+      },
+      collapsed: {
+        all_favorable: {
+          countBefore: 0,
+          countAfter: 1,
+          weightBefore: 0,
+          weightAfter: 1,
+          proportionBefore: 0,
+          proportionAfter: 1 / 4,
+        },
+        all_unfavorable: {
+          countBefore: 0,
+          countAfter: 1,
+          weightBefore: 0,
+          weightAfter: 3,
+          proportionBefore: 0,
+          proportionAfter: 3 / 4,
+        },
+      },
+    },
+  },
+  // Aggregated split updates from Wave 2 values
+  allRespondents: {
+    favorability: {
+      totalCountBefore: 10, // From Wave 2
+      totalCountAfter: 14, // After Wave 3
+      totalWeightBefore: 16,
+      totalWeightAfter: 23,
+      expanded: {
+        strongly_favorable: {
+          countBefore: 2,
+          countAfter: 3,
+          weightBefore: 5,
+          weightAfter: 7,
+          proportionBefore: 5 / 16,
+          proportionAfter: 7 / 23,
+        },
+        favorable: {
+          countBefore: 3,
+          countAfter: 4,
+          weightBefore: 5,
+          weightAfter: 6,
+          proportionBefore: 5 / 16,
+          proportionAfter: 6 / 23,
+        },
+        unfavorable: {
+          countBefore: 4,
+          countAfter: 5,
+          weightBefore: 4,
+          weightAfter: 5,
+          proportionBefore: 4 / 16,
+          proportionAfter: 5 / 23,
+        },
+        strongly_unfavorable: {
+          countBefore: 1,
+          countAfter: 2,
+          weightBefore: 2,
+          weightAfter: 5,
+          proportionBefore: 2 / 16,
+          proportionAfter: 5 / 23,
+        },
+      },
+      collapsed: {
+        all_favorable: {
+          countBefore: 5,
+          countAfter: 7,
+          weightBefore: 10,
+          weightAfter: 13,
+          proportionBefore: 10 / 16,
+          proportionAfter: 13 / 23,
+        },
+        all_unfavorable: {
+          countBefore: 5,
+          countAfter: 7,
+          weightBefore: 6,
+          weightAfter: 10,
+          proportionBefore: 6 / 16,
+          proportionAfter: 10 / 23,
         },
       },
     },

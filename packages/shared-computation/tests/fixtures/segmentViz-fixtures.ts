@@ -4,6 +4,7 @@
  * These fixtures are designed for easy hand-calculation of geometry:
  * - Round numbers for all dimensions (100, 10)
  * - Zero responseGap for simpler arithmetic
+ * - baseSegmentWidth of 10 for round numbers
  * - Simple response group counts (2 or 4)
  */
 

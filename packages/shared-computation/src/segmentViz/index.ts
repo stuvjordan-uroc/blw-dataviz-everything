@@ -3,7 +3,7 @@
 //===========================
 /*
 + Draft update logic for hydration of segment groups
-+ Test initializtion and hydration logic induced by the constructor
++ Test initialization and hydration logic induced by the constructor
 + Test update logic
 */
 
@@ -15,7 +15,7 @@ import {
 } from "../statistics";
 import { initialize } from "./initialize";
 import { validateConfig } from "./validate";
-import { getVizHeight, getVizWidth } from "./widthHeight";
+import { getVizHeight, getVizWidth } from "./geometry";
 import type {
   SegmentGroupSegmentsDelta,
   SegmentsDiffMap,
@@ -99,7 +99,7 @@ export class SegmentViz {
       this.vizWidth,
       this.vizHeight
     );
-    //initilize the segmentsDiffMap
+    //initialize the segmentsDiffMap
     this.segmentsDiffMap = new Map(
       segmentVizConfig.responseQuestionKeys.map((rqKey) => [rqKey, []])
     );
@@ -171,6 +171,7 @@ export class SegmentViz {
           allSplits: allSplits,
           fullySpecifiedSplitIndices: oldViz.fullySpecifiedSplitIndices,
           responseQuestion: responseQuestion,
+          syntheticSampleSize: this.segmentVizConfig.syntheticSampleSize,
         });
 
         // ============================
@@ -184,6 +185,7 @@ export class SegmentViz {
           splitDeltas: deltas,
           allSplits: allSplits,
           responseGap: this.segmentVizConfig.responseGap,
+          baseWidth: this.segmentVizConfig.baseSegmentWidth,
         });
 
         // ============================
@@ -212,6 +214,10 @@ export class SegmentViz {
         );
       }
     }
+
+    // Replace the old vizMap with the updated one
+    this.vizMap = newVizMap;
+
     return diffMap;
   }
 

@@ -2,30 +2,34 @@ import { ResponseQuestionChange, SplitDelta } from "../statistics";
 import { ResponseQuestion, ResponseQuestionWithStats, Split } from "../types";
 import { getQuestionKey } from '../utils';
 import { computeSegmentBounds, positionPointsInSegment } from "./geometry";
-import { PointSet, SegmentGroup, Segments, SegmentGroupSegmentsDelta, SegmentBoundsDelta, SegmentPointsDelta, PointPosition } from './types';
+import { PointSet, SegmentGroup, Segments, SegmentGroupSegmentsDelta, SegmentBoundsDelta, SegmentPointsDelta } from './types';
 
 interface PopulateSegmentGroupSegmentsProps {
   responseQuestionWithStats: ResponseQuestionWithStats;
   basisPointSets: PointSet[];
   responseGap: number;
+  baseWidth: number;
   segmentGroup: SegmentGroup;
 }
 export function populateSegmentGroupSegments({
   responseQuestionWithStats,
   basisPointSets,
   responseGap,
+  baseWidth,
   segmentGroup
 }: PopulateSegmentGroupSegmentsProps): Segments {
   const segments = {
     collapsed: computeSegmentBounds(
       responseQuestionWithStats.responseGroups.collapsed,
       segmentGroup.segmentGroup,
-      responseGap
+      responseGap,
+      baseWidth
     ),
     expanded: computeSegmentBounds(
       responseQuestionWithStats.responseGroups.expanded,
       segmentGroup.segmentGroup,
-      responseGap
+      responseGap,
+      baseWidth
     )
   }
   return ({
@@ -55,6 +59,7 @@ export function populateSegmentGroupSegments({
 interface PopulateVizSegmentsProps {
   responseQuestion: ResponseQuestion;
   responseGap: number;
+  baseWidth: number;
   segmentGroups: SegmentGroup[];
   pointSets: PointSet[];
   allSplits: Split[];
@@ -62,6 +67,7 @@ interface PopulateVizSegmentsProps {
 export function populateVizSegments({
   responseQuestion,
   responseGap,
+  baseWidth,
   segmentGroups,
   pointSets,
   allSplits
@@ -73,17 +79,17 @@ export function populateVizSegments({
   for (const segmentGroup of segmentGroups) {
 
     //segments in this segment group can be hydrated
-    //only if all the basis splits have data
-    const allBasisSplitsHaveData = allSplits
+    //only if AT LEAST ONE  basis split has data
+    const atLeastOneBasisSplitHasData = allSplits
       .filter((_, splitIdx) => segmentGroup.basisSplitIndices.includes(splitIdx))
-      .every((split) => {
+      .some((split) => {
         const matchedRQ = split.responseQuestions.find((rq) => getQuestionKey(rq) === getQuestionKey(responseQuestion))
         return (matchedRQ && matchedRQ.totalCount > 0)
       })
 
     //add to hydrated segment groups with segment field null
     //and skip if not all basis splits have data
-    if (!allBasisSplitsHaveData) {
+    if (!atLeastOneBasisSplitHasData) {
       hydratedSegmentGroups.push({
         ...segmentGroup,
         segments: null
@@ -102,11 +108,13 @@ export function populateVizSegments({
       segmentGroup.basisSplitIndices.includes(pointSet.fullySpecifiedSplitIndex)
     )
 
-    if (responseQuestionWithStats && basisPointSets.length === segmentGroup.basisSplitIndices.length) {
+
+    if (responseQuestionWithStats) {
       const populatedSegments = populateSegmentGroupSegments({
         responseQuestionWithStats: responseQuestionWithStats,
         basisPointSets: basisPointSets,
         responseGap: responseGap,
+        baseWidth: baseWidth,
         segmentGroup: segmentGroup
       })
       hydratedSegmentGroups.push({
@@ -136,6 +144,7 @@ interface UpdateSegmentGroupsProps {
   splitDeltas: SplitDelta[];
   allSplits: Split[];
   responseGap: number;
+  baseWidth: number;
 }
 export function updateSegmentGroups({
   responseQuestion,
@@ -144,6 +153,8 @@ export function updateSegmentGroups({
   splitDeltas,
   allSplits,
   responseGap
+  ,
+  baseWidth
 }: UpdateSegmentGroupsProps): Array<{
   segmentGroup: SegmentGroup;
   delta: SegmentGroupSegmentsDelta | null;
@@ -221,7 +232,8 @@ export function updateSegmentGroups({
       staleSegmentGroup: staleSegmentGroup,
       updatedResponseQuestionWithStats: updatedResponseQuestionWithStats,
       updatedBasisPointSets: updatedBasisPointSets,
-      responseGap: responseGap
+      responseGap: responseGap,
+      baseWidth: baseWidth
     })
 
     //push the updated segment group and delta to the results
@@ -240,12 +252,15 @@ interface UpdateSegmentGroupSegmentsProps {
   updatedResponseQuestionWithStats: ResponseQuestionWithStats;
   updatedBasisPointSets: PointSet[];
   responseGap: number
+  baseWidth: number;
 }
 export function updateSegmentGroupSegments({
   staleSegmentGroup,
   updatedResponseQuestionWithStats,
   updatedBasisPointSets,
   responseGap
+  ,
+  baseWidth
 }: UpdateSegmentGroupSegmentsProps): {
   updatedSegmentGroup: SegmentGroup,
   segmentGroupDelta: SegmentGroupSegmentsDelta
@@ -282,12 +297,14 @@ export function updateSegmentGroupSegments({
     collapsed: computeSegmentBounds(
       updatedResponseGroups.collapsed,
       staleSegmentGroup.segmentGroup,
-      responseGap
+      responseGap,
+      baseWidth
     ),
     expanded: computeSegmentBounds(
       updatedResponseGroups.expanded,
       staleSegmentGroup.segmentGroup,
-      responseGap
+      responseGap,
+      baseWidth
     )
   }
 
@@ -365,7 +382,7 @@ export function updateSegmentGroupSegments({
         persistedIds.map((id) => {
           const oldPos = oldPointPositions.find((pp) => pp.id === id);
           return [id, oldPos];
-        }).filter(([_, pos]) => pos !== undefined) as [string, typeof oldPointPositions[0]][]
+        }).filter(([, pos]) => pos !== undefined) as [string, typeof oldPointPositions[0]][]
       );
 
       // Position all points (added + persisted) in the new segment bounds

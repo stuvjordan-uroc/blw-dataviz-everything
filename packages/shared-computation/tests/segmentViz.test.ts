@@ -77,7 +77,8 @@ describe("SegmentViz - Initialization (No Data)", () => {
         minGroupHeight: 100,
         groupGapX: 10,
         groupGapY: 10,
-        responseGap: 1, // Zero for easier arithmetic
+        responseGap: 0,
+        baseSegmentWidth: 10,
       };
 
       segmentViz = new SegmentViz(stats, vizConfig);
@@ -88,14 +89,14 @@ describe("SegmentViz - Initialization (No Data)", () => {
       // - X-axis grouping questions: age (2 groups)
       // - Max response groups across all response questions: favorability has 4 expanded groups
       //
-      // Formula: (numGroupsX - 1) * groupGapX + numGroupsX * ((maxRespGroups - 1) * responseGap + maxRespGroups * 2 + minGroupAvailableWidth)
-      //        = (2 - 1) * 10 + 2 * ((4 - 1) * 1 + 4 * 2 + 100)
-      //        = 10 + 2 * (3 + 8 + 100)
-      //        = 10 + 2 * 111
-      //        = 10 + 222
-      //        = 232
+      // Formula: (numGroupsX - 1) * groupGapX + numGroupsX * ((maxRespGroups - 1) * responseGap + maxRespGroups * baseSegmentWidth + minGroupAvailableWidth)
+      //        = (2 - 1) * 10 + 2 * ((4 - 1) * 0 + 4 * 10 + 100)
+      //        = 10 + 2 * (0 + 40 + 100)
+      //        = 10 + 2 * 140
+      //        = 10 + 280
+      //        = 290
 
-      expect(segmentViz["vizWidth"]).toBe(232);
+      expect(segmentViz["vizWidth"]).toBe(290);
     });
 
     it("should compute vizHeight correctly", () => {
@@ -134,7 +135,8 @@ describe("SegmentViz - Initialization (No Data)", () => {
           minGroupHeight: 100,
           groupGapX: 10,
           groupGapY: 10,
-          responseGap: 1,
+          responseGap: 0,
+          baseSegmentWidth: 10,
         };
 
         segmentViz = new SegmentViz(stats, vizConfig);
@@ -190,8 +192,9 @@ describe("SegmentViz - Initialization (No Data)", () => {
           minGroupAvailableWidth: 100,
           minGroupHeight: 100,
           groupGapX: 10,
-          groupGapY: 1,
-          responseGap: 1,
+          groupGapY: 10,
+          responseGap: 0,
+          baseSegmentWidth: 10,
         };
 
         segmentViz = new SegmentViz(stats, vizConfig);
@@ -253,7 +256,8 @@ describe("SegmentViz - Initialization (No Data)", () => {
         minGroupHeight: 100,
         groupGapX: 10,
         groupGapY: 10,
-        responseGap: 1,
+        responseGap: 0,
+        baseSegmentWidth: 10,
       };
 
       segmentViz = new SegmentViz(stats, vizConfig);
@@ -370,7 +374,8 @@ describe("SegmentViz - Initialization (No Data)", () => {
         minGroupHeight: 100,
         groupGapX: 10,
         groupGapY: 10,
-        responseGap: 1,
+        responseGap: 0,
+        baseSegmentWidth: 10,
       };
 
       segmentViz = new SegmentViz(stats, vizConfig);
@@ -380,8 +385,8 @@ describe("SegmentViz - Initialization (No Data)", () => {
     describe("Visual layout (2x2 grid)", () => {
       // Visual layout (not to scale):
       //
-      //        young (x=0)         old (x=121)
-      //        width=111          width=111
+      //        young (x=0)         old (x=150)
+      //        width=140          width=140
       //   ┌─────────────────┬──┬─────────────────┐
       //   │                 │10│                 │
       // f │  young_female   │  │  old_female     │ height=100
@@ -400,15 +405,15 @@ describe("SegmentViz - Initialization (No Data)", () => {
       //
       // young_allGenders (age=young, gender=null):
       //   Sees 2×1 grid (2 age groups, 1 implicit Y group)
-      //   Occupies full height at x=0: { x: 0, y: 0, width: 111, height: 210 }
+      //   Occupies full height at x=0: { x: 0, y: 0, width: 140, height: 210 }
       //
       // allAges_male (age=null, gender=male):
       //   Sees 1×2 grid (1 implicit X group, 2 gender groups)
-      //   Occupies full width at y=110: { x: 0, y: 110, width: 232, height: 100 }
+      //   Occupies full width at y=110: { x: 0, y: 110, width: 290, height: 100 }
       //
       // allAges_allGenders (both null):
       //   Sees 1×1 grid
-      //   Occupies entire viz: { x: 0, y: 0, width: 232, height: 210 }
+      //   Occupies entire viz: { x: 0, y: 0, width: 290, height: 210 }
 
       it("should create segment groups for all relevant splits", () => {
         const favViz = vizMap.get(getQuestionKey(favorabilityResponseQuestion));
@@ -436,7 +441,7 @@ describe("SegmentViz - Initialization (No Data)", () => {
         ];
         const selected =
           fullySpecifiedOptions[
-            Math.floor(Math.random() * fullySpecifiedOptions.length)
+          Math.floor(Math.random() * fullySpecifiedOptions.length)
           ];
 
         const segmentGroup = findSegmentGroupBySplit(
@@ -452,10 +457,10 @@ describe("SegmentViz - Initialization (No Data)", () => {
         // numSegmentGroups: { x: 2, y: 2 }
         //
         // segmentGroupWidth = (vizWidth - (numGroupsX - 1) * groupGapX) / numGroupsX
-        //                   = (232 - (2 - 1) * 10) / 2
-        //                   = (232 - 10) / 2
-        //                   = 222 / 2
-        //                   = 111
+        //                   = (290 - (2 - 1) * 10) / 2
+        //                   = (290 - 10) / 2
+        //                   = 280 / 2
+        //                   = 140
         //
         // segmentGroupHeight = (vizHeight - (numGroupsY - 1) * groupGapY) / numGroupsY
         //                    = (210 - (2 - 1) * 10) / 2
@@ -463,7 +468,7 @@ describe("SegmentViz - Initialization (No Data)", () => {
         //                    = 200 / 2
         //                    = 100
 
-        expect(segmentGroup.segmentGroup.width).toBe(111);
+        expect(segmentGroup.segmentGroup.width).toBe(140);
         expect(segmentGroup.segmentGroup.height).toBe(100);
 
         // Position depends on which split was selected:
@@ -472,9 +477,9 @@ describe("SegmentViz - Initialization (No Data)", () => {
         const yIdx = selected.gender === "male" ? 0 : 1;
 
         // x = xIdx * (segmentGroupWidth + groupGapX)
-        //   = xIdx * (111 + 10)
-        //   = xIdx * 121
-        const expectedX = xIdx * 121;
+        //   = xIdx * (140 + 10)
+        //   = xIdx * 150
+        const expectedX = xIdx * 150;
 
         // y = yIdx * (segmentGroupHeight + groupGapY)
         //   = yIdx * (100 + 10)
@@ -514,36 +519,36 @@ describe("SegmentViz - Initialization (No Data)", () => {
           // This split sees a 2×1 grid (2 age groups × 1 implicit Y group)
           // numSegmentGroups: { x: 2, y: 1 }
           //
-          // segmentGroupWidth = (232 - (2-1)*10) / 2 = 222 / 2 = 111
+          // segmentGroupWidth = (290 - (2-1)*10) / 2 = 280 / 2 = 140
           // segmentGroupHeight = (210 - (1-1)*10) / 1 = 210 / 1 = 210 (full height!)
           //
           // xIdx = age === 'young' ? 0 : 1
           // yIdx = 0 (only one Y group)
           //
-          // x = xIdx * (111 + 10) = xIdx * 121
+          // x = xIdx * (140 + 10) = xIdx * 150
           // y = 0 * (210 + 10) = 0
 
-          expect(segmentGroup.segmentGroup.width).toBe(111);
+          expect(segmentGroup.segmentGroup.width).toBe(140);
           expect(segmentGroup.segmentGroup.height).toBe(210);
 
           const xIdx = selected.age === "young" ? 0 : 1;
-          expect(segmentGroup.segmentGroup.x).toBe(xIdx * 121);
+          expect(segmentGroup.segmentGroup.x).toBe(xIdx * 150);
           expect(segmentGroup.segmentGroup.y).toBe(0);
         } else if (selected.age === null && selected.gender !== null) {
           // Gender is specified, age is null
           // This split sees a 1×2 grid (1 implicit X group × 2 gender groups)
           // numSegmentGroups: { x: 1, y: 2 }
           //
-          // segmentGroupWidth = (232 - (1-1)*10) / 1 = 232 / 1 = 232 (full width!)
+          // segmentGroupWidth = (290 - (1-1)*10) / 1 = 290 / 1 = 290 (full width!)
           // segmentGroupHeight = (210 - (2-1)*10) / 2 = 200 / 2 = 100
           //
           // xIdx = 0 (only one X group)
           // yIdx = gender === 'male' ? 0 : 1
           //
-          // x = 0 * (232 + 10) = 0
+          // x = 0 * (290 + 10) = 0
           // y = yIdx * (100 + 10) = yIdx * 110
 
-          expect(segmentGroup.segmentGroup.width).toBe(232);
+          expect(segmentGroup.segmentGroup.width).toBe(290);
           expect(segmentGroup.segmentGroup.height).toBe(100);
 
           const yIdx = selected.gender === "male" ? 0 : 1;
@@ -570,18 +575,18 @@ describe("SegmentViz - Initialization (No Data)", () => {
         // This split sees a 1×1 grid (1 implicit X group × 1 implicit Y group)
         // numSegmentGroups: { x: 1, y: 1 }
         //
-        // segmentGroupWidth = (232 - (1-1)*10) / 1 = 232 / 1 = 232 (full width)
+        // segmentGroupWidth = (290 - (1-1)*10) / 1 = 290 / 1 = 290 (full width)
         // segmentGroupHeight = (210 - (1-1)*10) / 1 = 210 / 1 = 210 (full height)
         //
         // segmentGroupIndices: { x: 0, y: 0 } (no active grouping questions)
         //
-        // x = 0 * (232 + 10) = 0
+        // x = 0 * (290 + 10) = 0
         // y = 0 * (210 + 10) = 0
 
         expect(segmentGroup.segmentGroup).toEqual({
           x: 0,
           y: 0,
-          width: 232,
+          width: 290,
           height: 210,
         });
       });

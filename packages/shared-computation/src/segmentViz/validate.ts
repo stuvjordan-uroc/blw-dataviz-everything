@@ -119,19 +119,26 @@ export function validateConfig(
   }
 
   // all lengths are strictly positive
-  const lengthFields: Array<[keyof SegmentVizConfig, number]> = [
+  const strictlyPositiveLengthFields: Array<[keyof SegmentVizConfig, number]> = [
     ["minGroupAvailableWidth", segmentVizConfig.minGroupAvailableWidth],
     ["minGroupHeight", segmentVizConfig.minGroupHeight],
     ["groupGapX", segmentVizConfig.groupGapX],
     ["groupGapY", segmentVizConfig.groupGapY],
-    ["responseGap", segmentVizConfig.responseGap],
+    ["baseSegmentWidth", segmentVizConfig.baseSegmentWidth],
   ];
 
-  for (const [name, value] of lengthFields) {
+  for (const [name, value] of strictlyPositiveLengthFields) {
     if (typeof value !== "number" || !(value > 0)) {
       throw new Error(
         `SegmentVizConfig: '${String(name)}' must be a number greater than 0.`
       );
     }
+  }
+
+  // responseGap can be zero or positive
+  if (typeof segmentVizConfig.responseGap !== "number" || segmentVizConfig.responseGap < 0) {
+    throw new Error(
+      `SegmentVizConfig: 'responseGap' must be a non-negative number.`
+    );
   }
 }

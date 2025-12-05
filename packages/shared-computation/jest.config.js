@@ -8,4 +8,8 @@ module.exports = {
   transform: {
     ...tsJestTransformCfg,
   },
+  testSequencer: "./tests/jest-test-sequencer.js",
+  // Stop running tests after first failure
+  // This ensures segmentVizHydrated.test.ts won't run if foundational tests fail
+  bail: 1,
 };

@@ -15,6 +15,8 @@ export interface SegmentVizConfig {
   groupGapX: number; //width (x-axis length) of gap between segment groups along the horizontal axis.
   groupGapY: number; //height (y-axis length) of gap between segment groups along the vertical axis.
   responseGap: number; //x-axis gap between segments within a segment group
+  baseSegmentWidth: number; //x-axis base width of all segments -- all segments will start with this width
+  //and grow from there based on the proportion of the response group represented by the segment
 }
 
 export interface PointSet {
