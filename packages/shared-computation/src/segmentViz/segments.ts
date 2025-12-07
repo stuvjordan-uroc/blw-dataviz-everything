@@ -266,22 +266,92 @@ export function updateSegmentGroupSegments({
   segmentGroupDelta: SegmentGroupSegmentsDelta
 } {
 
-  // 1. Extract the stale segments from the stale segment group (handle null case)
-  // If segments are null, we can't perform an update - this should be handled by caller
+  // 1. Handle the case where segments were null (split was unpopulated)
+  // Check if the split is now populated
+  const splitIsNowPopulated = updatedResponseQuestionWithStats.totalCount > 0;
+
   if (staleSegmentGroup.segments === null) {
-    return ({
-      updatedSegmentGroup: staleSegmentGroup,
+    if (!splitIsNowPopulated) {
+      // Split was unpopulated and remains unpopulated
+      return ({
+        updatedSegmentGroup: staleSegmentGroup,
+        segmentGroupDelta: {
+          collapsed: {
+            boundsDelta: [],
+            pointsDelta: []
+          },
+          expanded: {
+            boundsDelta: [],
+            pointsDelta: []
+          }
+        }
+      })
+    }
+
+    // Split is NEWLY POPULATED - create segments for the first time
+    const newSegments = populateSegmentGroupSegments({
+      responseQuestionWithStats: updatedResponseQuestionWithStats,
+      basisPointSets: updatedBasisPointSets,
+      responseGap: responseGap,
+      baseWidth: baseWidth,
+      segmentGroup: staleSegmentGroup
+    });
+
+    // Create deltas showing all segments and points as "added" (empty before state)
+    const collapsedBoundsDelta: SegmentBoundsDelta[] = newSegments.collapsed.map(seg => ({
+      responseGroupIndex: seg.responseGroupIndex,
+      xBefore: 0,
+      xAfter: seg.x,
+      widthBefore: 0,
+      widthAfter: seg.width
+    }));
+
+    const expandedBoundsDelta: SegmentBoundsDelta[] = newSegments.expanded.map(seg => ({
+      responseGroupIndex: seg.responseGroupIndex,
+      xBefore: 0,
+      xAfter: seg.x,
+      widthBefore: 0,
+      widthAfter: seg.width
+    }));
+
+    const collapsedPointsDelta: SegmentPointsDelta[] = newSegments.collapsed.map(seg => ({
+      responseGroupIndex: seg.responseGroupIndex,
+      addedPoints: seg.pointPositions.map(pp => ({
+        id: pp.id,
+        x: pp.x,
+        y: pp.y
+      })),
+      removedPoints: [],
+      movedPoints: []
+    }));
+
+    const expandedPointsDelta: SegmentPointsDelta[] = newSegments.expanded.map(seg => ({
+      responseGroupIndex: seg.responseGroupIndex,
+      addedPoints: seg.pointPositions.map(pp => ({
+        id: pp.id,
+        x: pp.x,
+        y: pp.y
+      })),
+      removedPoints: [],
+      movedPoints: []
+    }));
+
+    return {
+      updatedSegmentGroup: {
+        ...staleSegmentGroup,
+        segments: newSegments
+      },
       segmentGroupDelta: {
         collapsed: {
-          boundsDelta: [],
-          pointsDelta: []
+          boundsDelta: collapsedBoundsDelta,
+          pointsDelta: collapsedPointsDelta
         },
         expanded: {
-          boundsDelta: [],
-          pointsDelta: []
+          boundsDelta: expandedBoundsDelta,
+          pointsDelta: expandedPointsDelta
         }
       }
-    })
+    };
   }
 
   // 2. Extract the updated response groups from updatedResponseQuestionWithStats

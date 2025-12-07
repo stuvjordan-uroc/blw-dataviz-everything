@@ -10,14 +10,19 @@
  *        ├─> statisticsUpdates.test.ts (tests Statistics update behavior)
  *        ├─> segmentViz.test.ts (tests SegmentViz geometry without data)
  *        │       └─> segmentVizHydrated.test.ts (tests SegmentViz with Wave 1 data)
- *        └───────────┴─> segmentVizUpdates.test.ts (requires both Statistics updates AND SegmentViz hydrated tests)
+ *        └───────────┴─> segmentVizUpdates/* (requires both Statistics updates AND SegmentViz hydrated tests)
+ *                            ├─> pointSets.test.ts (point ID management)
+ *                            ├─> proportionShifts.test.ts (Wave 1 → Wave 2 deltas)
+ *                            └─> newlyPopulated.test.ts (Wave 1+2 → Wave 3 deltas)
  * 
  * Linear execution order:
  * 1. statistics.test.ts - Foundational Statistics functionality
  * 2. statisticsUpdates.test.ts - Statistics update/delta behavior  
  * 3. segmentViz.test.ts - SegmentViz geometry (no data dependency)
  * 4. segmentVizHydrated.test.ts - SegmentViz with Wave 1 Statistics
- * 5. segmentVizUpdates.test.ts - SegmentViz response to Statistics updates
+ * 5. segmentVizUpdates/pointSets.test.ts - Point ID management during updates
+ * 6. segmentVizUpdates/proportionShifts.test.ts - Proportion shift deltas
+ * 7. segmentVizUpdates/newlyPopulated.test.ts - Newly populated split deltas
  * 
  * Combined with bail:1 in jest.config.js, if any prior test fails,
  * subsequent tests will not run.
@@ -38,7 +43,9 @@ class CustomSequencer extends Sequencer {
       'statisticsUpdates.test.ts',
       'segmentViz.test.ts',
       'segmentVizHydrated.test.ts',
-      'segmentVizUpdates.test.ts',
+      'segmentVizUpdates/pointSets.test.ts',
+      'segmentVizUpdates/proportionShifts.test.ts',
+      'segmentVizUpdates/newlyPopulated.test.ts',
     ];
 
     // Sort tests according to the defined order
