@@ -1,0 +1,18 @@
+{
+  "name": "worker-polls",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "shared-broker": "*",
+    "shared-schemas": "*",
+    "ioredis": "^5.3.2",
+    "drizzle-orm": "^0.44.7",
+    "postgres": "^3.4.7"
+  }
+}

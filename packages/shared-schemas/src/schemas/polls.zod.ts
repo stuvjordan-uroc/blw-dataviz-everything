@@ -6,7 +6,8 @@
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { sessions, questions, respondents, responses, sessionStatistics } from './polls';
 import { z } from 'zod';
-import type { ResponseGroup } from './polls';
+import type { ResponseGroup } from 'shared-computation';
+import { segmentVizConfigSchema } from 'shared-computation';
 
 // ============================================================================
 // SESSION CONFIG VALIDATION SCHEMAS
@@ -106,6 +107,7 @@ export const groupingQuestionSchema = questionSchema.extend({
 export const sessionConfigSchema = z.object({
   responseQuestions: z.array(responseQuestionSchema),
   groupingQuestions: z.array(groupingQuestionSchema),
+  segmentVizConfig: segmentVizConfigSchema,
 });
 
 // ============================================================================

@@ -9,8 +9,14 @@ import {
   timestamp,
   boolean,
 } from "drizzle-orm/pg-core";
+import type { InferSelectModel } from "drizzle-orm";
 import { questions as questionsDef } from "./questions";
-import type { ResponseQuestion, GroupingQuestion } from "shared-computation"
+import type {
+  ResponseQuestion,
+  GroupingQuestion,
+  Split,
+  SegmentVizConfig,
+} from "shared-computation";
 
 /* CREATE POLLS SCHEMA AND ITS TABLES */
 
@@ -22,6 +28,7 @@ export const pollsSchema = pgSchema("polls");
 export interface SessionConfig {
   responseQuestions: ResponseQuestion[];
   groupingQuestions: GroupingQuestion[];
+  segmentVizConfig: SegmentVizConfig;
 }
 
 //sessions table
@@ -113,3 +120,35 @@ export const sessionStatistics = pollsSchema.table("session_statistics", {
   // Fields for incremental computation tracking
   lastProcessedRespondentId: integer("last_processed_respondent_id"), // highest respondent.id processed so far
 });
+
+// outbox_events table: stores domain events atomically written alongside business data
+export const outboxEvents = pollsSchema.table("outbox_events", {
+  id: serial("id").primaryKey(),
+  aggregateType: text("aggregate_type").notNull(),
+  aggregateId: integer("aggregate_id"),
+  eventType: text("event_type").notNull(),
+  payload: jsonb("payload").$type<Record<string, any>>().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  published: boolean("published").notNull().default(false),
+  publishedAt: timestamp("published_at"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  lockOwner: text("lock_owner"),
+  lockedAt: timestamp("locked_at"),
+});
+
+export type OutboxEventRow = InferSelectModel<typeof outboxEvents>;
+
+// Dead-letter queue table for outbox items the consumer cannot process
+export const outboxDlq = pollsSchema.table("outbox_dlq", {
+  id: serial("id").primaryKey(),
+  outboxId: integer(),
+  streamName: text("stream_name"),
+  streamId: text("stream_id"),
+  eventType: text("event_type"),
+  payload: jsonb("payload").$type<Record<string, any>>().notNull(),
+  errorMessage: text("error_message"),
+  failedAt: timestamp("failed_at").defaultNow(),
+});
+
+export type OutboxDlqRow = InferSelectModel<typeof outboxDlq>;

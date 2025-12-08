@@ -1,8 +1,10 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, BadRequestException } from "@nestjs/common";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { DATABASE_CONNECTION } from "../database/database.providers";
 import { SubmitResponsesDto } from "./responses.controller";
-import { respondents, responses as responsesTable } from "shared-schemas";
+import { respondents, responses as responsesTable, sessions, outboxEvents } from "shared-schemas";
+import { responseSubmittedSchema } from "shared-broker";
+import { eq } from "drizzle-orm";
 
 /**
  * ResponsesService handles business logic for submitting responses
@@ -11,7 +13,7 @@ import { respondents, responses as responsesTable } from "shared-schemas";
 export class ResponsesService {
   constructor(
     @Inject(DATABASE_CONNECTION) private db: ReturnType<typeof drizzle>
-  ) {}
+  ) { }
 
   /**
    * Submit responses for a single respondent in a session
@@ -24,8 +26,14 @@ export class ResponsesService {
     sessionId: number,
     responses: SubmitResponsesDto
   ) {
-    // Use a transaction to ensure both respondent and responses are inserted atomically
+    // Use a transaction to ensure we check session.isOpen and insert atomically
     const result = await this.db.transaction(async (tx) => {
+      // Ensure session exists and is open
+      const [sessionRow] = await tx.select().from(sessions).where(eq(sessions.id, sessionId));
+      if (!sessionRow || !sessionRow.isOpen) {
+        throw new BadRequestException('Session is closed or not found');
+      }
+
       // Create a new respondent record in polls.respondents table
       const [newRespondent] = await tx
         .insert(respondents)
@@ -43,6 +51,22 @@ export class ResponsesService {
       }));
 
       await tx.insert(responsesTable).values(responseValues);
+
+      // Enqueue an outbox event so workers can process this respondent.
+      const respPayload = {
+        sessionId,
+        respondentId,
+        createdAt: new Date().toISOString(),
+      };
+
+      responseSubmittedSchema.parse(respPayload);
+
+      await tx.insert(outboxEvents).values({
+        aggregateType: "session",
+        aggregateId: sessionId,
+        eventType: "response.submitted",
+        payload: respPayload,
+      });
 
       return {
         respondentId,

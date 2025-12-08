@@ -24,6 +24,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
-    "shared-schemas": "*"
+    "shared-schemas": "*",
+    "zod": "^3.22.0"
   }
 }

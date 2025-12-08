@@ -9,12 +9,20 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { eq, inArray } from "drizzle-orm";
 import {
   sessions,
-  questions as pollQuestions,
+  pollQuestions,
   respondents,
   responses,
   sessionStatistics,
-} from "shared-schemas/src/schemas/polls";
-import { questions as questionBank } from "shared-schemas/src/schemas/questions";
+  outboxEvents,
+  questions,
+  sessionConfigSchema,
+} from "shared-schemas";
+import {
+  sessionCreatedSchema,
+  sessionStatusChangedSchema,
+  sessionRemovedSchema,
+} from "shared-broker";
+import { Statistics, validateSegmentVizConfig } from "shared-computation";
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 
@@ -50,7 +58,7 @@ export class SessionsService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private db: ReturnType<typeof drizzle>
-  ) {}
+  ) { }
 
   /**
    * Generate a unique URL-friendly slug for a session
@@ -71,6 +79,24 @@ export class SessionsService {
    * @returns The newly created session with its ID and generated slug
    */
   async create(sessionData: NewSession): Promise<Session> {
+    // Stage 1: Zod validation for structure and basic constraints
+    if (sessionData.sessionConfig) {
+      sessionConfigSchema.parse(sessionData.sessionConfig);
+    }
+
+    // Stage 2: Deep semantic validation using shared-computation's validator
+    if (sessionData.sessionConfig) {
+      // Create temporary Statistics instance for validation
+      const tempStats = new Statistics({
+        responseQuestions: sessionData.sessionConfig.responseQuestions,
+        groupingQuestions: sessionData.sessionConfig.groupingQuestions,
+      });
+
+      // Validate segmentVizConfig against the questions
+      // This throws descriptive errors if invalid (duplicates, keys not matching, etc.)
+      validateSegmentVizConfig(tempStats, sessionData.sessionConfig.segmentVizConfig);
+    }
+
     return await this.db.transaction(async (tx) => {
       // Generate a unique slug if not provided
       const slug = sessionData.slug || this.generateSlug();
@@ -94,10 +120,10 @@ export class SessionsService {
         // Check if all questions exist
         const existingQuestions = await tx
           .select()
-          .from(questionBank)
+          .from(questions)
           .where(
             inArray(
-              questionBank.varName,
+              questions.varName,
               allQuestions.map((q) => q.varName)
             )
           );
@@ -117,8 +143,7 @@ export class SessionsService {
             `The following questions do not exist in the question bank: ${missingQuestions
               .map(
                 (q) =>
-                  `(varName: ${q.varName}, battery: ${
-                    q.batteryName
+                  `(varName: ${q.varName}, battery: ${q.batteryName
                   }, subBattery: ${q.subBattery || "(none)"})`
               )
               .join(", ")}`
@@ -144,6 +169,24 @@ export class SessionsService {
 
         await tx.insert(pollQuestions).values(pollQuestionsData);
       }
+
+      // Validate payload with Zod before writing to outbox (aborts tx on validation failure)
+      const createdPayload = {
+        sessionId: session.id,
+        slug,
+        sessionConfig: session.sessionConfig,
+        description: session.description,
+        createdAt: session.createdAt,
+      };
+
+      sessionCreatedSchema.parse(createdPayload);
+
+      await tx.insert(outboxEvents).values({
+        aggregateType: "session",
+        aggregateId: session.id,
+        eventType: "session.created",
+        payload: createdPayload,
+      });
 
       return session;
     });
@@ -209,6 +252,14 @@ export class SessionsService {
 
       const respondentIds = sessionRespondents.map((r) => r.id);
 
+      // Also capture question count for reporting in the outbox payload
+      const sessionQuestions = await tx
+        .select({ id: pollQuestions.id })
+        .from(pollQuestions)
+        .where(eq(pollQuestions.sessionId, id));
+
+      const questionCount = sessionQuestions.length;
+
       // 3. Delete responses (references respondents.id)
       if (respondentIds.length > 0) {
         await tx
@@ -221,6 +272,24 @@ export class SessionsService {
 
       // 5. Delete questions (references sessions.id)
       await tx.delete(pollQuestions).where(eq(pollQuestions.sessionId, id));
+
+      // Write an outbox event to notify workers that this session was removed.
+      // Include small metadata so workers can react deterministically (counts, timestamp).
+      const removedPayload = {
+        sessionId: id,
+        removedAt: new Date().toISOString(),
+        respondentCount: respondentIds.length,
+        questionCount,
+      };
+
+      sessionRemovedSchema.parse(removedPayload);
+
+      await tx.insert(outboxEvents).values({
+        aggregateType: "session",
+        aggregateId: id,
+        eventType: "session.removed",
+        payload: removedPayload,
+      });
 
       // 6. Finally delete the session itself
       await tx.delete(sessions).where(eq(sessions.id, id));
@@ -236,14 +305,48 @@ export class SessionsService {
    * @throws NotFoundException if session doesn't exist
    */
   async toggleStatus(id: number, isOpen: boolean): Promise<Session> {
-    // First check if session exists
+    // Ensure session exists and perform update + outbox insert atomically
     await this.findOne(id);
 
-    const [updatedSession] = await this.db
-      .update(sessions)
-      .set({ isOpen })
-      .where(eq(sessions.id, id))
-      .returning();
+    const updatedSession = await this.db.transaction(async (tx) => {
+      const [s] = await tx
+        .update(sessions)
+        .set({ isOpen })
+        .where(eq(sessions.id, id))
+        .returning();
+
+      // compute lastRespondentId (high-water-mark) when closing so workers can deterministically drain
+      let lastRespondentId: number | null = null;
+      if (!isOpen) {
+        const respondentRows = await tx
+          .select({ id: respondents.id })
+          .from(respondents)
+          .where(eq(respondents.sessionId, id));
+
+        if (respondentRows && respondentRows.length > 0) {
+          lastRespondentId = Math.max(...respondentRows.map((r) => r.id));
+        }
+      }
+
+      // enqueue outbox event so worker can react to open/close and release resources
+      const statusPayload = {
+        sessionId: id,
+        isOpen,
+        changedAt: new Date().toISOString(),
+        lastRespondentId,
+      };
+
+      sessionStatusChangedSchema.parse(statusPayload);
+
+      await tx.insert(outboxEvents).values({
+        aggregateType: "session",
+        aggregateId: id,
+        eventType: "session.status.changed",
+        payload: statusPayload,
+      });
+
+      return s;
+    });
 
     return updatedSession;
   }

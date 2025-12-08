@@ -2,7 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../database/database.providers';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
-import { questions, batteries, subBatteries } from 'shared-schemas/src/schemas/questions';
+import { questions, batteries, subBatteries } from 'shared-schemas';
 import type { InferSelectModel } from 'drizzle-orm';
 
 /**

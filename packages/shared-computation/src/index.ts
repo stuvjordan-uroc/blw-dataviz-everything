@@ -8,6 +8,9 @@
 
 export { Statistics } from "./statistics";
 export { SegmentViz } from "./segmentViz";
+export { getQuestionKey } from "./utils";
+export { validateConfig as validateSegmentVizConfig } from "./segmentViz/validate";
+export { segmentVizConfigSchema } from "./segmentViz/schema";
 
 // Export types
 export type {
@@ -27,5 +30,7 @@ export type {
   StatisticsResult,
   StatisticsUpdateResult
 } from "./statistics";
+
+export type { SegmentVizConfig } from "./segmentViz/types";
 
 

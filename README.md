@@ -22,9 +22,25 @@ Utilities for authenticating admins. Exported for use by APIs in the project. Se
 
 API for handling transactions by admins for running polls. See package/api-polls-admin/README.md
 
+## api-polls-public
+
+API for handling public requests for poll questions and public responses to polls
+
+## worker-polls
+
+Worker for maintaining a Statistics and SegmentViz instance during the lifetime of a polling session.
+
+## shared-broker
+
+Message broker service for IPC. For instance, handles message passing between api-polls-admin, api-polls-public, and worker-polls.
+
 ## integration-tests
 
 Integration tests for API endpoints and database interactions. See packages/integration-tests/README.md for setup and usage.
+
+## shared-computation
+
+Classes for computing statistics (Statistics) for a given datasets (e.g. responses to a poll), and classes for computing coordinates for visualizations of statistics (SegmentViz).
 
 # Running the System for Development and Testing
 

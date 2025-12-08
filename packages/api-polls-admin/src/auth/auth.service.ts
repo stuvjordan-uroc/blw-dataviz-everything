@@ -2,7 +2,7 @@ import { Injectable, Inject, ConflictException, NotFoundException, UnauthorizedE
 import { DATABASE_CONNECTION } from '../database/database.providers';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
-import { users } from 'shared-schemas/src/schemas/admin';
+import { users } from 'shared-schemas';
 import { PasswordService } from 'shared-auth';
 import type { RegisterAdminRequest, AdminUserSafe } from 'shared-schemas';
 
