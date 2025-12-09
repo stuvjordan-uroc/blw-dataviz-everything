@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { sessionConfigSchema } from 'shared-schemas';
+import { z } from "zod";
+import { sessionConfigSchema } from "shared-schemas";
 
 // Event payload schemas for worker consumption
 
@@ -13,7 +13,6 @@ export const sessionStatusChangedSchema = z.object({
   sessionId: z.number(),
   isOpen: z.boolean(),
   changedAt: z.string(),
-  lastRespondentId: z.number().nullable().optional(),
 });
 
 export const sessionRemovedSchema = z.object({
@@ -30,10 +29,10 @@ export const responseSubmittedSchema = z.object({
 });
 
 export const eventSchemas = {
-  'session.created': sessionCreatedSchema,
-  'session.status.changed': sessionStatusChangedSchema,
-  'session.removed': sessionRemovedSchema,
-  'response.submitted': responseSubmittedSchema,
+  "session.created": sessionCreatedSchema,
+  "session.status.changed": sessionStatusChangedSchema,
+  "session.removed": sessionRemovedSchema,
+  "response.submitted": responseSubmittedSchema,
 };
 
 export type SessionCreated = z.infer<typeof sessionCreatedSchema>;

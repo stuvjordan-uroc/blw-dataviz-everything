@@ -24,7 +24,6 @@ import type {
 
 export const pollsSchema = pgSchema("polls");
 
-
 export interface SessionConfig {
   responseQuestions: ResponseQuestion[];
   groupingQuestions: GroupingQuestion[];
@@ -102,14 +101,6 @@ export const responses = pollsSchema.table(
 
 //types for session statistics
 
-
-
-
-
-
-
-
-
 //session_statistics table
 export const sessionStatistics = pollsSchema.table("session_statistics", {
   sessionId: integer()
@@ -117,8 +108,6 @@ export const sessionStatistics = pollsSchema.table("session_statistics", {
     .references(() => sessions.id), //only one row per session!!! Note this means application will have to handle concurrent updates!
   statistics: jsonb("statistics").$type<Split[]>(),
   computedAt: timestamp("computed_at").defaultNow(),
-  // Fields for incremental computation tracking
-  lastProcessedRespondentId: integer("last_processed_respondent_id"), // highest respondent.id processed so far
 });
 
 // outbox_events table: stores domain events atomically written alongside business data

@@ -1,0 +1,1 @@
+ALTER TABLE "polls"."session_statistics" DROP COLUMN "last_processed_respondent_id";

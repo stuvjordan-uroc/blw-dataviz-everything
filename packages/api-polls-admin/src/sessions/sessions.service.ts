@@ -58,7 +58,7 @@ export class SessionsService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private db: ReturnType<typeof drizzle>
-  ) { }
+  ) {}
 
   /**
    * Generate a unique URL-friendly slug for a session
@@ -94,7 +94,10 @@ export class SessionsService {
 
       // Validate segmentVizConfig against the questions
       // This throws descriptive errors if invalid (duplicates, keys not matching, etc.)
-      validateSegmentVizConfig(tempStats, sessionData.sessionConfig.segmentVizConfig);
+      validateSegmentVizConfig(
+        tempStats,
+        sessionData.sessionConfig.segmentVizConfig
+      );
     }
 
     return await this.db.transaction(async (tx) => {
@@ -143,7 +146,8 @@ export class SessionsService {
             `The following questions do not exist in the question bank: ${missingQuestions
               .map(
                 (q) =>
-                  `(varName: ${q.varName}, battery: ${q.batteryName
+                  `(varName: ${q.varName}, battery: ${
+                    q.batteryName
                   }, subBattery: ${q.subBattery || "(none)"})`
               )
               .join(", ")}`
@@ -315,25 +319,11 @@ export class SessionsService {
         .where(eq(sessions.id, id))
         .returning();
 
-      // compute lastRespondentId (high-water-mark) when closing so workers can deterministically drain
-      let lastRespondentId: number | null = null;
-      if (!isOpen) {
-        const respondentRows = await tx
-          .select({ id: respondents.id })
-          .from(respondents)
-          .where(eq(respondents.sessionId, id));
-
-        if (respondentRows && respondentRows.length > 0) {
-          lastRespondentId = Math.max(...respondentRows.map((r) => r.id));
-        }
-      }
-
       // enqueue outbox event so worker can react to open/close and release resources
       const statusPayload = {
         sessionId: id,
         isOpen,
         changedAt: new Date().toISOString(),
-        lastRespondentId,
       };
 
       sessionStatusChangedSchema.parse(statusPayload);

@@ -20,7 +20,12 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
   },
-  "references": [{ "path": "../shared-schemas" }, { "path": "../shared-auth" }],
+  "references": [
+    { "path": "../shared-auth" },
+    { "path": "../shared-broker" },
+    { "path": "../shared-computation" },
+    { "path": "../shared-schemas" }
+  ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

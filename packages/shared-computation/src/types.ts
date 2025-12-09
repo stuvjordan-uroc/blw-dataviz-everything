@@ -1,8 +1,12 @@
-import type {
-  Question
-} from "shared-schemas";
-
-export type { Question };
+/**
+ * Question type for uniquely identifying a question.
+ * Matches the database schema constraint where subBattery is part of the primary key.
+ */
+export interface Question {
+  varName: string;
+  batteryName: string;
+  subBattery: string; // Required (empty string '' for questions without a sub-battery)
+}
 
 export interface ResponseGroup {
   label: string;
@@ -48,7 +52,6 @@ export interface ResponseGroupWithStats extends ResponseGroup {
   totalCount: number; //total number of respondents within response group within split
 }
 
-
 /*
  * RespondentData represents all of a respondent's responses to the questions
  * in a session. Each response includes the question identifier and the response value.
@@ -64,5 +67,3 @@ export interface RespondentData {
     response: number | null;
   }[];
 }
-
-

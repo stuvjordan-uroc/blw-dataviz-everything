@@ -71,6 +71,13 @@
       "when": 1765225843924,
       "tag": "0009_huge_brother_voodoo",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1765298778171,
+      "tag": "0010_chunky_king_cobra",
+      "breakpoints": true
     }
   ]
 }

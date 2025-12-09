@@ -22,6 +22,7 @@
     "postgres": "^3.4.7",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
+    "shared-broker": "*",
     "shared-schemas": "*",
     "zod": "^3.22.0"
   },

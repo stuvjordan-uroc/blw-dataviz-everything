@@ -20,7 +20,10 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
   },
-  "references": [{ "path": "../shared-schemas" }],
+  "references": [
+    { "path": "../shared-broker" },
+    { "path": "../shared-schemas" }
+  ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

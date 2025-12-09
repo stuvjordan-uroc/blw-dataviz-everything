@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "composite": false
+    "composite": true
   },
+  "references": [{ "path": "../shared-schemas" }],
   "include": ["src"]
 }

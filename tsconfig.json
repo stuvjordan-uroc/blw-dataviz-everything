@@ -17,9 +17,14 @@
     "types": ["node"]
   },
   "references": [
+    { "path": "./packages/shared-computation" },
     { "path": "./packages/shared-schemas" },
+    { "path": "./packages/shared-broker" },
     { "path": "./packages/shared-auth" },
-    { "path": "./packages/api-polls-admin" }
+    { "path": "./packages/db" },
+    { "path": "./packages/api-polls-admin" },
+    { "path": "./packages/api-polls-public" },
+    { "path": "./packages/worker-polls" }
   ],
   "exclude": ["node_modules", "dist", "build"],
   "files": []
