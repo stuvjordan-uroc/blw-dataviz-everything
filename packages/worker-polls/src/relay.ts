@@ -48,7 +48,7 @@ export async function outboxRelayLoop(redis: Redis, connectionString?: string) {
               lt(outboxEvents.attempts, MAX_ATTEMPTS)
             )
           )
-          .orderBy(outboxEvents.createdAt)
+          .orderBy(outboxEvents.sequence)
           .limit(DEFAULT_BATCH)
           .for('update', { skipLocked: true });
 

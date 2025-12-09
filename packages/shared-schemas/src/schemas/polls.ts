@@ -113,6 +113,7 @@ export const sessionStatistics = pollsSchema.table("session_statistics", {
 // outbox_events table: stores domain events atomically written alongside business data
 export const outboxEvents = pollsSchema.table("outbox_events", {
   id: serial("id").primaryKey(),
+  sequence: serial("sequence").notNull(),
   aggregateType: text("aggregate_type").notNull(),
   aggregateId: integer("aggregate_id"),
   eventType: text("event_type").notNull(),

@@ -1,0 +1,1 @@
+ALTER TABLE "polls"."outbox_events" ADD COLUMN "sequence" serial NOT NULL;

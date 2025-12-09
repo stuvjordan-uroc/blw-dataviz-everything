@@ -1,8 +1,14 @@
+import type { SessionRemoved } from "shared-broker";
+import { sessionRegistry } from "../session-registry";
 import type { HandlerArgs } from "../types";
 
-// TODO: EVERYTHING
+export async function handleSessionRemoved(args: HandlerArgs) {
+  const { sessionId } = args.payload as SessionRemoved;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function handleSessionRemoved(_args: HandlerArgs) {
-  // unload and delete all in-memory state for the session
+  if (sessionRegistry.has(sessionId)) {
+    sessionRegistry.delete(sessionId);
+    console.log(`Session ${sessionId} removed from registry`);
+  } else {
+    console.log(`Session ${sessionId} not in registry (already removed or never loaded)`);
+  }
 }

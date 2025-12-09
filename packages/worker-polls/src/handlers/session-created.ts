@@ -34,6 +34,14 @@ function loadSession(payload: SessionCreated): void {
 
 export async function handleSessionCreated(args: HandlerArgs) {
   const payload = args.payload as SessionCreated;
+  const { sessionId } = payload;
+
+  // Idempotency check: if session already exists, skip
+  if (sessionRegistry.has(sessionId)) {
+    console.log(`Session ${sessionId} already loaded in registry, skipping duplicate creation`);
+    return;
+  }
+
   loadSession(payload);
 
   // TODO: Publish session update to Redis pub/sub for real-time frontend updates
