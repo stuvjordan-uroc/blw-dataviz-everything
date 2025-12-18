@@ -17,6 +17,10 @@
       "path": "./packages/shared-computation"
     },
     {
+      "name": "Shared Computation Simple",
+      "path": "./packages/shared-computation-simple"
+    },
+    {
       "name": "Shared Broker",
       "path": "./packages/shared-broker"
     },
