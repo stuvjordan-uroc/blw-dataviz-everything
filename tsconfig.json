@@ -17,14 +17,12 @@
     "types": ["node"]
   },
   "references": [
-    { "path": "./packages/shared-computation" },
+    { "path": "./packages/shared-computation-simple" },
     { "path": "./packages/shared-schemas" },
-    { "path": "./packages/shared-broker" },
     { "path": "./packages/shared-auth" },
     { "path": "./packages/db" },
     { "path": "./packages/api-polls-admin" },
-    { "path": "./packages/api-polls-public" },
-    { "path": "./packages/worker-polls" }
+    { "path": "./packages/api-polls-public" }
   ],
   "exclude": ["node_modules", "dist", "build"],
   "files": []

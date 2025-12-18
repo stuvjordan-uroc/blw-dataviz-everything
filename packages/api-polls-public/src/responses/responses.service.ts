@@ -2,8 +2,7 @@ import { Injectable, Inject, BadRequestException } from "@nestjs/common";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { DATABASE_CONNECTION } from "../database/database.providers";
 import { SubmitResponsesDto } from "./responses.controller";
-import { respondents, responses as responsesTable, sessions, outboxEvents } from "shared-schemas";
-import { responseSubmittedSchema } from "shared-broker";
+import { respondents, responses as responsesTable, sessions } from "shared-schemas";
 import { eq } from "drizzle-orm";
 
 /**
@@ -51,22 +50,6 @@ export class ResponsesService {
       }));
 
       await tx.insert(responsesTable).values(responseValues);
-
-      // Enqueue an outbox event so workers can process this respondent.
-      const respPayload = {
-        sessionId,
-        respondentId,
-        createdAt: new Date().toISOString(),
-      };
-
-      responseSubmittedSchema.parse(respPayload);
-
-      await tx.insert(outboxEvents).values({
-        aggregateType: "session",
-        aggregateId: sessionId,
-        eventType: "response.submitted",
-        payload: respPayload,
-      });
 
       return {
         respondentId,

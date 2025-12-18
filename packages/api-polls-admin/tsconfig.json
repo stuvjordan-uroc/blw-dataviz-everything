@@ -22,8 +22,7 @@
   },
   "references": [
     { "path": "../shared-auth" },
-    { "path": "../shared-broker" },
-    { "path": "../shared-computation" },
+    { "path": "../shared-computation-simple" },
     { "path": "../shared-schemas" }
   ],
   "include": ["src/**/*"],

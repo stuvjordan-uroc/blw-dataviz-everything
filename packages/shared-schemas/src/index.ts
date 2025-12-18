@@ -5,9 +5,7 @@ export {
   questions as pollQuestions,
   respondents,
   responses,
-  sessionStatistics,
-  outboxEvents,
-  outboxDlq
+  sessionStatistics
 } from "./schemas/polls";
 export type { Question } from "./schemas/questions"
 export * from "./schemas/admin";

@@ -21,7 +21,6 @@
     "noFallthroughCasesInSwitch": false
   },
   "references": [
-    { "path": "../shared-broker" },
     { "path": "../shared-schemas" }
   ],
   "include": ["src/**/*"],

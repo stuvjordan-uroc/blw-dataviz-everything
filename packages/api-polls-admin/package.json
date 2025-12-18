@@ -29,10 +29,7 @@
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
     "shared-auth": "*",
-    "shared-broker": "*",
-    "shared-computation": "*",
-    "shared-schemas": "*",
-    "shared-auth": "*",
+    "shared-computation-simple": "*",
     "shared-schemas": "*",
     "zod": "^3.22.0"
   },

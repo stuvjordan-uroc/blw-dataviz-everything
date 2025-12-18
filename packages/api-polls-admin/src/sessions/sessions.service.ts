@@ -13,16 +13,9 @@ import {
   respondents,
   responses,
   sessionStatistics,
-  outboxEvents,
   questions,
   sessionConfigSchema,
 } from "shared-schemas";
-import {
-  sessionCreatedSchema,
-  sessionStatusChangedSchema,
-  sessionRemovedSchema,
-} from "shared-broker";
-import { Statistics, validateSegmentVizConfig } from "shared-computation";
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 
@@ -79,25 +72,9 @@ export class SessionsService {
    * @returns The newly created session with its ID and generated slug
    */
   async create(sessionData: NewSession): Promise<Session> {
-    // Stage 1: Zod validation for structure and basic constraints
+    // Validate session configuration structure and basic constraints
     if (sessionData.sessionConfig) {
       sessionConfigSchema.parse(sessionData.sessionConfig);
-    }
-
-    // Stage 2: Deep semantic validation using shared-computation's validator
-    if (sessionData.sessionConfig) {
-      // Create temporary Statistics instance for validation
-      const tempStats = new Statistics({
-        responseQuestions: sessionData.sessionConfig.responseQuestions,
-        groupingQuestions: sessionData.sessionConfig.groupingQuestions,
-      });
-
-      // Validate segmentVizConfig against the questions
-      // This throws descriptive errors if invalid (duplicates, keys not matching, etc.)
-      validateSegmentVizConfig(
-        tempStats,
-        sessionData.sessionConfig.segmentVizConfig
-      );
     }
 
     return await this.db.transaction(async (tx) => {
@@ -173,24 +150,6 @@ export class SessionsService {
 
         await tx.insert(pollQuestions).values(pollQuestionsData);
       }
-
-      // Validate payload with Zod before writing to outbox (aborts tx on validation failure)
-      const createdPayload = {
-        sessionId: session.id,
-        slug,
-        sessionConfig: session.sessionConfig,
-        description: session.description,
-        createdAt: session.createdAt,
-      };
-
-      sessionCreatedSchema.parse(createdPayload);
-
-      await tx.insert(outboxEvents).values({
-        aggregateType: "session",
-        aggregateId: session.id,
-        eventType: "session.created",
-        payload: createdPayload,
-      });
 
       return session;
     });
@@ -277,24 +236,6 @@ export class SessionsService {
       // 5. Delete questions (references sessions.id)
       await tx.delete(pollQuestions).where(eq(pollQuestions.sessionId, id));
 
-      // Write an outbox event to notify workers that this session was removed.
-      // Include small metadata so workers can react deterministically (counts, timestamp).
-      const removedPayload = {
-        sessionId: id,
-        removedAt: new Date().toISOString(),
-        respondentCount: respondentIds.length,
-        questionCount,
-      };
-
-      sessionRemovedSchema.parse(removedPayload);
-
-      await tx.insert(outboxEvents).values({
-        aggregateType: "session",
-        aggregateId: id,
-        eventType: "session.removed",
-        payload: removedPayload,
-      });
-
       // 6. Finally delete the session itself
       await tx.delete(sessions).where(eq(sessions.id, id));
     });
@@ -309,34 +250,15 @@ export class SessionsService {
    * @throws NotFoundException if session doesn't exist
    */
   async toggleStatus(id: number, isOpen: boolean): Promise<Session> {
-    // Ensure session exists and perform update + outbox insert atomically
+    // Ensure session exists
     await this.findOne(id);
 
-    const updatedSession = await this.db.transaction(async (tx) => {
-      const [s] = await tx
-        .update(sessions)
-        .set({ isOpen })
-        .where(eq(sessions.id, id))
-        .returning();
-
-      // enqueue outbox event so worker can react to open/close and release resources
-      const statusPayload = {
-        sessionId: id,
-        isOpen,
-        changedAt: new Date().toISOString(),
-      };
-
-      sessionStatusChangedSchema.parse(statusPayload);
-
-      await tx.insert(outboxEvents).values({
-        aggregateType: "session",
-        aggregateId: id,
-        eventType: "session.status.changed",
-        payload: statusPayload,
-      });
-
-      return s;
-    });
+    // Update session status
+    const [updatedSession] = await this.db
+      .update(sessions)
+      .set({ isOpen })
+      .where(eq(sessions.id, id))
+      .returning();
 
     return updatedSession;
   }

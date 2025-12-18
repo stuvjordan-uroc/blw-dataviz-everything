@@ -6,8 +6,12 @@
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { sessions, questions, respondents, responses, sessionStatistics } from './polls';
 import { z } from 'zod';
-import type { ResponseGroup } from 'shared-computation';
-import { segmentVizConfigSchema } from 'shared-computation';
+
+// Type for response groups (moved from shared-computation)
+export interface ResponseGroup {
+  label: string;
+  values: number[];
+}
 
 // ============================================================================
 // SESSION CONFIG VALIDATION SCHEMAS
@@ -98,6 +102,12 @@ export const groupingQuestionSchema = questionSchema.extend({
   (data) => hasExclusiveValues(data.responseGroups),
   { message: "Response group values must be mutually exclusive (no value can appear in multiple groups)" }
 );
+
+/**
+ * Placeholder for segmentVizConfig validation
+ * TODO: Import from shared-computation-simple when ready
+ */
+export const segmentVizConfigSchema = z.record(z.any());
 
 /**
  * SessionConfig schema
