@@ -4,8 +4,14 @@
     "outDir": "./dist",
     "types": ["jest", "node"],
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "composite": true,
+    "skipLibCheck": true
   },
+  "references": [
+    { "path": "../shared-types" },
+    { "path": "../shared-schemas" }
+  ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

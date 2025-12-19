@@ -1,16 +1,40 @@
 import { Module } from "@nestjs/common";
+import { EventEmitterModule } from "@nestjs/event-emitter";
+import { DatabaseModule } from "../database/database.module";
 import { ResponsesController } from "./responses.controller";
 import { ResponsesService } from "./responses.service";
+import { VisualizationCacheService } from "./visualization-cache.service";
+import { ResponseTransformer } from "./response-transformer.service";
+import { BatchUpdateScheduler, BATCH_INTERVAL_TOKEN } from "./batch-update-scheduler.service";
+import { VisualizationStreamService } from "./visualization-stream.service";
+import { VisualizationStreamController } from "./visualization-stream.controller";
 
-/**
- * ResponsesModule organizes the responses feature
- *
- * This module:
- * - Provides ResponsesService for business logic
- * - Exposes ResponsesController for HTTP endpoints
- */
 @Module({
-  controllers: [ResponsesController],
-  providers: [ResponsesService],
+  imports: [
+    DatabaseModule,
+    EventEmitterModule.forRoot({
+      // EventEmitter options
+      wildcard: false,
+      delimiter: ".",
+      newListener: false,
+      removeListener: false,
+      maxListeners: 10,
+      verboseMemoryLeak: false,
+      ignoreErrors: false,
+    }),
+  ],
+  controllers: [ResponsesController, VisualizationStreamController],
+  providers: [
+    {
+      provide: BATCH_INTERVAL_TOKEN,
+      useValue: parseInt(process.env.BATCH_UPDATE_INTERVAL_MS || '3000', 10),
+    },
+    ResponsesService,
+    VisualizationCacheService,
+    ResponseTransformer,
+    BatchUpdateScheduler,
+    VisualizationStreamService,
+  ],
+  exports: [ResponsesService, VisualizationCacheService, BatchUpdateScheduler],
 })
-export class ResponsesModule {}
+export class ResponsesModule { }

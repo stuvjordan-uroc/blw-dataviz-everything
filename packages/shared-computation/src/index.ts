@@ -14,7 +14,7 @@ import type { ResponseQuestion, GroupingQuestion, Split } from "./statistics/typ
 
 import { initializeSplitsWithSegments } from "./segmentViz/initializeSplitsWithSegments";
 import { updateAllSplitsWithSegmentsFromResponses } from "./segmentViz/update";
-import type { SegmentVizConfig, SplitWithSegmentGroup } from "./segmentViz/types";
+import type { SegmentVizConfig, SplitWithSegmentGroup, SplitWithSegmentGroupDiff } from "./segmentViz/types";
 
 export {
   initializeSplits,
@@ -28,5 +28,6 @@ export type {
   GroupingQuestion,
   Split,
   SegmentVizConfig,
-  SplitWithSegmentGroup
+  SplitWithSegmentGroup,
+  SplitWithSegmentGroupDiff
 }

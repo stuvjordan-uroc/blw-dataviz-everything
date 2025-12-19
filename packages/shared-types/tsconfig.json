@@ -7,10 +7,6 @@
     "declaration": true,
     "declarationMap": true
   },
-  "references": [
-    { "path": "../shared-types" },
-    { "path": "../shared-computation" }
-  ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

@@ -56,14 +56,8 @@ export const questions = questionsSchema.table(
   ]
 );
 
-//Question type for uniquely identifying a question in code
-export interface Question {
-  varName: string;
-  batteryName: string;
-  // subBattery is required (empty string '' for questions without a sub-battery)
-  // This matches the database constraint where subBattery is part of the primary key
-  subBattery: string;
-}
+// Re-export Question type from shared-types for convenience
+export type { Question } from 'shared-types';
 
 export type BatteryInsert = InferInsertModel<typeof batteries>;
 export type SubBatteryInsert = InferInsertModel<typeof subBatteries>;

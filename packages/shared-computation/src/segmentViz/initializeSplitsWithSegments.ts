@@ -111,7 +111,7 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
         //iterate through the y-axis groups
         let yGroupIdx = -1;
         for (const yGroup of yGroups) {
-          xGroupIdx++;
+          yGroupIdx++;
 
           //here we are!
           //this is a new split!!!

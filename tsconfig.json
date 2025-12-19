@@ -14,15 +14,23 @@
     "sourceMap": true,
     "composite": true,
     "incremental": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "shared-computation": ["./packages/shared-computation/src"],
+      "shared-schemas": ["./packages/shared-schemas/src"],
+      "shared-auth": ["./packages/shared-auth/src"],
+      "db": ["./packages/db/src"]
+    }
   },
   "references": [
-    { "path": "./packages/shared-computation-simple" },
+    { "path": "./packages/shared-types" },
+    { "path": "./packages/shared-computation" },
     { "path": "./packages/shared-schemas" },
     { "path": "./packages/shared-auth" },
     { "path": "./packages/db" },
     { "path": "./packages/api-polls-admin" },
-    { "path": "./packages/api-polls-public" }
+    { "path": "./packages/api-polls-public" },
+    { "path": "./packages/integration-tests" }
   ],
   "exclude": ["node_modules", "dist", "build"],
   "files": []

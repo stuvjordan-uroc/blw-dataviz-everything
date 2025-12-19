@@ -13,6 +13,8 @@ COPY package*.json ./
 COPY packages/api-polls-admin/package*.json ./packages/api-polls-admin/
 COPY packages/shared-auth/package*.json ./packages/shared-auth/
 COPY packages/shared-schemas/package*.json ./packages/shared-schemas/
+COPY packages/shared-types/package*.json ./packages/shared-types/
+COPY packages/shared-computation/package*.json ./packages/shared-computation/
 
 # Install ALL dependencies (including dev dependencies needed for building)
 # npm ci is like npm install but faster and more reliable for production
@@ -25,12 +27,16 @@ COPY tsconfig.json ./
 COPY packages/api-polls-admin/tsconfig.json ./packages/api-polls-admin/
 COPY packages/shared-auth/tsconfig.json ./packages/shared-auth/
 COPY packages/shared-schemas/tsconfig.json ./packages/shared-schemas/
+COPY packages/shared-types/tsconfig.json ./packages/shared-types/
+COPY packages/shared-computation/tsconfig.json ./packages/shared-computation/
 
 # Copy the source code for all packages
 # We only copy packages that api-polls-admin actually depends on
 COPY packages/api-polls-admin/src ./packages/api-polls-admin/src
 COPY packages/shared-auth/src ./packages/shared-auth/src
 COPY packages/shared-schemas/src ./packages/shared-schemas/src
+COPY packages/shared-types/src ./packages/shared-types/src
+COPY packages/shared-computation/src ./packages/shared-computation/src
 
 # Build all packages
 # This compiles TypeScript to JavaScript in the dist/ folders
@@ -50,6 +56,8 @@ COPY package*.json ./
 COPY packages/api-polls-admin/package*.json ./packages/api-polls-admin/
 COPY packages/shared-auth/package*.json ./packages/shared-auth/
 COPY packages/shared-schemas/package*.json ./packages/shared-schemas/
+COPY packages/shared-types/package*.json ./packages/shared-types/
+COPY packages/shared-computation/package*.json ./packages/shared-computation/
 
 # Install ALL dependencies (including dev dependencies like tsx)
 RUN npm ci
@@ -59,13 +67,23 @@ COPY tsconfig.json ./
 COPY packages/api-polls-admin/tsconfig.json ./packages/api-polls-admin/
 COPY packages/shared-auth/tsconfig.json ./packages/shared-auth/
 COPY packages/shared-schemas/tsconfig.json ./packages/shared-schemas/
+COPY packages/shared-types/tsconfig.json ./packages/shared-types/
+COPY packages/shared-computation/tsconfig.json ./packages/shared-computation/
 
 # Copy source code for shared packages (needed to build them)
 COPY packages/shared-auth/src ./packages/shared-auth/src
 COPY packages/shared-schemas/src ./packages/shared-schemas/src
+COPY packages/shared-types/src ./packages/shared-types/src
+COPY packages/shared-computation/src ./packages/shared-computation/src
 
-# Build the shared packages so they're available to api-polls-admin
+# Build the shared packages in dependency order
+# shared-types has no dependencies
+RUN npm run build --workspace=shared-types
+# shared-computation depends on shared-types
+RUN npm run build --workspace=shared-computation
+# shared-schemas depends on both shared-types and shared-computation
 RUN npm run build --workspace=shared-schemas
+# shared-auth depends on shared-schemas
 RUN npm run build --workspace=shared-auth
 
 # Copy the development startup script

@@ -1,0 +1,594 @@
+{
+  "id": "67372c7d-f4af-40fd-9e09-ca2c63fc3d36",
+  "prevId": "435f27fb-ed2a-406a-80f6-9fdbc56375e8",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "admin.users": {
+      "name": "users",
+      "schema": "admin",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_login_at": {
+          "name": "last_login_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "polls.questions": {
+      "name": "questions",
+      "schema": "polls",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "sessionId": {
+          "name": "sessionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "varName": {
+          "name": "varName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "batteryName": {
+          "name": "batteryName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subBattery": {
+          "name": "subBattery",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "ordering_index": {
+          "name": "ordering_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "questions_sessionId_sessions_id_fk": {
+          "name": "questions_sessionId_sessions_id_fk",
+          "tableFrom": "questions",
+          "tableTo": "sessions",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "sessionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "questions_varName_batteryName_subBattery_questions_varName_batteryName_subBattery_fk": {
+          "name": "questions_varName_batteryName_subBattery_questions_varName_batteryName_subBattery_fk",
+          "tableFrom": "questions",
+          "tableTo": "questions",
+          "schemaTo": "questions",
+          "columnsFrom": [
+            "varName",
+            "batteryName",
+            "subBattery"
+          ],
+          "columnsTo": [
+            "varName",
+            "batteryName",
+            "subBattery"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "questions_sessionId_varName_batteryName_subBattery_unique": {
+          "name": "questions_sessionId_varName_batteryName_subBattery_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "sessionId",
+            "varName",
+            "batteryName",
+            "subBattery"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "polls.respondents": {
+      "name": "respondents",
+      "schema": "polls",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "sessionId": {
+          "name": "sessionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "respondents_sessionId_sessions_id_fk": {
+          "name": "respondents_sessionId_sessions_id_fk",
+          "tableFrom": "respondents",
+          "tableTo": "sessions",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "sessionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "polls.responses": {
+      "name": "responses",
+      "schema": "polls",
+      "columns": {
+        "respondentId": {
+          "name": "respondentId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "questionSessionId": {
+          "name": "questionSessionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response": {
+          "name": "response",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "responses_respondentId_respondents_id_fk": {
+          "name": "responses_respondentId_respondents_id_fk",
+          "tableFrom": "responses",
+          "tableTo": "respondents",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "respondentId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "responses_questionSessionId_questions_id_fk": {
+          "name": "responses_questionSessionId_questions_id_fk",
+          "tableFrom": "responses",
+          "tableTo": "questions",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "questionSessionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "responses_respondentId_questionSessionId_unique": {
+          "name": "responses_respondentId_questionSessionId_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "respondentId",
+            "questionSessionId"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "polls.session_visualizations": {
+      "name": "session_visualizations",
+      "schema": "polls",
+      "columns": {
+        "sessionId": {
+          "name": "sessionId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "visualization_id": {
+          "name": "visualization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "basis_split_indices": {
+          "name": "basis_split_indices",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "splits": {
+          "name": "splits",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lookup_maps": {
+          "name": "lookup_maps",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "session_visualizations_sessionId_sessions_id_fk": {
+          "name": "session_visualizations_sessionId_sessions_id_fk",
+          "tableFrom": "session_visualizations",
+          "tableTo": "sessions",
+          "schemaTo": "polls",
+          "columnsFrom": [
+            "sessionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "session_visualizations_sessionId_visualization_id_pk": {
+          "name": "session_visualizations_sessionId_visualization_id_pk",
+          "columns": [
+            "sessionId",
+            "visualization_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "polls.sessions": {
+      "name": "sessions",
+      "schema": "polls",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_config": {
+          "name": "session_config",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_open": {
+          "name": "is_open",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sessions_slug_unique": {
+          "name": "sessions_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "questions.batteries": {
+      "name": "batteries",
+      "schema": "questions",
+      "columns": {
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "prefix": {
+          "name": "prefix",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "questions.questions": {
+      "name": "questions",
+      "schema": "questions",
+      "columns": {
+        "varName": {
+          "name": "varName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "batteryName": {
+          "name": "batteryName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subBattery": {
+          "name": "subBattery",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "responses": {
+          "name": "responses",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "questions_batteryName_batteries_name_fk": {
+          "name": "questions_batteryName_batteries_name_fk",
+          "tableFrom": "questions",
+          "tableTo": "batteries",
+          "schemaTo": "questions",
+          "columnsFrom": [
+            "batteryName"
+          ],
+          "columnsTo": [
+            "name"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "questions_batteryName_subBattery_sub_batteries_batteryName_name_fk": {
+          "name": "questions_batteryName_subBattery_sub_batteries_batteryName_name_fk",
+          "tableFrom": "questions",
+          "tableTo": "sub_batteries",
+          "schemaTo": "questions",
+          "columnsFrom": [
+            "batteryName",
+            "subBattery"
+          ],
+          "columnsTo": [
+            "batteryName",
+            "name"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "questions_varName_batteryName_subBattery_pk": {
+          "name": "questions_varName_batteryName_subBattery_pk",
+          "columns": [
+            "varName",
+            "batteryName",
+            "subBattery"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "questions.sub_batteries": {
+      "name": "sub_batteries",
+      "schema": "questions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "batteryName": {
+          "name": "batteryName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sub_batteries_batteryName_batteries_name_fk": {
+          "name": "sub_batteries_batteryName_batteries_name_fk",
+          "tableFrom": "sub_batteries",
+          "tableTo": "batteries",
+          "schemaTo": "questions",
+          "columnsFrom": [
+            "batteryName"
+          ],
+          "columnsTo": [
+            "name"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sub_batteries_batteryName_name_unique": {
+          "name": "sub_batteries_batteryName_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "batteryName",
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "admin": "admin",
+    "polls": "polls",
+    "questions": "questions"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

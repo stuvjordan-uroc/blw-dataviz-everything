@@ -1,4 +1,4 @@
-import { Question } from 'shared-schemas';
+import type { Question } from 'shared-types';
 import { number } from 'zod';
 
 export interface ResponseQuestion {

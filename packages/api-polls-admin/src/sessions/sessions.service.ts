@@ -12,12 +12,15 @@ import {
   pollQuestions,
   respondents,
   responses,
-  sessionStatistics,
+  sessionVisualizations,
   questions,
   sessionConfigSchema,
+  VisualizationLookupMaps,
 } from "shared-schemas";
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
+import { initializeSplitsWithSegments } from "shared-computation";
+import type { SegmentVizConfig, SplitWithSegmentGroup } from "shared-computation";
 
 /**
  * Type definitions for session operations
@@ -51,7 +54,7 @@ export class SessionsService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private db: ReturnType<typeof drizzle>
-  ) {}
+  ) { }
 
   /**
    * Generate a unique URL-friendly slug for a session
@@ -63,6 +66,17 @@ export class SessionsService {
     // Use only lowercase letters and numbers for clean URLs
     const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 10);
     return nanoid();
+  }
+
+  /**
+   * Generate a unique ID for a visualization
+   * Uses nanoid with URL-safe characters
+   *
+   * @returns A unique 8-character visualization ID with viz_ prefix
+   */
+  private generateVizId(): string {
+    const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 8);
+    return `viz_${nanoid()}`;
   }
 
   /**
@@ -81,22 +95,67 @@ export class SessionsService {
       // Generate a unique slug if not provided
       const slug = sessionData.slug || this.generateSlug();
 
-      // Extract all questions from sessionConfig
-      const responseQuestions =
-        sessionData.sessionConfig?.responseQuestions || [];
-      const groupingQuestions =
-        sessionData.sessionConfig?.groupingQuestions || [];
-      const allQuestions = [...responseQuestions, ...groupingQuestions];
+      // Extract all questions from questionOrder
+      const questionOrder = sessionData.sessionConfig?.questionOrder || [];
+      const visualizationsInput = sessionData.sessionConfig?.visualizations || [];
 
-      // Require at least one response question
-      if (responseQuestions.length === 0) {
+      // Generate IDs for visualizations and create the final array
+      const visualizations = visualizationsInput.map((viz) => ({
+        id: this.generateVizId(),
+        ...viz,
+      }));
+
+      // Require at least one question
+      if (questionOrder.length === 0) {
         throw new BadRequestException(
-          "Session must have at least one question in responseQuestions array"
+          "Session must have at least one question in questionOrder array"
+        );
+      }
+
+      // Require at least one visualization
+      if (visualizations.length === 0) {
+        throw new BadRequestException(
+          "Session must have at least one visualization"
+        );
+      }
+
+      // Collect all questions referenced in visualizations
+      const vizQuestions = new Set<string>();
+      for (const viz of visualizations) {
+        // Add response question
+        const rq = viz.responseQuestion.question;
+        vizQuestions.add(`${rq.varName}:${rq.batteryName}:${rq.subBattery}`);
+
+        // Add x-axis grouping questions
+        for (const gq of viz.groupingQuestions.x) {
+          const q = gq.question;
+          vizQuestions.add(`${q.varName}:${q.batteryName}:${q.subBattery}`);
+        }
+
+        // Add y-axis grouping questions
+        for (const gq of viz.groupingQuestions.y) {
+          const q = gq.question;
+          vizQuestions.add(`${q.varName}:${q.batteryName}:${q.subBattery}`);
+        }
+      }
+
+      // Validate all visualization questions are in questionOrder
+      const questionOrderSet = new Set(
+        questionOrder.map(q => `${q.varName}:${q.batteryName}:${q.subBattery}`)
+      );
+
+      const missingFromOrder = Array.from(vizQuestions).filter(
+        qKey => !questionOrderSet.has(qKey)
+      );
+
+      if (missingFromOrder.length > 0) {
+        throw new BadRequestException(
+          `The following questions are referenced in visualizations but not in questionOrder: ${missingFromOrder.join(", ")}`
         );
       }
 
       // Validate that all questions exist in questions.questions
-      if (allQuestions.length > 0) {
+      if (questionOrder.length > 0) {
         // Check if all questions exist
         const existingQuestions = await tx
           .select()
@@ -104,12 +163,12 @@ export class SessionsService {
           .where(
             inArray(
               questions.varName,
-              allQuestions.map((q) => q.varName)
+              questionOrder.map((q) => q.varName)
             )
           );
 
         // Validate each question exists with exact match
-        const missingQuestions = allQuestions.filter((q) => {
+        const missingQuestions = questionOrder.filter((q) => {
           return !existingQuestions.some(
             (eq) =>
               eq.varName === q.varName &&
@@ -123,8 +182,7 @@ export class SessionsService {
             `The following questions do not exist in the question bank: ${missingQuestions
               .map(
                 (q) =>
-                  `(varName: ${q.varName}, battery: ${
-                    q.batteryName
+                  `(varName: ${q.varName}, battery: ${q.batteryName
                   }, subBattery: ${q.subBattery || "(none)"})`
               )
               .join(", ")}`
@@ -132,15 +190,22 @@ export class SessionsService {
         }
       }
 
-      // Insert the session with generated or provided slug
+      // Insert the session with generated slug and updated config with visualization IDs
       const [session] = await tx
         .insert(sessions)
-        .values({ ...sessionData, slug })
+        .values({
+          ...sessionData,
+          slug,
+          sessionConfig: {
+            questionOrder,
+            visualizations,
+          }
+        })
         .returning();
 
       // Populate polls.questions with all questions for this session
-      if (allQuestions.length > 0) {
-        const pollQuestionsData = allQuestions.map((q, index) => ({
+      if (questionOrder.length > 0) {
+        const pollQuestionsData = questionOrder.map((q, index) => ({
           sessionId: session.id,
           varName: q.varName,
           batteryName: q.batteryName,
@@ -149,6 +214,26 @@ export class SessionsService {
         }));
 
         await tx.insert(pollQuestions).values(pollQuestionsData);
+      }
+
+      // Initialize and store visualizations
+      for (const viz of visualizations) {
+        const { id, ...vizConfig } = viz;
+
+        // Initialize the visualization with empty data
+        const { basisSplitIndices, splits } = initializeSplitsWithSegments(vizConfig);
+
+        // Build pre-computed lookup maps for efficient response transformation
+        const lookupMaps = this.buildLookupMaps(vizConfig, splits, basisSplitIndices);
+
+        // Store the initialized visualization with lookup maps
+        await tx.insert(sessionVisualizations).values({
+          sessionId: session.id,
+          visualizationId: id,
+          basisSplitIndices,
+          splits,
+          lookupMaps,
+        });
       }
 
       return session;
@@ -202,10 +287,10 @@ export class SessionsService {
 
     // Delete session and all associated data in a transaction
     await this.db.transaction(async (tx) => {
-      // 1. Delete session statistics (references sessions.id)
+      // 1. Delete session visualizations (references sessions.id)
       await tx
-        .delete(sessionStatistics)
-        .where(eq(sessionStatistics.sessionId, id));
+        .delete(sessionVisualizations)
+        .where(eq(sessionVisualizations.sessionId, id));
 
       // 2. Get all respondent IDs for this session
       const sessionRespondents = await tx
@@ -261,5 +346,110 @@ export class SessionsService {
       .returning();
 
     return updatedSession;
+  }
+
+  /**
+   * Build pre-computed lookup maps for efficient response transformation.
+   * 
+   * These maps eliminate expensive O(n) and O(b×k×g) operations during
+   * response processing by pre-computing them at session creation time.
+   * 
+   * @param vizConfig - The visualization configuration
+   * @param splits - The initialized splits
+   * @param basisSplitIndices - Indices of basis splits
+   * @returns Pre-computed lookup maps
+   */
+  private buildLookupMaps(
+    vizConfig: SegmentVizConfig,
+    splits: SplitWithSegmentGroup[],
+    basisSplitIndices: number[]
+  ): VisualizationLookupMaps {
+    return {
+      responseIndexToGroupIndex: this.buildResponseIndexMap(vizConfig),
+      profileToSplitIndex: this.buildProfileMap(vizConfig, splits, basisSplitIndices),
+    };
+  }
+
+  /**
+   * Build map from response index to expanded response group index.
+   * 
+   * Example: If response groups are [[0,1], [2,3], [4]], this returns:
+   * {0: 0, 1: 0, 2: 1, 3: 1, 4: 2}
+   * 
+   * @param vizConfig - The visualization configuration
+   * @returns Map from response index to group index
+   */
+  private buildResponseIndexMap(vizConfig: SegmentVizConfig): Record<number, number> {
+    const map: Record<number, number> = {};
+
+    vizConfig.responseQuestion.responseGroups.expanded.forEach((group, groupIdx) => {
+      group.values.forEach(responseIdx => {
+        map[responseIdx] = groupIdx;
+      });
+    });
+
+    return map;
+  }
+
+  /**
+   * Build map from respondent group profile to basis split index.
+   * 
+   * The profile key is a colon-separated string where each position
+   * represents the response group index for a grouping question (or "null").
+   * 
+   * Example: "0:1:null:2" means:
+   * - First grouping question: response group 0
+   * - Second grouping question: response group 1
+   * - Third grouping question: no answer (null)
+   * - Fourth grouping question: response group 2
+   * 
+   * @param vizConfig - The visualization configuration
+   * @param splits - All splits
+   * @param basisSplitIndices - Indices of basis splits
+   * @returns Map from profile key to basis split index
+   */
+  private buildProfileMap(
+    vizConfig: SegmentVizConfig,
+    splits: SplitWithSegmentGroup[],
+    basisSplitIndices: number[]
+  ): Record<string, number> {
+    const map: Record<string, number> = {};
+    const allGroupingQuestions = [
+      ...vizConfig.groupingQuestions.x,
+      ...vizConfig.groupingQuestions.y,
+    ];
+
+    // For each basis split, compute its profile key
+    for (const splitIdx of basisSplitIndices) {
+      const split = splits[splitIdx];
+      const profileParts: string[] = [];
+
+      // Build profile key from the split's groups
+      for (const gq of allGroupingQuestions) {
+        const splitGroup = split.groups.find(
+          (g) =>
+            g.question.varName === gq.question.varName &&
+            g.question.batteryName === gq.question.batteryName &&
+            g.question.subBattery === gq.question.subBattery
+        );
+
+        if (!splitGroup || !splitGroup.responseGroup) {
+          profileParts.push("null");
+        } else {
+          // Find which response group index this is
+          const responseGroupIdx = gq.responseGroups.findIndex(
+            (rg) =>
+              rg.values.length === splitGroup.responseGroup!.values.length &&
+              rg.values.every((v) => splitGroup.responseGroup!.values.includes(v))
+          );
+          profileParts.push(responseGroupIdx.toString());
+        }
+      }
+
+      const profileKey = profileParts.join(":");
+      map[profileKey] = splitIdx;
+    }
+
+    return map;
   }
 }

@@ -5,6 +5,10 @@
       "path": "."
     },
     {
+      "name": "Shared Types",
+      "path": "./packages/shared-types"
+    },
+    {
       "name": "Shared Schemas",
       "path": "./packages/shared-schemas"
     },

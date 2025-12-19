@@ -22,7 +22,7 @@
   },
   "references": [
     { "path": "../shared-auth" },
-    { "path": "../shared-computation-simple" },
+    { "path": "../shared-computation" },
     { "path": "../shared-schemas" }
   ],
   "include": ["src/**/*"],

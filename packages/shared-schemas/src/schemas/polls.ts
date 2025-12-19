@@ -8,29 +8,37 @@ import {
   jsonb,
   timestamp,
   boolean,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
+import type { Question } from "shared-types";
+import type { SegmentVizConfig, SplitWithSegmentGroup } from "shared-computation";
 
-// Placeholder types for session configuration
-// These will be properly typed when integrating with shared-computation-simple
-export interface ResponseQuestion {
-  varName: string;
-  batteryName: string;
-  subBattery?: string;
+/**
+ * Session configuration for a polling session.
+ * Defines which questions are presented to respondents and how responses are visualized.
+ */
+export interface SessionConfig {
+  // Questions in the order they will be presented to respondents
+  questionOrder: Question[];
+
+  // One visualization per response question, with unique ID for reference
+  visualizations: (SegmentVizConfig & { id: string })[];
 }
 
-export interface GroupingQuestion {
-  varName: string;
-  batteryName: string;
-  subBattery?: string;
-}
+/**
+ * Pre-computed lookup maps for efficient response transformation.
+ * Built at session creation to minimize response processing latency.
+ */
+export interface VisualizationLookupMaps {
+  // Maps response index to expanded response group index (O(1) lookup)
+  // Example: {0: 0, 1: 0, 2: 1, 3: 1, 4: 2}
+  responseIndexToGroupIndex: Record<number, number>;
 
-export interface SegmentVizConfig {
-  [key: string]: any;
-}
-
-export interface Split {
-  [key: string]: any;
+  // Maps group profile signature to basis split index (O(1) lookup)
+  // Key format: serialized profile like "0:1:null:2" where each position
+  // corresponds to a grouping question's response group index (or null)
+  profileToSplitIndex: Record<string, number>;
 }
 
 /* CREATE POLLS SCHEMA AND ITS TABLES */
@@ -39,11 +47,6 @@ export interface Split {
 
 export const pollsSchema = pgSchema("polls");
 
-export interface SessionConfig {
-  responseQuestions: ResponseQuestion[];
-  groupingQuestions: GroupingQuestion[];
-  segmentVizConfig: SegmentVizConfig;
-}
 
 //sessions table
 export const sessions = pollsSchema.table("sessions", {
@@ -114,13 +117,22 @@ export const responses = pollsSchema.table(
   ]
 );
 
-//types for session statistics
-
-//session_statistics table
-export const sessionStatistics = pollsSchema.table("session_statistics", {
-  sessionId: integer()
-    .primaryKey()
-    .references(() => sessions.id), //only one row per session!!! Note this means application will have to handle concurrent updates!
-  statistics: jsonb("statistics").$type<Split[]>(),
-  computedAt: timestamp("computed_at").defaultNow(),
-});
+//session_visualizations table
+//Stores the computed visualization state for each visualization in a session
+export const sessionVisualizations = pollsSchema.table(
+  "session_visualizations",
+  {
+    sessionId: integer()
+      .notNull()
+      .references(() => sessions.id),
+    visualizationId: text("visualization_id").notNull(), // matches the id in SessionConfig.visualizations
+    basisSplitIndices: jsonb("basis_split_indices").$type<number[]>(),
+    splits: jsonb("splits").$type<SplitWithSegmentGroup[]>(),
+    lookupMaps: jsonb("lookup_maps").$type<VisualizationLookupMaps>(),
+    computedAt: timestamp("computed_at").defaultNow(),
+  },
+  (table) => [
+    // Composite primary key: one row per visualization per session
+    primaryKey({ columns: [table.sessionId, table.visualizationId] }),
+  ]
+);
