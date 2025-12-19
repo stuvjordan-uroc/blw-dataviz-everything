@@ -2,6 +2,7 @@ import { ResponseGroupWithStatsAndSegment, SegmentVizConfig, SplitWithSegmentGro
 import { generateCartesian } from '../statistics/generateCartesian';
 import { Group, GroupingQuestion } from "../statistics/types";
 import { computeSegmentGroupBounds, getWidthHeight } from "./geometry";
+import { setBasisSplitIndices } from "../statistics/setBasisSplitIndices";
 
 export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig): { basisSplitIndices: number[], splits: SplitWithSegmentGroup[] } {
 
@@ -73,7 +74,7 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
       //at the current view
       const xGroups = generateCartesian<Group>(
         (viewX.map((gq) => {
-          if (gq.active) {
+          if (!gq.active) {
             return ([{
               question: gq.question.question,
               responseGroup: null
@@ -90,7 +91,7 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
       //at the current view
       const yGroups = generateCartesian<Group>(
         (viewY.map((gq) => {
-          if (gq.active) {
+          if (!gq.active) {
             return ([{
               question: gq.question.question,
               responseGroup: null
@@ -125,7 +126,7 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
           const groups: Group[] = [...xGroup, ...yGroup];
 
           //check if this is a basis split.
-          //if so, push the the allBasisSplits array
+          //if so, push it the allBasisSplits array
           if (groups.every((group) => group.responseGroup !== null)) {
             allBasisSplits.push(({
               splitIdx: splitIdx,
@@ -194,41 +195,7 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
   }
 
 
-  //pass through the whole array to set the basis split indices
-  //reset the splitIdx
-  splitIdx = 0;
-  for (const split of splits) {
-    splitIdx++;
-
-    //check whether the current split is a basis split
-    if (allBasisSplits.map((bs) => bs.splitIdx).includes(splitIdx)) {
-      //if so, set and continue
-      split.basisSplitIndices = [splitIdx];
-      continue;
-    }
-
-    //The current split is not a basis split    
-    split.basisSplitIndices = split.groups
-      //start with the full array of all basis splits
-      //iterate through the groups of the current split
-      //at each one, eliminate any remaining basis splits
-      //that do not match the current group.
-      .reduce(
-        (remainingBasisSplits, currGroup, currGroupIdx) => {
-          //if the current group is null
-          if (currGroup.responseGroup === null) {
-            //any remaining basis splits work for the current group
-            return remainingBasisSplits;
-          }
-          //the current group is not null
-          return remainingBasisSplits.filter((basisSplit) =>
-            basisSplit.groups[currGroupIdx].responseGroup?.label === currGroup.responseGroup?.label)
-        },
-        allBasisSplits
-      )
-      .map((basisSplit) => basisSplit.splitIdx)
-  }
-
+  setBasisSplitIndices(splits, allBasisSplits)
 
 
   return {

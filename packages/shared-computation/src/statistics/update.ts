@@ -11,12 +11,17 @@ import { ResponseGroupWithStats, Split, SplitDiff } from "./types";
  * 
  * DOES NOT MUTATE THE PASSED SPLIT.
  * 
+ * Note the split is assumed to be a basis split, and thus
+ * can be updated without reference to the statistics in any other split.
+ * This is not validated.  If you pass a non-basis split, you will get back
+ * seemingly valid but actually invalid nonsense.
+ * 
  * 
  * @param split 
  * @param responses 
  * @returns updated deep copy of split and a diff of the split
  */
-export function updateSplitFromResponses(
+export function updateBasisSplitFromResponses(
   split: Split,
   responses: { expandedResponseGroupIndex: number, weight: number }[]
 ): [Split, SplitDiff] {
@@ -122,12 +127,6 @@ export function updateSplitFromResponses(
     diff
   ]
 
-
-
-
-
-
-
 }
 
 /**
@@ -139,15 +138,19 @@ export function updateSplitFromResponses(
  * 
  * DOES NOT MUTATE THE PASSED SPLIT.
  * 
+ * Does not validated whether the basis splits passed are the correct
+ * basis splits for the split passed.  If you pass the wrong basis splits
+ * you will get seemingly valid but actually invalid nonsense.
+ * 
  * 
  * @param split 
  * @param basisSplits 
  * @returns updated deep copy of split and a diff of the split
  */
-export function updateSplitFromBasisSplits(split: Split, basisSplits: Split[]): [Split, SplitDiff] {
+export function updateSplitFromUpdatedBasisSplits(split: Split, updatedBasisSplits: Split[]): [Split, SplitDiff] {
   //initialize new totalWeights
-  let newTotalCount = basisSplits.reduce((acc, curr) => acc + curr.totalCount, 0)
-  let newTotalWeight = basisSplits.reduce((acc, curr) => acc + curr.totalWeight, 0)
+  let newTotalCount = updatedBasisSplits.reduce((acc, curr) => acc + curr.totalCount, 0)
+  let newTotalWeight = updatedBasisSplits.reduce((acc, curr) => acc + curr.totalWeight, 0)
 
   //initialize new response groups
   const newResponseGroups = structuredClone(split.responseGroups);
@@ -156,15 +159,15 @@ export function updateSplitFromBasisSplits(split: Split, basisSplits: Split[]): 
 
   newResponseGroups.collapsed = newResponseGroups.collapsed.map((crg, crgIdx) => ({
     ...crg,
-    totalCount: basisSplits.reduce(
+    totalCount: updatedBasisSplits.reduce(
       (acc, curr) => acc + curr.responseGroups.collapsed[crgIdx].totalCount,
       0
     ),
-    totalWeight: basisSplits.reduce(
+    totalWeight: updatedBasisSplits.reduce(
       (acc, curr) => acc + curr.responseGroups.collapsed[crgIdx].totalWeight,
       0
     ),
-    proportion: basisSplits.reduce(
+    proportion: updatedBasisSplits.reduce(
       (acc, curr) => acc + (curr.totalWeight / newTotalWeight) * curr.responseGroups.collapsed[crgIdx].proportion,
       0
     )
@@ -172,15 +175,15 @@ export function updateSplitFromBasisSplits(split: Split, basisSplits: Split[]): 
 
   newResponseGroups.expanded = newResponseGroups.expanded.map((crg, crgIdx) => ({
     ...crg,
-    totalCount: basisSplits.reduce(
+    totalCount: updatedBasisSplits.reduce(
       (acc, curr) => acc + curr.responseGroups.expanded[crgIdx].totalCount,
       0
     ),
-    totalWeight: basisSplits.reduce(
+    totalWeight: updatedBasisSplits.reduce(
       (acc, curr) => acc + curr.responseGroups.expanded[crgIdx].totalWeight,
       0
     ),
-    proportion: basisSplits.reduce(
+    proportion: updatedBasisSplits.reduce(
       (acc, curr) => acc + (curr.totalWeight / newTotalWeight) * curr.responseGroups.expanded[crgIdx].proportion,
       0
     )
@@ -217,3 +220,97 @@ export function updateSplitFromBasisSplits(split: Split, basisSplits: Split[]): 
   ]
 }
 
+export function generateNoChangeDiff(split: Split): SplitDiff {
+  return {
+    totalCount: 0,
+    totalWeight: 0,
+    responseGroups: {
+      collapsed: split.responseGroups.collapsed.map((rg) => ({
+        ...rg,
+        totalCount: 0,
+        totalWeight: 0,
+        proportion: 0
+      })),
+      expanded: split.responseGroups.expanded.map((rg) => ({
+        ...rg,
+        totalCount: 0,
+        totalWeight: 0,
+        proportion: 0
+      }))
+    }
+  }
+}
+
+
+/**
+ * Take an array of Split, an array of indicies assumed to be the indices of basis splits in the passed
+ * array of splits, and an array of responses.  Generates and returns new array of splits with statistics
+ * updated in light of the passed responses, without mutating that passed splits array.
+ * 
+ * Assumes the allSplits array is complete,
+ * the passed basisSplitIndices is correct, and the responses are correctly matched to basis splits.
+ * If you pass invalid data, you will get back seemingly valid but actually invalid nonsense.
+ * 
+ * DOES NOT MUTATE THE PASSED allSplits ARRAY!
+ * 
+ * 
+ * @param allSplits 
+ * @param basisSplitIndices 
+ * @param responses 
+ * @returns new array of Split with stats updated given the passed responses.
+ */
+export function updateAllSplitsFromResponses(
+  allSplits: Split[],
+  basisSplitIndices: number[],
+  responses: { basisSplitIndex: number, expandedResponseGroupIndex: number, weight: number }[]
+): [Split, SplitDiff][] {
+  //build a map that takes basis split indices to responses
+  const responseMap: Map<number, { expandedResponseGroupIndex: number, weight: number }[]> = new Map()
+  for (const response of responses) {
+    const responsesAtIndex = responseMap.get(response.basisSplitIndex)
+    if (responsesAtIndex) {
+      responsesAtIndex.push(response)
+    } else {
+      responseMap.set(response.basisSplitIndex, [response])
+    }
+  }
+  //generate the updated basis splits
+  const updatedBasisSplitMap: Map<number, [Split, SplitDiff]> = new Map();
+  for (const basisSplitIndex of basisSplitIndices) {
+    const responsesForSplit = responseMap.get(basisSplitIndex);
+    if (responsesForSplit) {
+      updatedBasisSplitMap.set(
+        basisSplitIndex,
+        updateBasisSplitFromResponses(
+          allSplits[basisSplitIndex],
+          responsesForSplit
+        )
+      )
+    } else {
+      updatedBasisSplitMap.set(
+        basisSplitIndex,
+        [allSplits[basisSplitIndex], generateNoChangeDiff(allSplits[basisSplitIndex])]
+      )
+    }
+  }
+  //update all the splits using the now-updated basis splits
+  const updatedSplits: [Split, SplitDiff][] = [];
+  allSplits.forEach((split, splitIdx) => {
+    const isOwnBasisSplit = updatedBasisSplitMap.get(splitIdx);
+    if (isOwnBasisSplit) {
+      updatedSplits.push(isOwnBasisSplit)
+    } else {
+      const basisSplitUpdatesForSplit = Array
+        .from(updatedBasisSplitMap.entries())
+        .filter(([basisSplitIndex,]) => split.basisSplitIndices.includes(basisSplitIndex))
+        .map(([_, basisSplitUpdate]) => basisSplitUpdate)
+      updatedSplits.push(
+        updateSplitFromUpdatedBasisSplits(
+          split,
+          basisSplitUpdatesForSplit.map(([updatedBasisSplit]) => updatedBasisSplit)
+        )
+      )
+    }
+  })
+  return updatedSplits
+}

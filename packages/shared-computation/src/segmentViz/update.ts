@@ -1,5 +1,5 @@
 import { Split } from "../statistics/types";
-import { updateSplitFromBasisSplits, updateSplitFromResponses } from "../statistics/updateSplit";
+import { updateSplitFromUpdatedBasisSplits, updateBasisSplitFromResponses } from "../statistics/update";
 import { getSyntheticCounts } from "./syntheticCounts";
 import { SegmentVizConfig, SplitWithSegmentGroup, Point, SplitWithSegmentGroupDiff } from './types';
 import { computeSegmentBounds, positionPointsInSegment, positionNewPointsAmongExisting } from "./geometry";
@@ -59,8 +59,7 @@ export function updateAllSplitsWithSegmentsFromResponses(
     const isOwnBasisSplit = updatedBasisSplitMap.get(splitIdx)
     if (isOwnBasisSplit) {
       updatedSplits.push(isOwnBasisSplit)
-    }
-    else {
+    } else {
       const basisSplitUpdatesForSplit = Array
         .from(updatedBasisSplitMap.entries())
         .filter(([basisSplitIndex,]) => split.basisSplitIndices.includes(basisSplitIndex))
@@ -152,16 +151,7 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
   segmentVizConfig: SegmentVizConfig
 ): [SplitWithSegmentGroup, SplitWithSegmentGroupDiff] {
   //update the statistics on the split
-  const [splitStatsUpdated, splitDiff] = updateSplitFromBasisSplits(split, updatedBasisSplits)
-  //update the points.  Since this not a basis splits, points are left empty
-  const pointsUpdated = {
-    added: [],
-    removed: []
-  }
-  const pointsDiff = {
-    added: [],
-    removed: []
-  }
+  const [splitStatsUpdated, splitDiff] = updateSplitFromUpdatedBasisSplits(split, updatedBasisSplits)
   //update the segment bounds
   const segmentBoundsUpdated = {
     collapsed: computeSegmentBounds(
@@ -180,7 +170,7 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
   //create the segment bounds diff
   const segmentBoundsDiff = {
     collapsed: segmentBoundsUpdated.collapsed.map((seg, segIdx) => {
-      const previous = split.responseGroups.collapsed[segIdx].bounds,
+      const previous = split.responseGroups.collapsed[segIdx].bounds;
       return ({
         x: seg.x - previous.x,
         y: seg.y - previous.y,
@@ -189,7 +179,7 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
       })
     }),
     expanded: segmentBoundsUpdated.expanded.map((seg, segIdx) => {
-      const previous = split.responseGroups.expanded[segIdx].bounds,
+      const previous = split.responseGroups.expanded[segIdx].bounds;
       return ({
         x: seg.x - previous.x,
         y: seg.y - previous.y,
@@ -371,7 +361,7 @@ export function updateBasisSplitWithSegmentsFromResponses(
 ): [SplitWithSegmentGroup, SplitWithSegmentGroupDiff] {
   //update the statistics
   //note this returns a deep copy, not updating the split
-  const [newSplitStats, statsDiff] = updateSplitFromResponses(basisSplit, responses)
+  const [newSplitStats, statsDiff] = updateBasisSplitFromResponses(basisSplit, responses)
 
   //update points
   //does not mutate the passed array of points.

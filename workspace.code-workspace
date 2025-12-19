@@ -17,14 +17,6 @@
       "path": "./packages/shared-computation"
     },
     {
-      "name": "Shared Computation Simple",
-      "path": "./packages/shared-computation-simple"
-    },
-    {
-      "name": "Shared Broker",
-      "path": "./packages/shared-broker"
-    },
-    {
       "name": "Database",
       "path": "./packages/db"
     },
@@ -35,10 +27,6 @@
     {
       "name": "API Polls Public",
       "path": "./packages/api-polls-public"
-    },
-    {
-      "name": "Worker Polls",
-      "path": "./packages/worker-polls"
     },
     {
       "name": "Integration Tests",

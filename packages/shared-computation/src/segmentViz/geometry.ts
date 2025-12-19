@@ -1,5 +1,4 @@
 import { SegmentVizConfig, PointPosition, Point } from "./types";
-import type { GroupingQuestion } from "../statistics/types";
 
 export function getWidthHeight(config: SegmentVizConfig): [number, number] {
   const maxSegmentGroups = {

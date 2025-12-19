@@ -1,9 +1,16 @@
 {
-  "name": "shared-computation-simple",
+  "name": "shared-computation",
   "version": "1.0.0",
   "description": "Simplified computation functions for statistics and data processing across the monorepo",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
