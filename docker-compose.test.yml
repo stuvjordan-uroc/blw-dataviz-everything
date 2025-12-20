@@ -79,6 +79,7 @@ services:
       DATABASE_URL: postgresql://postgres:password@postgres-test:5432/blw_dataviz_test
       NODE_ENV: test
       PORT: 3004
+      BATCH_UPDATE_INTERVAL_MS: 3000
     ports:
       - "3005:3004"  # Different host port to avoid conflict with dev
     volumes:
