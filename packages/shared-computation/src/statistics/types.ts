@@ -1,5 +1,4 @@
 import type { Question } from 'shared-types';
-import { number } from 'zod';
 
 export interface ResponseQuestion {
   question: Question;

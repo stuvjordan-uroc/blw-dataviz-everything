@@ -93,7 +93,7 @@ export function updateBasisSplitFromResponses(
       crg.totalCount++;
       crg.totalWeight += response.weight;
       diff.responseGroups.collapsed[crgIdx].totalCount++;
-      diff.responseGroups.expanded[crgIdx].totalWeight += response.weight;
+      diff.responseGroups.collapsed[crgIdx].totalWeight += response.weight;
     }
 
   }
