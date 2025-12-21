@@ -3,7 +3,7 @@ import { SegmentVizConfig, PointPosition, Point } from "./types";
 export function getWidthHeight(config: SegmentVizConfig): [number, number] {
   const maxSegmentGroups = {
     x: config.groupingQuestions.x.map((gq) => gq.responseGroups.length).reduce((acc, curr) => acc * curr, 1),
-    y: config.groupingQuestions.x.map((gq) => gq.responseGroups.length).reduce((acc, curr) => acc * curr, 1)
+    y: config.groupingQuestions.y.map((gq) => gq.responseGroups.length).reduce((acc, curr) => acc * curr, 1)
   }
   const maxResponseGroups = config.responseQuestion.responseGroups.expanded.length
   return ([
@@ -392,6 +392,8 @@ export function positionNewPointsAmongExisting(
 
     // Fallback: random placement
     if (!placed) {
+      let fallbackPlaced = false;
+
       for (let attempt = 0; attempt < maxAttempts * 2; attempt++) {
         const candidate = {
           x: innerBounds.x + Math.random() * innerBounds.width,
@@ -403,8 +405,20 @@ export function positionNewPointsAmongExisting(
           newPositions.push(newPos);
           activeList.push(newPos);
           grid.set(getCellKey(newPos.x, newPos.y), newPos);
+          fallbackPlaced = true;
           break;
         }
+      }
+
+      // Last resort: place anyway even if overlapping
+      if (!fallbackPlaced) {
+        const newPos: PointPosition = {
+          point,
+          x: innerBounds.x + Math.random() * innerBounds.width,
+          y: innerBounds.y + Math.random() * innerBounds.height
+        };
+        newPositions.push(newPos);
+        grid.set(getCellKey(newPos.x, newPos.y), newPos);
       }
     }
   }

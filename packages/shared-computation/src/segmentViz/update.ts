@@ -3,6 +3,11 @@ import { updateSplitFromUpdatedBasisSplits, updateBasisSplitFromResponses } from
 import { getSyntheticCounts } from "./syntheticCounts";
 import { SegmentVizConfig, SplitWithSegmentGroup, Point, SplitWithSegmentGroupDiff } from './types';
 import { computeSegmentBounds, positionPointsInSegment, positionNewPointsAmongExisting } from "./geometry";
+import {
+  createExpandedToCollapsedResponseGroupMap,
+  mergePointsFromBasisSplits,
+  aggregatePointChangesFromDiffs
+} from "./updateHelpers";
 
 
 /**
@@ -190,27 +195,11 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
   }
   //update the point positions
   //create the merged point sets
-  const mergedPoints: Point[][] = [];
-  for (const basisSplit of updatedBasisSplits) {
-    basisSplit.points.forEach((pointSet, pointSetIdx) => {
-      if (!mergedPoints[pointSetIdx]) {
-        mergedPoints[pointSetIdx] = [];
-      }
-      mergedPoints[pointSetIdx].push(...pointSet);
-    });
-  }
+  const mergedPoints = mergePointsFromBasisSplits(updatedBasisSplits);
+
   //map expanded response group indices to collapsed response group indices
-  const rgMap: Map<number, number | undefined> = new Map()
-  for (let ergIdx = 0; ergIdx < segmentVizConfig.responseQuestion.responseGroups.expanded.length; ergIdx++) {
-    rgMap.set(
-      ergIdx,
-      segmentVizConfig.responseQuestion.responseGroups.collapsed.findIndex((crg) => (
-        segmentVizConfig.responseQuestion.responseGroups.expanded[ergIdx].values.every((ev) =>
-          crg.values.includes(ev)
-        )
-      ))
-    )
-  }
+  const rgMap = createExpandedToCollapsedResponseGroupMap(segmentVizConfig);
+
   //construct the updated point positions
   const pointPositionsUpdated = {
     expanded: splitStatsUpdated.responseGroups.expanded.map((_, ergIdx) => {
@@ -218,16 +207,10 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
       const widthChangePercent = Math.abs(segmentBoundsDiff.expanded[ergIdx].width) / oldBounds.width;
 
       // Collect added and removed points for this response group
-      const addedPoints: Point[] = [];
-      const removedPoints: Point[] = [];
-      for (const basisSplitDiff of updatedBasisSplitDiffs) {
-        if (basisSplitDiff.points.added[ergIdx]) {
-          addedPoints.push(...basisSplitDiff.points.added[ergIdx]);
-        }
-        if (basisSplitDiff.points.removed[ergIdx]) {
-          removedPoints.push(...basisSplitDiff.points.removed[ergIdx]);
-        }
-      }
+      const { added: addedPoints, removed: removedPoints } = aggregatePointChangesFromDiffs(
+        updatedBasisSplitDiffs,
+        [ergIdx]
+      );
 
       const hasPointsChanged = addedPoints.length > 0 || removedPoints.length > 0;
       const hasSignificantWidthChange = widthChangePercent > 0.1;
@@ -251,7 +234,7 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
       //get the required expanded response groups
       const ergIndices: number[] = [];
       rgMap.forEach((candCrgIdx, ergIdx) => {
-        if (candCrgIdx && candCrgIdx === crgIdx) {
+        if (candCrgIdx !== -1 && candCrgIdx === crgIdx) {
           ergIndices.push(ergIdx);
         }
       });
@@ -260,18 +243,10 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
       const widthChangePercent = Math.abs(segmentBoundsDiff.collapsed[crgIdx].width) / oldBounds.width;
 
       // Collect added and removed points for all expanded response groups in this collapsed group
-      const addedPoints: Point[] = [];
-      const removedPoints: Point[] = [];
-      for (const ergIdx of ergIndices) {
-        for (const basisSplitDiff of updatedBasisSplitDiffs) {
-          if (basisSplitDiff.points.added[ergIdx]) {
-            addedPoints.push(...basisSplitDiff.points.added[ergIdx]);
-          }
-          if (basisSplitDiff.points.removed[ergIdx]) {
-            removedPoints.push(...basisSplitDiff.points.removed[ergIdx]);
-          }
-        }
-      }
+      const { added: addedPoints, removed: removedPoints } = aggregatePointChangesFromDiffs(
+        updatedBasisSplitDiffs,
+        ergIndices
+      );
 
       const hasPointsChanged = addedPoints.length > 0 || removedPoints.length > 0;
       const hasSignificantWidthChange = widthChangePercent > 0.1;
@@ -407,17 +382,7 @@ export function updateBasisSplitWithSegmentsFromResponses(
 
   //we need a map that takes expanded response group indices
   //to collapsed response group indices
-  const rgMap: Map<number, number | undefined> = new Map()
-  for (let ergIdx = 0; ergIdx < segmentVizConfig.responseQuestion.responseGroups.expanded.length; ergIdx++) {
-    rgMap.set(
-      ergIdx,
-      segmentVizConfig.responseQuestion.responseGroups.collapsed.findIndex((crg) => (
-        segmentVizConfig.responseQuestion.responseGroups.expanded[ergIdx].values.every((ev) =>
-          crg.values.includes(ev)
-        )
-      ))
-    )
-  }
+  const rgMap = createExpandedToCollapsedResponseGroupMap(segmentVizConfig);
 
   const pointPositionsUpdated = {
     expanded: segmentsUpdated.expanded.map((seg, segIdx) => {

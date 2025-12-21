@@ -2,10 +2,7 @@ import { getWidthHeight, computeSegmentGroupBounds, computeSegmentBounds } from 
 import type { SegmentVizConfig } from '../../src/segmentViz/types';
 import { createSegmentVizConfig } from '../fixtures/createSegmentVizConfig';
 
-/**
- * 
- * NEXT STEP: Tests of computeSegmentGroupBounds
- */
+
 
 
 
@@ -483,164 +480,684 @@ describe('getWidthHeight', () => {
   });
 });
 
+/**
+ * computeSegmentGroupBounds() subdivides the fixed canvas into a grid of segment groups.
+ * 
+ * SUBDIVISION ALGORITHM (per axis):
+ * 
+ * For the x-axis:
+ * 1. Allocate gap space: (numSegmentGroups.x - 1) × groupGapX
+ * 2. Distribute remaining space equally: segmentGroupWidth = (vizWidth - gap space) / numSegmentGroups.x
+ * 3. Position by ordinal index: x = segmentGroupIndices.x × (segmentGroupWidth + groupGapX)
+ * 
+ * For the y-axis (identical logic):
+ * 1. Allocate gap space: (numSegmentGroups.y - 1) × groupGapY
+ * 2. Distribute remaining space equally: segmentGroupHeight = (vizHeight - gap space) / numSegmentGroups.y
+ * 3. Position by ordinal index: y = segmentGroupIndices.y × (segmentGroupHeight + groupGapY)
+ * 
+ * KEY PROPERTIES:
+ * - All segment groups in a grid have IDENTICAL dimensions (equal width, equal height)
+ * - Segment groups are positioned in a REGULAR GRID with uniform gaps
+ * - The grid PERFECTLY TILES the canvas (no overlaps, no uncovered space)
+ * 
+ * TESTING STRATEGY:
+ * Tests use "grid fixtures" that specify the grid dimensions and canvas size.
+ * For each fixture, we iterate through all grid positions and verify that
+ * computeSegmentGroupBounds produces correct positions and dimensions.
+ */
 describe('computeSegmentGroupBounds', () => {
-  describe('basic grid positions', () => {
-    test('calculates bounds for top-left position (0,0) in 2x2 grid', () => {
-      // TODO: Implement
+  describe('2×2 grid', () => {
+    const vizWidth = 500;
+    const vizHeight = 400;
+    const numSegmentGroups = { x: 2, y: 2 };
+    const groupGapX = 10;
+    const groupGapY = 20;
+
+    // Expected dimensions (same for all positions in grid)
+    const expectedWidth = (vizWidth - (numSegmentGroups.x - 1) * groupGapX) / numSegmentGroups.x;
+    const expectedHeight = (vizHeight - (numSegmentGroups.y - 1) * groupGapY) / numSegmentGroups.y;
+
+    test('position (0,0): top-left', () => {
+      const bounds = computeSegmentGroupBounds(
+        { x: 0, y: 0 },
+        numSegmentGroups,
+        vizWidth,
+        vizHeight,
+        groupGapX,
+        groupGapY
+      );
+
+      expect(bounds.x).toBe(0);
+      expect(bounds.y).toBe(0);
+      expect(bounds.width).toBe(expectedWidth);
+      expect(bounds.height).toBe(expectedHeight);
     });
 
-    test('calculates bounds for top-right position (1,0) in 2x2 grid', () => {
-      // TODO: Implement
+    test('position (1,0): top-right', () => {
+      const bounds = computeSegmentGroupBounds(
+        { x: 1, y: 0 },
+        numSegmentGroups,
+        vizWidth,
+        vizHeight,
+        groupGapX,
+        groupGapY
+      );
+
+      expect(bounds.x).toBe(1 * (expectedWidth + groupGapX));
+      expect(bounds.y).toBe(0);
+      expect(bounds.width).toBe(expectedWidth);
+      expect(bounds.height).toBe(expectedHeight);
     });
 
-    test('calculates bounds for bottom-left position (0,1) in 2x2 grid', () => {
-      // TODO: Implement
+    test('position (0,1): bottom-left', () => {
+      const bounds = computeSegmentGroupBounds(
+        { x: 0, y: 1 },
+        numSegmentGroups,
+        vizWidth,
+        vizHeight,
+        groupGapX,
+        groupGapY
+      );
+
+      expect(bounds.x).toBe(0);
+      expect(bounds.y).toBe(1 * (expectedHeight + groupGapY));
+      expect(bounds.width).toBe(expectedWidth);
+      expect(bounds.height).toBe(expectedHeight);
     });
 
-    test('calculates bounds for bottom-right position (1,1) in 2x2 grid', () => {
-      // TODO: Implement
+    test('position (1,1): bottom-right', () => {
+      const bounds = computeSegmentGroupBounds(
+        { x: 1, y: 1 },
+        numSegmentGroups,
+        vizWidth,
+        vizHeight,
+        groupGapX,
+        groupGapY
+      );
+
+      expect(bounds.x).toBe(1 * (expectedWidth + groupGapX));
+      expect(bounds.y).toBe(1 * (expectedHeight + groupGapY));
+      expect(bounds.width).toBe(expectedWidth);
+      expect(bounds.height).toBe(expectedHeight);
     });
   });
 
-  describe('different grid sizes', () => {
-    test('calculates bounds for 1x1 grid (entire viz)', () => {
-      // TODO: Implement
-    });
+  describe('3×3 grid', () => {
+    const vizWidth = 600;
+    const vizHeight = 900;
+    const numSegmentGroups = { x: 3, y: 3 };
+    const groupGapX = 15;
+    const groupGapY = 30;
 
-    test('calculates bounds for 3x3 grid', () => {
-      // TODO: Implement
-    });
+    const expectedWidth = (vizWidth - (numSegmentGroups.x - 1) * groupGapX) / numSegmentGroups.x;
+    const expectedHeight = (vizHeight - (numSegmentGroups.y - 1) * groupGapY) / numSegmentGroups.y;
 
-    test('calculates bounds for asymmetric grid (3x2)', () => {
-      // TODO: Implement
-    });
+    test('iterates through all 9 positions with correct bounds', () => {
+      for (let yIdx = 0; yIdx < numSegmentGroups.y; yIdx++) {
+        for (let xIdx = 0; xIdx < numSegmentGroups.x; xIdx++) {
+          const bounds = computeSegmentGroupBounds(
+            { x: xIdx, y: yIdx },
+            numSegmentGroups,
+            vizWidth,
+            vizHeight,
+            groupGapX,
+            groupGapY
+          );
 
-    test('calculates bounds for large grid (5x5)', () => {
-      // TODO: Implement
-    });
-  });
+          // Verify dimensions (same for all positions)
+          expect(bounds.width).toBe(expectedWidth);
+          expect(bounds.height).toBe(expectedHeight);
 
-  describe('with different gap sizes', () => {
-    test('calculates bounds with zero gaps', () => {
-      // TODO: Implement
-    });
-
-    test('calculates bounds with large gaps', () => {
-      // TODO: Implement
-    });
-
-    test('calculates bounds with asymmetric gaps (different x and y)', () => {
-      // TODO: Implement
-    });
-  });
-
-  describe('with different viz dimensions', () => {
-    test('calculates bounds for small visualization', () => {
-      // TODO: Implement
-    });
-
-    test('calculates bounds for large visualization', () => {
-      // TODO: Implement
-    });
-
-    test('calculates bounds for non-square visualization', () => {
-      // TODO: Implement
+          // Verify position based on ordinal index
+          expect(bounds.x).toBe(xIdx * (expectedWidth + groupGapX));
+          expect(bounds.y).toBe(yIdx * (expectedHeight + groupGapY));
+        }
+      }
     });
   });
 
-  describe('edge cases', () => {
-    test('handles single segment group spanning entire viz', () => {
-      // TODO: Implement
-    });
+  describe('asymmetric grid (2×3)', () => {
+    const vizWidth = 800;
+    const vizHeight = 600;
+    const numSegmentGroups = { x: 2, y: 3 };
+    const groupGapX = 20;
+    const groupGapY = 10;
 
-    test('divides space evenly when gaps are zero', () => {
-      // TODO: Implement
+    const expectedWidth = (vizWidth - (numSegmentGroups.x - 1) * groupGapX) / numSegmentGroups.x;
+    const expectedHeight = (vizHeight - (numSegmentGroups.y - 1) * groupGapY) / numSegmentGroups.y;
+
+    test('iterates through all 6 positions with correct bounds', () => {
+      for (let yIdx = 0; yIdx < numSegmentGroups.y; yIdx++) {
+        for (let xIdx = 0; xIdx < numSegmentGroups.x; xIdx++) {
+          const bounds = computeSegmentGroupBounds(
+            { x: xIdx, y: yIdx },
+            numSegmentGroups,
+            vizWidth,
+            vizHeight,
+            groupGapX,
+            groupGapY
+          );
+
+          expect(bounds.width).toBe(expectedWidth);
+          expect(bounds.height).toBe(expectedHeight);
+          expect(bounds.x).toBe(xIdx * (expectedWidth + groupGapX));
+          expect(bounds.y).toBe(yIdx * (expectedHeight + groupGapY));
+        }
+      }
+    });
+  });
+
+  describe('1×1 grid (degenerate case)', () => {
+    const vizWidth = 500;
+    const vizHeight = 400;
+    const numSegmentGroups = { x: 1, y: 1 };
+    const groupGapX = 10;
+    const groupGapY = 20;
+
+    test('single group fills entire canvas (gaps not used)', () => {
+      const bounds = computeSegmentGroupBounds(
+        { x: 0, y: 0 },
+        numSegmentGroups,
+        vizWidth,
+        vizHeight,
+        groupGapX,
+        groupGapY
+      );
+
+      // With 1 group, there are 0 gaps, so group fills entire canvas
+      expect(bounds.x).toBe(0);
+      expect(bounds.y).toBe(0);
+      expect(bounds.width).toBe(vizWidth);
+      expect(bounds.height).toBe(vizHeight);
+    });
+  });
+
+  describe('zero gap spacing', () => {
+    const vizWidth = 600;
+    const vizHeight = 400;
+    const numSegmentGroups = { x: 3, y: 2 };
+    const groupGapX = 0;
+    const groupGapY = 0;
+
+    const expectedWidth = vizWidth / numSegmentGroups.x;
+    const expectedHeight = vizHeight / numSegmentGroups.y;
+
+    test('groups tile edge-to-edge with no gaps', () => {
+      for (let yIdx = 0; yIdx < numSegmentGroups.y; yIdx++) {
+        for (let xIdx = 0; xIdx < numSegmentGroups.x; xIdx++) {
+          const bounds = computeSegmentGroupBounds(
+            { x: xIdx, y: yIdx },
+            numSegmentGroups,
+            vizWidth,
+            vizHeight,
+            groupGapX,
+            groupGapY
+          );
+
+          expect(bounds.width).toBe(expectedWidth);
+          expect(bounds.height).toBe(expectedHeight);
+          expect(bounds.x).toBe(xIdx * expectedWidth);
+          expect(bounds.y).toBe(yIdx * expectedHeight);
+        }
+      }
+    });
+  });
+
+  describe('large gap spacing', () => {
+    const vizWidth = 1000;
+    const vizHeight = 800;
+    const numSegmentGroups = { x: 2, y: 2 };
+    const groupGapX = 100;
+    const groupGapY = 80;
+
+    const expectedWidth = (vizWidth - groupGapX) / numSegmentGroups.x;
+    const expectedHeight = (vizHeight - groupGapY) / numSegmentGroups.y;
+
+    test('groups are smaller due to large gaps', () => {
+      for (let yIdx = 0; yIdx < numSegmentGroups.y; yIdx++) {
+        for (let xIdx = 0; xIdx < numSegmentGroups.x; xIdx++) {
+          const bounds = computeSegmentGroupBounds(
+            { x: xIdx, y: yIdx },
+            numSegmentGroups,
+            vizWidth,
+            vizHeight,
+            groupGapX,
+            groupGapY
+          );
+
+          expect(bounds.width).toBe(expectedWidth);
+          expect(bounds.height).toBe(expectedHeight);
+          expect(bounds.x).toBe(xIdx * (expectedWidth + groupGapX));
+          expect(bounds.y).toBe(yIdx * (expectedHeight + groupGapY));
+        }
+      }
     });
   });
 });
 
+/**
+ * computeSegmentBounds() divides a segment group into individual segments (one per response group).
+ * 
+ * SEGMENT BOUNDS CALCULATION:
+ * 
+ * Height (simple):
+ * - All segments have exactly the height of their containing segment group
+ * - segment.height = segmentGroupBounds.height
+ * - segment.y = segmentGroupBounds.y
+ * 
+ * Width (complex - three-part allocation):
+ * 1. Base width allocation: Each segment gets baseSegmentWidth
+ * 2. Gap allocation: (numResponseGroups - 1) gaps of responseGap between segments
+ * 3. Proportional distribution: Remaining width distributed by proportion
+ * 
+ * Formula:
+ *   widthToBeDistributed = segmentGroupBounds.width 
+ *                        - (numResponseGroups - 1) × responseGap
+ *                        - numResponseGroups × baseSegmentWidth
+ *   
+ *   segment[i].width = baseSegmentWidth + (widthToBeDistributed × proportion[i])
+ * 
+ * Where proportions must sum to 1.0
+ * 
+ * TESTING STRATEGY:
+ * Test how segment dimensions vary as each parameter changes independently:
+ * 1. Segment heights vary uniformly with segment group height
+ * 2. Segment widths vary with:
+ *    a. Segment group width
+ *    b. Base segment width
+ *    c. Response gap
+ *    d. Number of response groups
+ *    e. Proportion of each response group (must sum to 1)
+ */
 describe('computeSegmentBounds', () => {
-  describe('with equal proportions', () => {
-    test('distributes width equally among 2 segments with equal proportions', () => {
-      // TODO: Implement
+  describe('segment heights match segment group height', () => {
+    test('with segment group height = 100', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 50, width: 200, height: 100 };
+      const responseGap = 5;
+      const baseWidth = 10;
+
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      segments.forEach(segment => {
+        expect(segment.height).toBe(100);
+        expect(segment.y).toBe(50);
+      });
     });
 
-    test('distributes width equally among 4 segments with equal proportions', () => {
-      // TODO: Implement
-    });
-  });
+    test('with segment group height = 250', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 100, width: 200, height: 250 };
+      const responseGap = 5;
+      const baseWidth = 10;
 
-  describe('with unequal proportions', () => {
-    test('distributes width according to proportions (0.7, 0.3)', () => {
-      // TODO: Implement
-    });
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
 
-    test('distributes width according to proportions (0.5, 0.3, 0.2)', () => {
-      // TODO: Implement
-    });
-
-    test('handles zero proportion segments', () => {
-      // TODO: Implement
-    });
-
-    test('handles one segment with 100% proportion', () => {
-      // TODO: Implement
-    });
-  });
-
-  describe('with different response gaps', () => {
-    test('accounts for gaps between segments', () => {
-      // TODO: Implement
+      segments.forEach(segment => {
+        expect(segment.height).toBe(250);
+        expect(segment.y).toBe(100);
+      });
     });
 
-    test('handles zero response gap', () => {
-      // TODO: Implement
-    });
+    test('with segment group height = 80', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 80 };
+      const responseGap = 5;
+      const baseWidth = 10;
 
-    test('handles large response gap', () => {
-      // TODO: Implement
-    });
-  });
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
 
-  describe('with different base widths', () => {
-    test('adds base width to proportional allocation', () => {
-      // TODO: Implement
-    });
-
-    test('handles zero base width', () => {
-      // TODO: Implement
-    });
-
-    test('handles large base width', () => {
-      // TODO: Implement
+      segments.forEach(segment => {
+        expect(segment.height).toBe(80);
+        expect(segment.y).toBe(0);
+      });
     });
   });
 
-  describe('segment positioning', () => {
-    test('positions first segment at x=0', () => {
-      // TODO: Implement
+  describe('varying segment group width', () => {
+    test('with segment group width = 200, equal proportions', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (1 × 10) - (2 × 20) = 150
+      // Each segment: 20 + (150 × 0.5) = 95
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(95);
+      expect(segments[1].width).toBe(95);
     });
 
-    test('positions segments sequentially with gaps', () => {
-      // TODO: Implement
+    test('with segment group width = 400, equal proportions', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 400, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 400 - (1 × 10) - (2 × 20) = 350
+      // Each segment: 20 + (350 × 0.5) = 195
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(195);
+      expect(segments[1].width).toBe(195);
     });
 
-    test('assigns correct response group indices', () => {
-      // TODO: Implement
+    test('with segment group width = 100, equal proportions', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 100, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 100 - (1 × 10) - (2 × 20) = 50
+      // Each segment: 20 + (50 × 0.5) = 45
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(45);
+      expect(segments[1].width).toBe(45);
     });
   });
 
-  describe('edge cases', () => {
-    test('handles single segment', () => {
-      // TODO: Implement
+  describe('varying base segment width', () => {
+    test('with baseWidth = 10', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 10;
+
+      // widthToBeDistributed = 200 - (1 × 10) - (2 × 10) = 170
+      // Each segment: 10 + (170 × 0.5) = 95
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(95);
+      expect(segments[1].width).toBe(95);
     });
 
-    test('handles narrow segment group with many segments', () => {
-      // TODO: Implement
+    test('with baseWidth = 30', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 30;
+
+      // widthToBeDistributed = 200 - (1 × 10) - (2 × 30) = 130
+      // Each segment: 30 + (130 × 0.5) = 95
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(95);
+      expect(segments[1].width).toBe(95);
     });
 
-    test('maintains segment group height for all segments', () => {
-      // TODO: Implement
+    test('with baseWidth = 0', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 0;
+
+      // widthToBeDistributed = 200 - (1 × 10) - (2 × 0) = 190
+      // Each segment: 0 + (190 × 0.5) = 95
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(95);
+      expect(segments[1].width).toBe(95);
+    });
+  });
+
+  describe('varying response gap', () => {
+    test('with responseGap = 5', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 5;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (1 × 5) - (2 × 20) = 155
+      // Each segment: 20 + (155 × 0.5) = 97.5
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(97.5);
+      expect(segments[1].width).toBe(97.5);
+    });
+
+    test('with responseGap = 20', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 20;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (1 × 20) - (2 × 20) = 140
+      // Each segment: 20 + (140 × 0.5) = 90
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(90);
+      expect(segments[1].width).toBe(90);
+    });
+
+    test('with responseGap = 0', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 0;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (1 × 0) - (2 × 20) = 160
+      // Each segment: 20 + (160 × 0.5) = 100
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(100);
+      expect(segments[1].width).toBe(100);
+    });
+  });
+
+  describe('varying number of response groups', () => {
+    test('with 2 response groups, equal proportions', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.5 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (1 × 10) - (2 × 20) = 150
+      // Each segment: 20 + (150 × 0.5) = 95
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments).toHaveLength(2);
+      expect(segments[0].width).toBe(95);
+      expect(segments[1].width).toBe(95);
+    });
+
+    test('with 3 response groups, equal proportions', () => {
+      const responseGroups = [
+        { proportion: 1 / 3 },
+        { proportion: 1 / 3 },
+        { proportion: 1 / 3 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (2 × 10) - (3 × 20) = 120
+      // Each segment: 20 + (120 × 1/3) = 60
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments).toHaveLength(3);
+      expect(segments[0].width).toBe(60);
+      expect(segments[1].width).toBe(60);
+      expect(segments[2].width).toBe(60);
+    });
+
+    test('with 4 response groups, equal proportions', () => {
+      const responseGroups = [
+        { proportion: 0.25 },
+        { proportion: 0.25 },
+        { proportion: 0.25 },
+        { proportion: 0.25 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (3 × 10) - (4 × 20) = 90
+      // Each segment: 20 + (90 × 0.25) = 42.5
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments).toHaveLength(4);
+      expect(segments[0].width).toBe(42.5);
+      expect(segments[1].width).toBe(42.5);
+      expect(segments[2].width).toBe(42.5);
+      expect(segments[3].width).toBe(42.5);
+    });
+
+    test('with 1 response group (no gaps needed)', () => {
+      const responseGroups = [
+        { proportion: 1.0 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (0 × 10) - (1 × 20) = 180
+      // Segment: 20 + (180 × 1.0) = 200
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments).toHaveLength(1);
+      expect(segments[0].width).toBe(200);
+    });
+  });
+
+  describe('varying proportions (must sum to 1)', () => {
+    test('with proportions [0.7, 0.3]', () => {
+      const responseGroups = [
+        { proportion: 0.7 },
+        { proportion: 0.3 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (1 × 10) - (2 × 20) = 150
+      // Segment 0: 20 + (150 × 0.7) = 125
+      // Segment 1: 20 + (150 × 0.3) = 65
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(125);
+      expect(segments[1].width).toBe(65);
+    });
+
+    test('with proportions [0.5, 0.3, 0.2]', () => {
+      const responseGroups = [
+        { proportion: 0.5 },
+        { proportion: 0.3 },
+        { proportion: 0.2 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 300, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 300 - (2 × 10) - (3 × 20) = 220
+      // Segment 0: 20 + (220 × 0.5) = 130
+      // Segment 1: 20 + (220 × 0.3) = 86
+      // Segment 2: 20 + (220 × 0.2) = 64
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(130);
+      expect(segments[1].width).toBe(86);
+      expect(segments[2].width).toBe(64);
+    });
+
+    test('with proportions [0.4, 0.35, 0.15, 0.1]', () => {
+      const responseGroups = [
+        { proportion: 0.4 },
+        { proportion: 0.35 },
+        { proportion: 0.15 },
+        { proportion: 0.1 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 400, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 400 - (3 × 10) - (4 × 20) = 290
+      // Segment 0: 20 + (290 × 0.4) = 136
+      // Segment 1: 20 + (290 × 0.35) = 121.5
+      // Segment 2: 20 + (290 × 0.15) = 63.5
+      // Segment 3: 20 + (290 × 0.1) = 49
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(136);
+      expect(segments[1].width).toBe(121.5);
+      expect(segments[2].width).toBe(63.5);
+      expect(segments[3].width).toBe(49);
+    });
+
+    test('with extreme proportions [0.9, 0.1]', () => {
+      const responseGroups = [
+        { proportion: 0.9 },
+        { proportion: 0.1 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (1 × 10) - (2 × 20) = 150
+      // Segment 0: 20 + (150 × 0.9) = 155
+      // Segment 1: 20 + (150 × 0.1) = 35
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(155);
+      expect(segments[1].width).toBe(35);
+    });
+
+    test('with proportion = 0 (edge case)', () => {
+      const responseGroups = [
+        { proportion: 1.0 },
+        { proportion: 0.0 }
+      ];
+      const segmentGroupBounds = { x: 0, y: 0, width: 200, height: 100 };
+      const responseGap = 10;
+      const baseWidth = 20;
+
+      // widthToBeDistributed = 200 - (1 × 10) - (2 × 20) = 150
+      // Segment 0: 20 + (150 × 1.0) = 170
+      // Segment 1: 20 + (150 × 0.0) = 20 (only base width)
+      const segments = computeSegmentBounds(responseGroups, segmentGroupBounds, responseGap, baseWidth);
+
+      expect(segments[0].width).toBe(170);
+      expect(segments[1].width).toBe(20);
     });
   });
 });
