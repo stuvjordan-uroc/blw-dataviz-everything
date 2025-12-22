@@ -1,10 +1,11 @@
 import { ResponseGroupWithStatsAndSegment, SegmentVizConfig, SplitWithSegmentGroup, Point } from "./types";
 import { generateCartesian } from '../statistics/generateCartesian';
-import { Group, GroupingQuestion } from "../statistics/types";
+import { Group, GroupingQuestion, ViewMaps } from "../statistics/types";
 import { computeSegmentGroupBounds, getWidthHeight } from "./geometry";
 import { setBasisSplitIndices } from "../statistics/setBasisSplitIndices";
+import { buildSegmentVizViewId } from "./buildSegmentVizViewId";
 
-export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig): { basisSplitIndices: number[], splits: SplitWithSegmentGroup[] } {
+export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig): { basisSplitIndices: number[], splits: SplitWithSegmentGroup[], viewMaps: ViewMaps } {
 
   //create the array to hold the splits we produce
   const splits: SplitWithSegmentGroup[] = [];
@@ -12,6 +13,12 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
 
   //create the array to hold all the basis splits
   const allBasisSplits: { splitIdx: number, groups: Group[] }[] = [];
+
+  //track views and their split indices
+  const viewMaps: ViewMaps = {};
+
+  //number of x-axis grouping questions (for index offset calculation)
+  const numXQuestions = segmentVizConfig.groupingQuestions.x.length;
 
   //compute the vizWidth and vizHeight
   const [vizWidth, vizHeight] = getWidthHeight(segmentVizConfig);
@@ -67,8 +74,32 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
        * grouping question.
        */
 
+      //determine which grouping questions are active in this view
+      //build flat array of active question indices (x-questions first, then y-questions)
+      const activeXIndices: number[] = [];
+      const activeYIndices: number[] = [];
 
+      //collect active x-axis question indices
+      viewX.forEach((gq, xIdx) => {
+        if (gq.active) {
+          activeXIndices.push(xIdx);
+        }
+      });
 
+      //collect active y-axis question indices
+      viewY.forEach((gq, yIdx) => {
+        if (gq.active) {
+          activeYIndices.push(yIdx);
+        }
+      });
+
+      //generate viewId using the canonical helper function
+      //This ensures viewMap keys match what clients will generate
+      const viewId = buildSegmentVizViewId(activeXIndices, activeYIndices, numXQuestions);
+
+      //initialize array to track splits for this view
+      const viewSplitIndices: number[] = [];
+      viewMaps[viewId] = viewSplitIndices;
 
       //construct the x-axis response groups for the splits
       //at the current view
@@ -118,6 +149,9 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
 
           //increment the split index
           splitIdx++;
+
+          //record that this split belongs to the current view
+          viewSplitIndices.push(splitIdx);
 
           //compute the basis split indices
           const basisSplitIndices: number[] = [];
@@ -190,17 +224,16 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
           }))
         }
       }
-
     }
   }
 
 
   setBasisSplitIndices(splits, allBasisSplits)
 
-
   return {
     basisSplitIndices: allBasisSplits.map(bs => bs.splitIdx),
-    splits: splits
+    splits: splits,
+    viewMaps: viewMaps,
   }
 
 }

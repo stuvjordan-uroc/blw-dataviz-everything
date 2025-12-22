@@ -3,7 +3,7 @@ import { DATABASE_CONNECTION } from "../database/database.providers";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { sessionVisualizations, sessions, VisualizationLookupMaps } from "shared-schemas";
-import type { SplitWithSegmentGroup, SegmentVizConfig } from "shared-computation";
+import type { SplitWithSegmentGroup, SegmentVizConfig, ViewMaps } from "shared-computation";
 
 /**
  * State for a single visualization in memory
@@ -14,6 +14,7 @@ interface VisualizationState {
   basisSplitIndices: number[];
   splits: SplitWithSegmentGroup[];
   lookupMaps: VisualizationLookupMaps;
+  viewMaps: ViewMaps; // Precomputed view mappings for client-side view switching
   sequenceNumber: number;
   lastUpdated: Date;
 }
@@ -163,6 +164,7 @@ export class VisualizationCacheService {
           responseIndexToGroupIndex: {},
           profileToSplitIndex: {},
         },
+        viewMaps: vizDbData.viewMaps || {},
         sequenceNumber: 0,
         lastUpdated: vizDbData.computedAt || new Date(),
       });

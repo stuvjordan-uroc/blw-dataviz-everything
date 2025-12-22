@@ -325,9 +325,10 @@ export class ResponsesService {
    * Get current visualization state for a session
    * 
    * @param sessionId - The session ID
+   * @param includeViewMaps - Whether to include viewMaps (default: false)
    * @returns Visualization data
    */
-  async getVisualizationData(sessionId: number) {
+  async getVisualizationData(sessionId: number, includeViewMaps = false) {
     // Validate session exists
     const [session] = await this.db
       .select()
@@ -350,14 +351,21 @@ export class ResponsesService {
     const result = [];
 
     for (const [vizId, vizState] of visualizations) {
-      result.push({
+      const vizData: any = {
         visualizationId: vizId,
         config: vizState.config,
         sequenceNumber: vizState.sequenceNumber,
         splits: vizState.splits,
         basisSplitIndices: vizState.basisSplitIndices,
         lastUpdated: vizState.lastUpdated,
-      });
+      };
+
+      // Only include viewMaps when explicitly requested (e.g., for GET /sessions/:slug)
+      if (includeViewMaps) {
+        vizData.viewMaps = vizState.viewMaps;
+      }
+
+      result.push(vizData);
     }
 
     return result;

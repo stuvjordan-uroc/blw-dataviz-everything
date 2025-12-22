@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
 import type { Question } from "shared-types";
-import type { SegmentVizConfig, SplitWithSegmentGroup } from "shared-computation";
+import type { SegmentVizConfig, SplitWithSegmentGroup, ViewMaps } from "shared-computation";
 
 /**
  * Session configuration for a polling session.
@@ -128,6 +128,7 @@ export const sessionVisualizations = pollsSchema.table(
     visualizationId: text("visualization_id").notNull(), // matches the id in SessionConfig.visualizations
     basisSplitIndices: jsonb("basis_split_indices").$type<number[]>(),
     splits: jsonb("splits").$type<SplitWithSegmentGroup[]>(),
+    viewMaps: jsonb("view_maps").$type<ViewMaps>(),
     lookupMaps: jsonb("lookup_maps").$type<VisualizationLookupMaps>(),
     computedAt: timestamp("computed_at").defaultNow(),
   },

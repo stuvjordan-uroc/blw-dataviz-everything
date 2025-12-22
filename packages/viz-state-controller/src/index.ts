@@ -3,15 +3,16 @@ import type {
   SplitWithSegmentGroupDiff,
   Point,
   PointPosition,
+  ViewMaps,
 } from 'shared-computation';
 
 /**
  * Defines which view the user is looking at.
- * A view is determined by which grouping questions are "active".
+ * A view is determined by a viewId string (e.g., "0,1,3" or "" for base view).
  */
 export interface ViewState {
-  /** Set of grouping question IDs that define the current view */
-  activeGroupingQuestions: Set<string>;
+  /** View identifier - comma-separated indices of active questions (e.g., "0,1,3" or "") */
+  viewId: string;
   /** Whether to show collapsed or expanded response groups */
   displayMode: 'collapsed' | 'expanded';
 }
@@ -77,19 +78,22 @@ export interface StateChangeResult {
 export class VizStateController {
   private serverState: ServerState;
   private viewState: ViewState;
+  private viewMaps: ViewMaps;
   private currentVisibleState: VisiblePointsState | null = null;
 
   constructor(
     initialSplits: SplitWithSegmentGroup[],
     basisSplitIndices: number[],
+    viewMaps: ViewMaps,
     initialViewState?: Partial<ViewState>
   ) {
     this.serverState = {
       splits: initialSplits,
       basisSplitIndices: basisSplitIndices,
     };
+    this.viewMaps = viewMaps;
     this.viewState = {
-      activeGroupingQuestions: initialViewState?.activeGroupingQuestions ?? new Set(),
+      viewId: initialViewState?.viewId ?? '', // Default to base view (no active questions)
       displayMode: initialViewState?.displayMode ?? 'collapsed',
     };
     this.currentVisibleState = this.computeVisiblePoints();
@@ -119,14 +123,14 @@ export class VizStateController {
   }
 
   /**
-   * Change which grouping questions are active (change the view).
+   * Change which view is displayed.
    * 
-   * @param questionIds Set of question IDs to make active
+   * @param viewId View identifier string (e.g., "0,1,3" or "" for base view)
    * @returns End state and diff for animation
    */
-  setActiveQuestions(questionIds: Set<string>): StateChangeResult {
+  setView(viewId: string): StateChangeResult {
     const oldState = this.currentVisibleState;
-    this.viewState.activeGroupingQuestions = questionIds;
+    this.viewState.viewId = viewId;
     const newState = this.computeVisiblePoints();
     this.currentVisibleState = newState;
 
@@ -185,44 +189,19 @@ export class VizStateController {
   /**
    * Filter splits to only those matching the current view.
    * 
-   * A split matches when its groups array has non-null responseGroups
-   * for exactly the active grouping questions.
+   * Uses O(1) lookup via viewMaps for efficient view switching.
    */
   private filterSplitsByView(): SplitWithSegmentGroup[] {
-    // If no active questions, no splits match
-    if (this.viewState.activeGroupingQuestions.size === 0) {
+    // Look up split indices for this view
+    const splitIndices = this.viewMaps[this.viewState.viewId];
+
+    // If viewId not found in viewMaps, return empty array
+    if (!splitIndices) {
       return [];
     }
 
-    return this.serverState.splits.filter((split) => {
-      // A split matches if its groups array indicates exactly the active questions
-      // groups[i] is the i-th grouping question
-      // groups[i].responseGroup being non-null means that question is part of this split
-
-      // Count how many groups have non-null responseGroups
-      const activeGroupIndices = new Set<number>();
-      split.groups.forEach((group, idx) => {
-        if (group.responseGroup !== null) {
-          activeGroupIndices.add(idx);
-        }
-      });
-
-      // For now, we need to map question IDs to group indices
-      // TODO: This requires knowing the mapping between question IDs and group indices
-      // For prototype, we'll assume activeGroupingQuestions contains group indices as strings
-      // This will be refined when we integrate with real session config
-
-      const activeGroupStrings = new Set(
-        Array.from(activeGroupIndices).map(String)
-      );
-
-      return (
-        activeGroupStrings.size === this.viewState.activeGroupingQuestions.size &&
-        Array.from(this.viewState.activeGroupingQuestions).every((q) =>
-          activeGroupStrings.has(q)
-        )
-      );
-    });
+    // Map indices to actual splits - O(k) where k = splits in this view
+    return splitIndices.map(idx => this.serverState.splits[idx]);
   }
 
   /**

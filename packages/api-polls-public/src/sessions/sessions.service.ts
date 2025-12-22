@@ -44,8 +44,8 @@ export class SessionsService {
       throw new NotFoundException(`Session ${session.id} has no configuration`);
     }
 
-    // Get current visualization data
-    const visualizations = await this.responsesService.getVisualizationData(session.id);
+    // Get current visualization data with viewMaps (static metadata for client-side view switching)
+    const visualizations = await this.responsesService.getVisualizationData(session.id, true);
 
     // Build response with all needed information
     return {

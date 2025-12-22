@@ -1,3 +1,5 @@
+import type { ViewMaps } from 'shared-computation';
+
 /**
  * EVERYTHING HERE IS A PLACEHOLDER.
  * 
@@ -23,13 +25,27 @@ export interface SessionResponse {
   config: any; // TODO: Type this properly after prototyping
 
   // Current visualization state
-  visualizations: any[]; // TODO: Type this properly after prototyping
+  visualizations: VisualizationData[];
 
   // API endpoints
   endpoints: {
     submitResponse: string;
     visualizationStream: string;
   };
+}
+
+/**
+ * Visualization data from GET /sessions/:slug
+ * Includes viewMaps for O(1) view switching
+ */
+export interface VisualizationData {
+  visualizationId: string;
+  config: any; // TODO: Type as SegmentVizConfig
+  sequenceNumber: number;
+  splits: any[]; // TODO: Type as SplitWithSegmentGroup[]
+  basisSplitIndices: number[];
+  lastUpdated: string | Date;
+  viewMaps: ViewMaps; // Precomputed view mappings for efficient view switching
 }
 
 /**

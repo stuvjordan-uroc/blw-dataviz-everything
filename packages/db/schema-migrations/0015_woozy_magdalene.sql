@@ -1,0 +1,1 @@
+ALTER TABLE "polls"."session_visualizations" ADD COLUMN "view_maps" jsonb;

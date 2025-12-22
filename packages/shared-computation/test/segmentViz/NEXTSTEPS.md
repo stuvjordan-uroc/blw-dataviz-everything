@@ -110,6 +110,12 @@ After Phases 1-4 are complete:
 - If components are well-tested, might only need 1-2 smoke tests
 - Or skip entirely if confidence is high from component testing
 
+### Phase 6: New unit test of view map functionality of initializeSplitsWithSegments
+
+- test that view maps are returned as required.
+- test that none of the update function alter the structure of the array of
+  SplitWithSegmentGroup in ways that would ake the view maps invalid.
+
 ## Testing Philosophy
 
 **Outcome Verification Over Path Verification:**

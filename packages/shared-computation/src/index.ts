@@ -6,7 +6,7 @@
 
 import { initializeSplits } from "./statistics/initializeSplits";
 import { updateAllSplitsFromResponses } from "./statistics/update";
-import type { ResponseQuestion, GroupingQuestion, Split } from "./statistics/types";
+import type { ResponseQuestion, GroupingQuestion, Split, ViewMaps } from "./statistics/types";
 
 /**
  * from segmentViz
@@ -14,13 +14,15 @@ import type { ResponseQuestion, GroupingQuestion, Split } from "./statistics/typ
 
 import { initializeSplitsWithSegments } from "./segmentViz/initializeSplitsWithSegments";
 import { updateAllSplitsWithSegmentsFromResponses } from "./segmentViz/update";
+import { buildSegmentVizViewId } from "./segmentViz/buildSegmentVizViewId";
 import type { SegmentVizConfig, SplitWithSegmentGroup, SplitWithSegmentGroupDiff, Point, PointPosition } from "./segmentViz/types";
 
 export {
   initializeSplits,
   updateAllSplitsFromResponses,
   initializeSplitsWithSegments,
-  updateAllSplitsWithSegmentsFromResponses
+  updateAllSplitsWithSegmentsFromResponses,
+  buildSegmentVizViewId
 }
 
 export type {
@@ -31,5 +33,6 @@ export type {
   SplitWithSegmentGroup,
   SplitWithSegmentGroupDiff,
   Point,
-  PointPosition
+  PointPosition,
+  ViewMaps
 }
