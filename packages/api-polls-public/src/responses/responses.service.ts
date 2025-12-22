@@ -302,6 +302,26 @@ export class ResponsesService {
   }
 
   /**
+   * Get session by ID
+   * 
+   * @param sessionId - The session ID
+   * @returns Session data
+   * @throws NotFoundException if session doesn't exist
+   */
+  async getSession(sessionId: number) {
+    const [session] = await this.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, sessionId));
+
+    if (!session) {
+      throw new NotFoundException(`Session ${sessionId} not found`);
+    }
+
+    return session;
+  }
+
+  /**
    * Get current visualization state for a session
    * 
    * @param sessionId - The session ID

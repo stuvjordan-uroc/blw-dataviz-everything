@@ -1,5 +1,4 @@
 import { Module } from "@nestjs/common";
-import { EventEmitterModule } from "@nestjs/event-emitter";
 import { DatabaseModule } from "../database/database.module";
 import { ResponsesController } from "./responses.controller";
 import { ResponsesService } from "./responses.service";
@@ -10,19 +9,7 @@ import { VisualizationStreamService } from "./visualization-stream.service";
 import { VisualizationStreamController } from "./visualization-stream.controller";
 
 @Module({
-  imports: [
-    DatabaseModule,
-    EventEmitterModule.forRoot({
-      // EventEmitter options
-      wildcard: false,
-      delimiter: ".",
-      newListener: false,
-      removeListener: false,
-      maxListeners: 10,
-      verboseMemoryLeak: false,
-      ignoreErrors: false,
-    }),
-  ],
+  imports: [DatabaseModule],
   controllers: [ResponsesController, VisualizationStreamController],
   providers: [
     {

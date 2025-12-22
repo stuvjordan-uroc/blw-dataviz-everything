@@ -33,6 +33,18 @@
       "path": "./packages/api-polls-public"
     },
     {
+      "name": "API Polls Unified",
+      "path": "./packages/api-polls-unified"
+    },
+    {
+      "name": "API Polls Client",
+      "path": "./packages/api-polls-client"
+    },
+    {
+      "name": "Viz State Controller",
+      "path": "./packages/viz-state-controller"
+    },
+    {
       "name": "Integration Tests",
       "path": "./packages/integration-tests"
     }

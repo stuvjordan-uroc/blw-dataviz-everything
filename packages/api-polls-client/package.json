@@ -1,0 +1,26 @@
+{
+  "name": "api-polls-client",
+  "version": "1.0.0",
+  "description": "Client library for communicating with polling APIs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "lint": "eslint src --ext .ts",
+    "test": "jest"
+  },
+  "keywords": [
+    "polls",
+    "api",
+    "client",
+    "sse"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.9.3"
+  }
+}

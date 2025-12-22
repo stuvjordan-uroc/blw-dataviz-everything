@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DatabaseModule } from './database/database.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { QuestionsModule } from './questions/questions.module';
@@ -11,13 +12,20 @@ import { AuthModule } from './auth/auth.module';
  * The root module imports all feature modules (like SessionsModule, QuestionsModule).
  * 
  * Modules included:
+ * - EventEmitterModule: For event-driven communication (shared with public API when unified)
  * - DatabaseModule: For database connection ✓
  * - AuthModule: For authentication (login, JWT) ✓
  * - SessionsModule: For session CRUD operations ✓
  * - QuestionsModule: For browsing questions ✓
  */
 @Module({
-  imports: [DatabaseModule, AuthModule, SessionsModule, QuestionsModule],
+  imports: [
+    EventEmitterModule.forRoot(),
+    DatabaseModule,
+    AuthModule,
+    SessionsModule,
+    QuestionsModule,
+  ],
   controllers: [],
   providers: [],
 })

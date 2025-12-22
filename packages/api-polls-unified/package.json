@@ -1,0 +1,32 @@
+{
+  "name": "api-polls-unified",
+  "version": "1.0.0",
+  "description": "Unified API combining admin and public polling services",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node --transpile-only src/main.ts",
+    "start:dev:watch": "ts-node --transpile-only --watch src/main.ts",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/event-emitter": "^2.0.0",
+    "@nestjs/platform-express": "^10.0.0",
+    "api-polls-admin": "*",
+    "api-polls-public": "*",
+    "dotenv": "^17.2.3",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

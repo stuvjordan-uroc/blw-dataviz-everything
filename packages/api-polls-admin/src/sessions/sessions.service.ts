@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { DATABASE_CONNECTION } from "../database/database.providers";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq, inArray } from "drizzle-orm";
@@ -53,7 +54,8 @@ export class SessionsService {
    */
   constructor(
     @Inject(DATABASE_CONNECTION)
-    private db: ReturnType<typeof drizzle>
+    private db: ReturnType<typeof drizzle>,
+    private eventEmitter: EventEmitter2
   ) { }
 
   /**
@@ -336,7 +338,10 @@ export class SessionsService {
    */
   async toggleStatus(id: number, isOpen: boolean): Promise<Session> {
     // Ensure session exists
-    await this.findOne(id);
+    const existingSession = await this.findOne(id);
+
+    // Only emit event if status is actually changing
+    const statusChanged = existingSession.isOpen !== isOpen;
 
     // Update session status
     const [updatedSession] = await this.db
@@ -344,6 +349,15 @@ export class SessionsService {
       .set({ isOpen })
       .where(eq(sessions.id, id))
       .returning();
+
+    // Emit event for public API to notify connected clients
+    if (statusChanged) {
+      this.eventEmitter.emit('session.statusChanged', {
+        sessionId: id,
+        isOpen,
+        timestamp: new Date(),
+      });
+    }
 
     return updatedSession;
   }

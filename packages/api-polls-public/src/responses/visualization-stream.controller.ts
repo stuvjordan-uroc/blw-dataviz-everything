@@ -40,8 +40,10 @@ export class VisualizationStreamController {
   ): Promise<void> {
     // Validate session exists and get current visualization data
     let visualizationData;
+    let session;
     try {
       visualizationData = await this.responsesService.getVisualizationData(sessionId);
+      session = await this.responsesService.getSession(sessionId);
     } catch (error) {
       if (error instanceof NotFoundException) {
         res.status(404).json({ message: `Session ${sessionId} not found` });
@@ -53,14 +55,22 @@ export class VisualizationStreamController {
     // Register client for SSE streaming
     const clientId = this.streamService.addClient(sessionId, res);
 
-    // Send initial snapshot
+    // Send initial snapshot with isOpen flag
     this.streamService.sendSnapshot(clientId, {
       sessionId,
+      isOpen: session.isOpen,
       visualizations: visualizationData,
       timestamp: new Date(),
     });
 
-    // Keep connection alive with periodic heartbeat
+    // If session is closed, close the connection after sending snapshot
+    if (!session.isOpen) {
+      res.write(":closing - session is closed\n\n");
+      res.end();
+      return;
+    }
+
+    // Keep connection alive with periodic heartbeat (only for open sessions)
     const heartbeat = setInterval(() => {
       res.write(":heartbeat\n\n");
     }, 30000); // Every 30 seconds

@@ -4,6 +4,15 @@ import { Response } from "express";
 import { VisualizationUpdatedEvent } from "./batch-update-scheduler.service";
 
 /**
+ * Event emitted when a session's open/closed status changes
+ */
+export interface SessionStatusChangedEvent {
+  sessionId: number;
+  isOpen: boolean;
+  timestamp: Date;
+}
+
+/**
  * Represents a connected SSE client
  */
 interface StreamClient {
@@ -143,6 +152,44 @@ export class VisualizationStreamService {
         basisSplitIndices: event.basisSplitIndices,
         timestamp: event.timestamp,
       });
+    }
+  }
+
+  /**
+   * Listen for session.statusChanged events and broadcast to subscribed clients
+   * 
+   * @param event - The session status change event
+   */
+  @OnEvent("session.statusChanged")
+  handleSessionStatusChange(event: SessionStatusChangedEvent): void {
+    const sessionClients = this.clients.get(event.sessionId);
+    if (!sessionClients || sessionClients.size === 0) {
+      return; // No clients subscribed to this session
+    }
+
+    this.logger.log(
+      `Session ${event.sessionId} status changed to ${event.isOpen ? 'open' : 'closed'}. ` +
+      `Notifying ${sessionClients.size} connected clients`
+    );
+
+    // Broadcast to all clients for this session
+    for (const client of sessionClients) {
+      this.sendEvent(client.response, "session.statusChanged", {
+        isOpen: event.isOpen,
+        timestamp: event.timestamp,
+      });
+
+      // If session was closed, close the client connection
+      if (!event.isOpen) {
+        this.logger.debug(`Closing connection for client ${client.clientId} (session closed)`);
+        client.response.end();
+      }
+    }
+
+    // If session was closed, remove all clients from memory
+    if (!event.isOpen) {
+      this.clients.delete(event.sessionId);
+      this.logger.log(`Removed all clients for closed session ${event.sessionId}`);
     }
   }
 
