@@ -1,0 +1,24 @@
+{
+  "name": "polls-participant-utils",
+  "version": "0.1.0",
+  "description": "Utilities for participant-side interaction with polling sessions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "api-polls-client": "*",
+    "shared-computation": "*",
+    "shared-types": "*"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}

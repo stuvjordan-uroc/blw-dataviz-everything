@@ -41,8 +41,8 @@
       "path": "./packages/api-polls-client"
     },
     {
-      "name": "Viz State Controller",
-      "path": "./packages/viz-state-controller"
+      "name": "Polls Participant Utils",
+      "path": "./packages/polls-participant-utils"
     },
     {
       "name": "Integration Tests",
