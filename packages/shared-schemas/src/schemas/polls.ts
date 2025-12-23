@@ -11,8 +11,7 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
-import type { Question } from "shared-types";
-import type { SegmentVizConfig, SplitWithSegmentGroup, ViewMaps } from "shared-computation";
+import type { Question, SegmentVizConfig, SplitWithSegmentGroup, ViewMaps } from "shared-types";
 
 /**
  * Session configuration for a polling session.

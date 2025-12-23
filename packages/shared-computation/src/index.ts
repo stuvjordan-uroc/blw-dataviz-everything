@@ -6,7 +6,6 @@
 
 import { initializeSplits } from "./statistics/initializeSplits";
 import { updateAllSplitsFromResponses } from "./statistics/update";
-import type { ResponseQuestion, GroupingQuestion, Split, ViewMaps } from "./statistics/types";
 
 /**
  * from segmentViz
@@ -15,7 +14,6 @@ import type { ResponseQuestion, GroupingQuestion, Split, ViewMaps } from "./stat
 import { initializeSplitsWithSegments } from "./segmentViz/initializeSplitsWithSegments";
 import { updateAllSplitsWithSegmentsFromResponses } from "./segmentViz/update";
 import { buildSegmentVizViewId } from "./segmentViz/buildSegmentVizViewId";
-import type { SegmentVizConfig, SplitWithSegmentGroup, SplitWithSegmentGroupDiff, Point, PointPosition } from "./segmentViz/types";
 
 export {
   initializeSplits,
@@ -25,14 +23,22 @@ export {
   buildSegmentVizViewId
 }
 
+// Re-export types that are now defined in shared-types for backwards compatibility
 export type {
   ResponseQuestion,
   GroupingQuestion,
-  Split,
+  ResponseGroup,
   SegmentVizConfig,
   SplitWithSegmentGroup,
   SplitWithSegmentGroupDiff,
   Point,
   PointPosition,
-  ViewMaps
-}
+  ViewMaps,
+  RectBounds,
+  ResponseGroupWithStatsAndSegment,
+} from 'shared-types';
+
+// Export types that are still defined in this package
+export type {
+  Split,
+} from './statistics/types';

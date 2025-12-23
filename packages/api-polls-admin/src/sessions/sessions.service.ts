@@ -21,7 +21,7 @@ import {
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 import { initializeSplitsWithSegments } from "shared-computation";
-import type { SegmentVizConfig, SplitWithSegmentGroup } from "shared-computation";
+import type { SegmentVizConfig, SplitWithSegmentGroup } from "shared-types";
 
 /**
  * Type definitions for session operations

@@ -26,7 +26,7 @@ import type {
   VisualizationUpdateEvent,
   VisualizationSnapshotEvent,
   SessionStatusChangedEvent,
-} from 'api-polls-client';
+} from 'shared-types';
 
 import { ParticipantVizState } from './ParticipantVizState';
 import type {
@@ -62,10 +62,16 @@ export class SessionVizClient {
   async connect(slug: string): Promise<ParticipantVisibleState> {
     // TODO: Implement connection logic
     // 1. this.sessionData = await this.apiClient.getSession(slug)
-    // 2. this.vizState = new ParticipantVizState(...)
-    // 3. this.eventSource = this.apiClient.createVisualizationStream(sessionId)
-    // 4. this.attachEventHandlers()
-    // 5. return this.vizState.getVisibleState()
+    // 2. Extract first visualization from sessionData.visualizations
+    // 3. this.vizState = new ParticipantVizState(
+    //      viz.splits,
+    //      viz.basisSplitIndices,
+    //      viz.sequenceNumber,  // <-- Initialize with current sequence
+    //      viz.viewMaps
+    //    )
+    // 4. this.eventSource = this.apiClient.createVisualizationStream(sessionId)
+    // 5. this.attachEventHandlers()
+    // 6. return this.vizState.getVisibleState()
 
     throw new Error('Not implemented');
   }
@@ -144,6 +150,8 @@ export class SessionVizClient {
     if (!this.vizState) return;
 
     const result = this.vizState.applyServerUpdate(
+      event.fromSequence,
+      event.toSequence,
       event.splits,
       event.splitDiffs
     );
@@ -154,11 +162,21 @@ export class SessionVizClient {
    * Internal: Handle visualization snapshot events (initial state).
    */
   private handleVisualizationSnapshot(event: VisualizationSnapshotEvent): void {
-    // TODO: Decide if we need to handle snapshots differently than updates
-    // For now, treat same as update
+    // TODO: Handle snapshot event with multiple visualizations
+    // For now, this is a stub since snapshots are primarily handled in connect()
+    // This event handler would be used if reconnecting to an already-initialized stream
     if (!this.vizState) return;
 
-    const result = this.vizState.applyServerUpdate(event.splits);
+    // Extract first visualization from the snapshot
+    const firstViz = event.visualizations[0];
+    if (!firstViz) return;
+
+    // Treat as a full state update using the snapshot's sequence number
+    const result = this.vizState.applyServerUpdate(
+      firstViz.sequenceNumber - 1, // fromSequence (assume no gap for snapshot)
+      firstViz.sequenceNumber,
+      firstViz.splits
+    );
     this.notifyListeners(result.endState, result.diff);
   }
 

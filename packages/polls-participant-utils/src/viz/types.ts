@@ -5,7 +5,7 @@
  * participant-specific view preferences to produce renderable point positions.
  */
 
-import type { SplitWithSegmentGroup, Point, ViewMaps } from 'shared-computation';
+import type { SplitWithSegmentGroup, Point, ViewMaps, SplitWithSegmentGroupDiff } from 'shared-types';
 
 /**
  * Defines which view a participant is looking at.
@@ -26,6 +26,7 @@ export interface ViewState {
 export interface ServerState {
   splits: SplitWithSegmentGroup[];
   basisSplitIndices: number[];
+  sequenceNumber: number;
 }
 
 /**
@@ -83,5 +84,4 @@ export type StateChangeCallback = (
 /**
  * Re-export types from shared packages for convenience
  */
-export type { SplitWithSegmentGroup, Point, ViewMaps } from 'shared-computation';
-export type { SplitWithSegmentGroupDiff } from 'shared-computation';
+export type { SplitWithSegmentGroup, Point, ViewMaps, SplitWithSegmentGroupDiff } from 'shared-types';

@@ -14,3 +14,36 @@ export interface Question {
   // This matches the database constraint where subBattery is part of the primary key
   subBattery: string;
 }
+
+/**
+ * Visualization types
+ * Re-exported from visualization.ts for convenience
+ */
+export type {
+  ResponseQuestion,
+  GroupingQuestion,
+  ResponseGroup,
+  SegmentVizConfig,
+  RectBounds,
+  Point,
+  PointPosition,
+  ResponseGroupWithStatsAndSegment,
+  SplitWithSegmentGroup,
+  SplitWithSegmentGroupDiff,
+  ViewMaps,
+} from './visualization';
+
+/**
+ * Polls API contract types
+ * Re-exported from polls-api-contract.ts for convenience
+ */
+export type {
+  SessionResponse,
+  VisualizationData,
+  VisualizationSnapshotEvent,
+  VisualizationUpdateEvent,
+  SessionStatusChangedEvent,
+  RespondentAnswer,
+  SubmitResponsesDto,
+  SubmitResponsesResponse,
+} from './polls-api-contract';

@@ -1,22 +1,7 @@
-import type { Question } from 'shared-types';
+import type { Question, ResponseQuestion, GroupingQuestion, ResponseGroup } from 'shared-types';
 
-export interface ResponseQuestion {
-  question: Question;
-  responseGroups: {
-    expanded: ResponseGroup[];
-    collapsed: ResponseGroup[];
-  };
-}
-
-export interface GroupingQuestion {
-  question: Question;
-  responseGroups: ResponseGroup[];
-}
-
-export interface ResponseGroup {
-  label: string;
-  values: number[];
-}
+// Re-export types that are imported from shared-types for backwards compatibility
+export type { ResponseQuestion, GroupingQuestion, ResponseGroup };
 
 export interface Group {
   question: Question;
@@ -65,21 +50,6 @@ export interface RespondentData {
   }[];
 }
 
-/**
- * Mapping from view ID to split indices.
- * 
- * Precomputed during initialization for efficient view switching.
- * Each view represents a specific combination of active/inactive grouping questions.
- * 
- * Key format: comma-separated indices of active questions (e.g., "0,1,3" or "" for base view)
- * Value: array of split indices that belong to that view
- * 
- * Example:
- *   {
- *     "": [0],           // Base view - no grouping questions active
- *     "0": [1, 2, 3],     // Only question 0 active
- *     "1": [4, 5, 6],     // Only question 1 active
- *     "0,1": [7, 8, 9]    // Questions 0 and 1 active
- *   }
- */
-export type ViewMaps = Record<string, number[]>;
+// ViewMaps moved to shared-types for use across packages
+import type { ViewMaps } from 'shared-types';
+export type { ViewMaps };

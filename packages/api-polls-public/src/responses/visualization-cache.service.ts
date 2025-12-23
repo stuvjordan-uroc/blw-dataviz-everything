@@ -3,7 +3,7 @@ import { DATABASE_CONNECTION } from "../database/database.providers";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { sessionVisualizations, sessions, VisualizationLookupMaps } from "shared-schemas";
-import type { SplitWithSegmentGroup, SegmentVizConfig, ViewMaps } from "shared-computation";
+import type { SplitWithSegmentGroup, SegmentVizConfig, ViewMaps } from "shared-types";
 
 /**
  * State for a single visualization in memory

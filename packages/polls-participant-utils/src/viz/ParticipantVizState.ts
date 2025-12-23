@@ -44,12 +44,14 @@ export class ParticipantVizState {
   constructor(
     initialSplits: SplitWithSegmentGroup[],
     basisSplitIndices: number[],
+    initialSequenceNumber: number,
     viewMaps: ViewMaps,
     initialViewState?: Partial<ViewState>
   ) {
     this.serverState = {
       splits: initialSplits,
       basisSplitIndices: basisSplitIndices,
+      sequenceNumber: initialSequenceNumber,
     };
     this.viewMaps = viewMaps;
     this.viewState = {
@@ -63,16 +65,28 @@ export class ParticipantVizState {
    * Apply a server update (new responses received).
    * Server always sends both full snapshot and diff.
    * 
+   * @param fromSequence - Starting sequence number (should match current sequence)
+   * @param toSequence - Ending sequence number (new sequence after update)
    * @param newSplits - Complete updated splits array
    * @param serverDiff - Optional diff from server (for future animation optimizations)
    * @returns End state and diff for visible points only
    */
   applyServerUpdate(
+    fromSequence: number,
+    toSequence: number,
     newSplits: SplitWithSegmentGroup[],
     serverDiff?: SplitWithSegmentGroupDiff[]
   ): StateChangeResult {
     const oldVisible = this.currentVisible;
+
+    // Gap detection: if fromSequence doesn't match our current sequence,
+    // we've missed updates. In this case, ignore the diff and use full state.
+    const gapDetected = this.serverState.sequenceNumber !== fromSequence;
+
+    // Update server state with new data
     this.serverState.splits = newSplits;
+    this.serverState.sequenceNumber = toSequence;
+
     const newVisible = this.computeCurrentVisibleState();
     this.currentVisible = newVisible;
 

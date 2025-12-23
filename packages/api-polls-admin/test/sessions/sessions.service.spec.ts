@@ -1,5 +1,5 @@
 import { SessionsService } from '../../src/sessions/sessions.service';
-import type { SegmentVizConfig, SplitWithSegmentGroup } from 'shared-computation';
+import type { SegmentVizConfig, SplitWithSegmentGroup } from 'shared-types';
 import type { VisualizationLookupMaps } from 'shared-schemas';
 
 /**

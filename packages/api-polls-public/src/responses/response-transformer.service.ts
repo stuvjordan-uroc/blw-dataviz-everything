@@ -1,6 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import type { Question } from "shared-types";
-import type { SegmentVizConfig, SplitWithSegmentGroup } from "shared-computation";
+import type { Question, SegmentVizConfig, SplitWithSegmentGroup } from "shared-types";
 import type { VisualizationLookupMaps } from "shared-schemas";
 
 /**

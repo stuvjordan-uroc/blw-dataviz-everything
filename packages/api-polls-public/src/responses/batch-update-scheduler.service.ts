@@ -3,7 +3,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { VisualizationCacheService } from "./visualization-cache.service";
 import { ResponseTransformer, RespondentResponses } from "./response-transformer.service";
 import { updateAllSplitsWithSegmentsFromResponses } from "shared-computation";
-import type { SplitWithSegmentGroup, SplitWithSegmentGroupDiff } from "shared-computation";
+import type { SplitWithSegmentGroup, SplitWithSegmentGroupDiff, VisualizationUpdateEvent } from "shared-types";
 
 /**
  * Injection token for batch update interval
@@ -12,16 +12,10 @@ export const BATCH_INTERVAL_TOKEN = 'BATCH_UPDATE_INTERVAL_MS';
 
 /**
  * Event emitted when visualizations are updated
+ * Extends the API contract type with sessionId
  */
-export interface VisualizationUpdatedEvent {
+export interface VisualizationUpdatedEvent extends VisualizationUpdateEvent {
   sessionId: number;
-  visualizationId: string;
-  fromSequence: number;
-  toSequence: number;
-  splits: SplitWithSegmentGroup[];
-  splitDiffs: SplitWithSegmentGroupDiff[];
-  basisSplitIndices: number[];
-  timestamp: Date;
 }
 
 /**

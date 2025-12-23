@@ -1,5 +1,5 @@
 import { ResponseTransformer, RespondentResponses, TransformedResponse } from '../../src/responses/response-transformer.service';
-import type { SegmentVizConfig, SplitWithSegmentGroup } from 'shared-computation';
+import type { SegmentVizConfig, SplitWithSegmentGroup } from 'shared-types';
 import type { VisualizationLookupMaps } from 'shared-schemas';
 
 /**
