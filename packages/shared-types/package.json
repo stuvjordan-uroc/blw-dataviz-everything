@@ -10,6 +10,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "zod": "^3.22.0"
+  },
   "devDependencies": {
     "typescript": "^5.9.3"
   }

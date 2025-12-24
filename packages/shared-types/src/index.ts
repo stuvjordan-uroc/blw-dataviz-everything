@@ -47,3 +47,18 @@ export type {
   SubmitResponsesDto,
   SubmitResponsesResponse,
 } from './polls-api-contract';
+
+/**
+ * Zod schemas for API contract validation
+ * Re-exported from polls-api-contract.zod.ts for runtime validation
+ */
+export {
+  SessionResponseSchema,
+  VisualizationDataSchema,
+  VisualizationSnapshotEventSchema,
+  VisualizationUpdateEventSchema,
+  SessionStatusChangedEventSchema,
+  RespondentAnswerSchema,
+  SubmitResponsesDtoSchema,
+  SubmitResponsesResponseSchema,
+} from './polls-api-contract.zod';

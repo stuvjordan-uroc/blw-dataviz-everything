@@ -1,16 +1,16 @@
 /**
- * SessionVizClient: High-level orchestrator for participant visualization viewing.
+ * SessionVizClient: High-level orchestrator for session participant visualization viewing.
  * 
  * This class coordinates multiple components to provide a complete solution for
  * participants viewing live or final session visualizations:
  * 
  * - PollsApiClient: Handles HTTP/SSE communication with the server
- * - ParticipantVizState: Manages canonical + personal state for EACH visualization
+ * - VizStateManager: Manages canonical + personal state for each of a session's visualizations
  * - Event coordination: Bridges SSE events to state updates
  * - Subscription management: Notifies external code (e.g., React) of changes
  * 
  * Architecture:
- * - Maintains a Map of ParticipantVizState instances, one per visualization
+ * - Maintains a Map of VizStateManager instances, one for each visualization in the session
  * - Routes SSE updates to the correct visualization by visualizationId
  * - Notifies subscribers with visualizationId for targeted UI updates
  * 
@@ -34,7 +34,7 @@ import type {
   SessionStatusChangedEvent,
 } from 'shared-types';
 
-import { ParticipantVizState } from './ParticipantVizState';
+import { VizStateManager } from './VizStateManager';
 import type {
   ParticipantVisibleState,
   ParticipantVisibleDiff,
@@ -43,7 +43,7 @@ import type {
 
 export class SessionVizClient {
   private apiClient: PollsApiClient;
-  private vizStates: Map<string, ParticipantVizState> = new Map();
+  private vizManagers: Map<string, VizStateManager> = new Map();
   private eventSource: EventSource | null = null;
   private listeners: Set<StateChangeCallback> = new Set();
   private sessionData: SessionResponse | null = null;
@@ -56,8 +56,8 @@ export class SessionVizClient {
    * Connect to a session and begin receiving visualization updates.
    * 
    * This method:
-   * 1. Fetches session configuration and initial viz state for ALL visualizations
-   * 2. Initializes one ParticipantVizState per visualization
+   * 1. Fetches session configuration and initial viz state for all of the session's visualizations
+   * 2. Initializes one VizStateManager per visualization
    * 3. Opens SSE connection for live updates
    * 4. Registers event handlers
    * 5. Returns map of initial visible states
@@ -66,22 +66,36 @@ export class SessionVizClient {
    * @returns Promise resolving to Map of initial visible states keyed by visualizationId
    */
   async connect(slug: string): Promise<Map<string, ParticipantVisibleState>> {
-    // TODO: Implement connection logic
-    // 1. this.sessionData = await this.apiClient.getSession(slug)
-    // 2. Loop through sessionData.visualizations array:
-    //    for each viz in visualizations:
-    //      const vizState = new ParticipantVizState(
-    //        viz.splits,
-    //        viz.basisSplitIndices,
-    //        viz.sequenceNumber,
-    //        viz.viewMaps
-    //      )
-    //      this.vizStates.set(viz.visualizationId, vizState)
-    // 3. this.eventSource = this.apiClient.createVisualizationStream(sessionId)
-    // 4. this.attachEventHandlers()
-    // 5. return Map of visualizationId -> vizState.getVisibleState()
 
-    throw new Error('Not implemented');
+    //get session data
+    this.sessionData = await this.apiClient.getSession(slug)
+
+    //loop through the sessionData.visualization array.
+    //for each visualization, create a VizStateManager
+    for (const viz of this.sessionData.visualizations) {
+      const vizState = new VizStateManager(
+        viz.splits,
+        viz.basisSplitIndices,
+        viz.sequenceNumber,
+        viz.viewMaps
+      )
+      this.vizManagers.set(viz.visualizationId, vizState)
+    }
+
+    //set up event source from session stream
+    this.eventSource = this.apiClient.createVisualizationStream(this.sessionData.id)
+
+
+    //call internal method to connect event handlers to event source
+    this.attachEventHandlers();
+
+    //return map of initial visible states
+    const initialStates = new Map<string, ParticipantVisibleState>();
+    this.vizManagers.forEach((vizManager, id) => {
+      initialStates.set(id, vizManager.getVisibleState());
+    });
+    return initialStates;
+
   }
 
   /**
@@ -103,12 +117,12 @@ export class SessionVizClient {
    * @param viewId - View identifier string (e.g., "0,1,3" or "")
    */
   switchView(visualizationId: string, viewId: string): void {
-    const vizState = this.vizStates.get(visualizationId);
-    if (!vizState) {
+    const vizManager = this.vizManagers.get(visualizationId);
+    if (!vizManager) {
       throw new Error(`Visualization ${visualizationId} not found`);
     }
 
-    const result = vizState.setView(viewId);
+    const result = vizManager.setView(viewId);
     this.notifyListeners(visualizationId, result.endState, result.diff);
   }
 
@@ -119,12 +133,12 @@ export class SessionVizClient {
    * @param mode - 'collapsed' or 'expanded'
    */
   setDisplayMode(visualizationId: string, mode: 'collapsed' | 'expanded'): void {
-    const vizState = this.vizStates.get(visualizationId);
-    if (!vizState) {
+    const vizManager = this.vizManagers.get(visualizationId);
+    if (!vizManager) {
       throw new Error(`Visualization ${visualizationId} not found`);
     }
 
-    const result = vizState.setDisplayMode(mode);
+    const result = vizManager.setDisplayMode(mode);
     this.notifyListeners(visualizationId, result.endState, result.diff);
   }
 
@@ -134,7 +148,7 @@ export class SessionVizClient {
   disconnect(): void {
     this.eventSource?.close();
     this.eventSource = null;
-    this.vizStates.clear();
+    this.vizManagers.clear();
     this.listeners.clear();
   }
 
@@ -152,8 +166,8 @@ export class SessionVizClient {
    * @returns Current visible state or null if visualization not found
    */
   getVisibleState(visualizationId: string): ParticipantVisibleState | null {
-    const vizState = this.vizStates.get(visualizationId);
-    return vizState ? vizState.getVisibleState() : null;
+    const vizManager = this.vizManagers.get(visualizationId);
+    return vizManager ? vizManager.getVisibleState() : null;
   }
 
   /**
@@ -163,8 +177,8 @@ export class SessionVizClient {
    */
   getAllVisibleStates(): Map<string, ParticipantVisibleState> {
     const states = new Map<string, ParticipantVisibleState>();
-    this.vizStates.forEach((vizState, id) => {
-      states.set(id, vizState.getVisibleState());
+    this.vizManagers.forEach((vizManager, id) => {
+      states.set(id, vizManager.getVisibleState());
     });
     return states;
   }
@@ -175,17 +189,35 @@ export class SessionVizClient {
    * @returns Array of visualization IDs
    */
   getVisualizationIds(): string[] {
-    return Array.from(this.vizStates.keys());
+    return Array.from(this.vizManagers.keys());
   }
 
   /**
    * Internal: Attach event listeners to the SSE EventSource.
    */
   private attachEventHandlers(): void {
-    // TODO: Implement event handler registration
-    // this.eventSource.addEventListener('visualization.updated', ...)
-    // this.eventSource.addEventListener('visualization.snapshot', ...)
-    // this.eventSource.addEventListener('session.statusChanged', ...)
+    if (!this.eventSource) return;
+
+    this.eventSource.addEventListener('visualization.updated', (event: Event) => {
+      // TODO: Add runtime validation using VisualizationUpdateEventSchema from shared-types
+      // Example: const data = VisualizationUpdateEventSchema.parse(JSON.parse((event as MessageEvent).data));
+      const data = JSON.parse((event as MessageEvent).data) as VisualizationUpdateEvent;
+      this.handleVisualizationUpdate(data);
+    });
+
+    this.eventSource.addEventListener('visualization.snapshot', (event: Event) => {
+      // TODO: Add runtime validation using VisualizationSnapshotEventSchema from shared-types
+      // Example: const data = VisualizationSnapshotEventSchema.parse(JSON.parse((event as MessageEvent).data));
+      const data = JSON.parse((event as MessageEvent).data) as VisualizationSnapshotEvent;
+      this.handleVisualizationSnapshot(data);
+    });
+
+    this.eventSource.addEventListener('session.statusChanged', (event: Event) => {
+      // TODO: Add runtime validation using SessionStatusChangedEventSchema from shared-types
+      // Example: const data = SessionStatusChangedEventSchema.parse(JSON.parse((event as MessageEvent).data));
+      const data = JSON.parse((event as MessageEvent).data) as SessionStatusChangedEvent;
+      this.handleSessionStatusChange(data);
+    });
   }
 
   /**
@@ -193,10 +225,10 @@ export class SessionVizClient {
    * Routes update to the specific visualization by ID.
    */
   private handleVisualizationUpdate(event: VisualizationUpdateEvent): void {
-    const vizState = this.vizStates.get(event.visualizationId);
-    if (!vizState) return;
+    const vizManager = this.vizManagers.get(event.visualizationId);
+    if (!vizManager) return;
 
-    const result = vizState.applyServerUpdate(
+    const result = vizManager.applyServerUpdate(
       event.fromSequence,
       event.toSequence,
       event.splits,
@@ -213,7 +245,7 @@ export class SessionVizClient {
     // TODO: Handle snapshot event with multiple visualizations
     // This event handler is used if reconnecting to an already-initialized stream
     // For each viz in event.visualizations:
-    //   - Get or create ParticipantVizState for viz.visualizationId
+    //   - Get or create VizStateManager for viz.visualizationId
     //   - Apply full state update with viz.splits, viz.sequenceNumber
     //   - Notify listeners for that specific visualizationId
   }

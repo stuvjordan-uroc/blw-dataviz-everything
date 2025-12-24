@@ -1,5 +1,5 @@
 /**
- * ParticipantVizState: Manages the participant-specific visualization state.
+ * VizStateManager: Manages the participant-specific visualization state.
  * 
  * This class integrates two sources of state:
  * 1. Canonical server state (shared by all participants)
@@ -35,7 +35,7 @@ import {
   computeVisiblePointsDiff,
 } from './viewComputation';
 
-export class ParticipantVizState {
+export class VizStateManager {
   private serverState: ServerState;
   private viewState: ViewState;
   private viewMaps: ViewMaps;

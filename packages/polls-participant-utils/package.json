@@ -12,7 +12,8 @@
   "dependencies": {
     "api-polls-client": "*",
     "shared-computation": "*",
-    "shared-types": "*"
+    "shared-types": "*",
+    "zod": "^3.22.0"
   },
   "peerDependencies": {
     "react": "^18.0.0"

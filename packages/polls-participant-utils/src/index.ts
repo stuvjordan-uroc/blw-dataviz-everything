@@ -5,7 +5,7 @@
  */
 
 // Visualization viewing
-export { ParticipantVizState } from './viz/ParticipantVizState';
+export { VizStateManager } from './viz/VizStateManager';
 export { SessionVizClient } from './viz/SessionVizClient';
 export * from './viz/viewComputation';
 

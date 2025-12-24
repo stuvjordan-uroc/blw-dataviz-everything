@@ -27,7 +27,7 @@ src/
     types.ts                    # Type definitions
     viewComputation.ts          # Pure functions for state transformation
     scaling.ts                  # Pure functions for coordinate scaling
-    ParticipantVizState.ts      # State manager (integrates server + view state)
+    VizStateManager.ts          # State manager (integrates server + view state)
     SessionVizClient.ts         # High-level orchestrator (SSE + API + state)
 
   responses/                    # Response submission utilities (future)
@@ -42,7 +42,7 @@ src/
 
 ### Visualization Viewing
 
-**ParticipantVizState** - Manages the participant-specific visualization state
+**VizStateManager** - Manages the participant-specific visualization state
 
 - Stores canonical server state (splits, basisSplitIndices)
 - Stores participant's view preferences (viewId, displayMode)
@@ -53,7 +53,7 @@ src/
 
 - Connects to session via API
 - Manages SSE connection for live updates
-- Coordinates ParticipantVizState with external events
+- Coordinates VizStateManager with external events
 - Provides pub/sub interface for React (or other UI frameworks)
 
 **useSessionViz** - React hook
@@ -88,18 +88,22 @@ src/
 import { useSessionViz } from "polls-participant-utils";
 
 function VizViewerPage({ sessionSlug }: { sessionSlug: string }) {
-  const { vizState, vizDiff, isLoading, error, switchView, setDisplayMode } =
+  const { vizStates, vizDiffs, isLoading, error, switchView, setDisplayMode } =
     useSessionViz(sessionSlug, "http://localhost:3005");
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
-  if (!vizState) return null;
+  if (!vizStates) return null;
 
   return (
     <>
-      <VizCanvas points={vizState.points} diff={vizDiff} />
-      <ViewControls onSwitchView={switchView} />
-      <DisplayModeToggle onChange={setDisplayMode} />
+      {Array.from(vizStates.entries()).map(([vizId, vizState]) => (
+        <div key={vizId}>
+          <VizCanvas points={vizState.points} diff={vizDiffs?.get(vizId)} />
+          <ViewControls onSwitchView={(viewId) => switchView(vizId, viewId)} />
+          <DisplayModeToggle onChange={(mode) => setDisplayMode(vizId, mode)} />
+        </div>
+      ))}
     </>
   );
 }
@@ -114,11 +118,12 @@ import { SessionVizClient } from "polls-participant-utils";
 const apiClient = new PollsApiClient("http://localhost:3005");
 const vizClient = new SessionVizClient(apiClient);
 
-// Connect to session
-const initialState = await vizClient.connect("my-session-slug");
+// Connect to session and get initial state for all visualizations
+const initialStates = await vizClient.connect("my-session-slug");
 
-// Subscribe to updates
-vizClient.subscribe((state, diff) => {
+// Subscribe to updates for all visualizations
+vizClient.subscribe((visualizationId, state, diff) => {
+  console.log(`Update for visualization ${visualizationId}`);
   console.log("New visible points:", state.points);
   if (diff) {
     console.log("Added:", diff.added.length);
@@ -127,9 +132,10 @@ vizClient.subscribe((state, diff) => {
   }
 });
 
-// Participant interactions
-vizClient.switchView("0,1,3"); // Activate questions 0, 1, 3
-vizClient.setDisplayMode("expanded");
+// Participant interactions on specific visualizations
+const vizId = vizClient.getVisualizationIds()[0];
+vizClient.switchView(vizId, "0,1,3"); // Activate questions 0, 1, 3
+vizClient.setDisplayMode(vizId, "expanded");
 
 // Clean up
 vizClient.disconnect();
