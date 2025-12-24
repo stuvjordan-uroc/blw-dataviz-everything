@@ -1,4 +1,3 @@
-import type { ResponseGroupWithStats, Split, SplitDiff } from "../statistics/types";
 import type {
   SegmentVizConfig,
   RectBounds,

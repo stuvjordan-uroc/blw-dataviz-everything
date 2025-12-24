@@ -5,16 +5,22 @@
  * participants viewing live or final session visualizations:
  * 
  * - PollsApiClient: Handles HTTP/SSE communication with the server
- * - ParticipantVizState: Manages canonical + personal state
+ * - ParticipantVizState: Manages canonical + personal state for EACH visualization
  * - Event coordination: Bridges SSE events to state updates
  * - Subscription management: Notifies external code (e.g., React) of changes
  * 
+ * Architecture:
+ * - Maintains a Map of ParticipantVizState instances, one per visualization
+ * - Routes SSE updates to the correct visualization by visualizationId
+ * - Notifies subscribers with visualizationId for targeted UI updates
+ * 
  * Exports:
  * - SessionVizClient class with methods:
- *   - connect(slug): Initialize connection to a session
+ *   - connect(slug): Initialize connection to a session with all its visualizations
  *   - subscribe(callback): Register for state change notifications
- *   - switchView(viewId): Change which questions are active
- *   - setDisplayMode(mode): Toggle collapsed/expanded display
+ *   - switchView(visualizationId, viewId): Change which questions are active for a specific viz
+ *   - setDisplayMode(visualizationId, mode): Toggle collapsed/expanded display for a specific viz
+ *   - getAllVisibleStates(): Get current state for all visualizations
  *   - disconnect(): Clean up SSE connection
  * 
  * This is the main entry point for UI code that wants to display visualizations.
@@ -37,7 +43,7 @@ import type {
 
 export class SessionVizClient {
   private apiClient: PollsApiClient;
-  private vizState: ParticipantVizState | null = null;
+  private vizStates: Map<string, ParticipantVizState> = new Map();
   private eventSource: EventSource | null = null;
   private listeners: Set<StateChangeCallback> = new Set();
   private sessionData: SessionResponse | null = null;
@@ -50,28 +56,30 @@ export class SessionVizClient {
    * Connect to a session and begin receiving visualization updates.
    * 
    * This method:
-   * 1. Fetches session configuration and initial viz state
-   * 2. Initializes ParticipantVizState with canonical data
+   * 1. Fetches session configuration and initial viz state for ALL visualizations
+   * 2. Initializes one ParticipantVizState per visualization
    * 3. Opens SSE connection for live updates
    * 4. Registers event handlers
-   * 5. Returns initial visible state
+   * 5. Returns map of initial visible states
    * 
    * @param slug - The session's unique slug
-   * @returns Promise resolving to initial visible state
+   * @returns Promise resolving to Map of initial visible states keyed by visualizationId
    */
-  async connect(slug: string): Promise<ParticipantVisibleState> {
+  async connect(slug: string): Promise<Map<string, ParticipantVisibleState>> {
     // TODO: Implement connection logic
     // 1. this.sessionData = await this.apiClient.getSession(slug)
-    // 2. Extract first visualization from sessionData.visualizations
-    // 3. this.vizState = new ParticipantVizState(
-    //      viz.splits,
-    //      viz.basisSplitIndices,
-    //      viz.sequenceNumber,  // <-- Initialize with current sequence
-    //      viz.viewMaps
-    //    )
-    // 4. this.eventSource = this.apiClient.createVisualizationStream(sessionId)
-    // 5. this.attachEventHandlers()
-    // 6. return this.vizState.getVisibleState()
+    // 2. Loop through sessionData.visualizations array:
+    //    for each viz in visualizations:
+    //      const vizState = new ParticipantVizState(
+    //        viz.splits,
+    //        viz.basisSplitIndices,
+    //        viz.sequenceNumber,
+    //        viz.viewMaps
+    //      )
+    //      this.vizStates.set(viz.visualizationId, vizState)
+    // 3. this.eventSource = this.apiClient.createVisualizationStream(sessionId)
+    // 4. this.attachEventHandlers()
+    // 5. return Map of visualizationId -> vizState.getVisibleState()
 
     throw new Error('Not implemented');
   }
@@ -89,31 +97,35 @@ export class SessionVizClient {
   }
 
   /**
-   * Change which view the participant is looking at.
+   * Change which view the participant is looking at for a specific visualization.
    * 
+   * @param visualizationId - The visualization to update
    * @param viewId - View identifier string (e.g., "0,1,3" or "")
    */
-  switchView(viewId: string): void {
-    if (!this.vizState) {
-      throw new Error('Not connected to a session');
+  switchView(visualizationId: string, viewId: string): void {
+    const vizState = this.vizStates.get(visualizationId);
+    if (!vizState) {
+      throw new Error(`Visualization ${visualizationId} not found`);
     }
 
-    const result = this.vizState.setView(viewId);
-    this.notifyListeners(result.endState, result.diff);
+    const result = vizState.setView(viewId);
+    this.notifyListeners(visualizationId, result.endState, result.diff);
   }
 
   /**
-   * Toggle between collapsed and expanded display modes.
+   * Toggle between collapsed and expanded display modes for a specific visualization.
    * 
+   * @param visualizationId - The visualization to update
    * @param mode - 'collapsed' or 'expanded'
    */
-  setDisplayMode(mode: 'collapsed' | 'expanded'): void {
-    if (!this.vizState) {
-      throw new Error('Not connected to a session');
+  setDisplayMode(visualizationId: string, mode: 'collapsed' | 'expanded'): void {
+    const vizState = this.vizStates.get(visualizationId);
+    if (!vizState) {
+      throw new Error(`Visualization ${visualizationId} not found`);
     }
 
-    const result = this.vizState.setDisplayMode(mode);
-    this.notifyListeners(result.endState, result.diff);
+    const result = vizState.setDisplayMode(mode);
+    this.notifyListeners(visualizationId, result.endState, result.diff);
   }
 
   /**
@@ -122,7 +134,7 @@ export class SessionVizClient {
   disconnect(): void {
     this.eventSource?.close();
     this.eventSource = null;
-    this.vizState = null;
+    this.vizStates.clear();
     this.listeners.clear();
   }
 
@@ -131,6 +143,39 @@ export class SessionVizClient {
    */
   getSessionData(): SessionResponse | null {
     return this.sessionData;
+  }
+
+  /**
+   * Get visible state for a specific visualization.
+   * 
+   * @param visualizationId - The visualization to get state for
+   * @returns Current visible state or null if visualization not found
+   */
+  getVisibleState(visualizationId: string): ParticipantVisibleState | null {
+    const vizState = this.vizStates.get(visualizationId);
+    return vizState ? vizState.getVisibleState() : null;
+  }
+
+  /**
+   * Get visible states for all visualizations.
+   * 
+   * @returns Map of visualizationId to current visible state
+   */
+  getAllVisibleStates(): Map<string, ParticipantVisibleState> {
+    const states = new Map<string, ParticipantVisibleState>();
+    this.vizStates.forEach((vizState, id) => {
+      states.set(id, vizState.getVisibleState());
+    });
+    return states;
+  }
+
+  /**
+   * Get list of available visualization IDs.
+   * 
+   * @returns Array of visualization IDs
+   */
+  getVisualizationIds(): string[] {
+    return Array.from(this.vizStates.keys());
   }
 
   /**
@@ -145,39 +190,32 @@ export class SessionVizClient {
 
   /**
    * Internal: Handle visualization update events from server.
+   * Routes update to the specific visualization by ID.
    */
   private handleVisualizationUpdate(event: VisualizationUpdateEvent): void {
-    if (!this.vizState) return;
+    const vizState = this.vizStates.get(event.visualizationId);
+    if (!vizState) return;
 
-    const result = this.vizState.applyServerUpdate(
+    const result = vizState.applyServerUpdate(
       event.fromSequence,
       event.toSequence,
       event.splits,
       event.splitDiffs
     );
-    this.notifyListeners(result.endState, result.diff);
+    this.notifyListeners(event.visualizationId, result.endState, result.diff);
   }
 
   /**
    * Internal: Handle visualization snapshot events (initial state).
+   * Updates all visualizations from the snapshot.
    */
   private handleVisualizationSnapshot(event: VisualizationSnapshotEvent): void {
     // TODO: Handle snapshot event with multiple visualizations
-    // For now, this is a stub since snapshots are primarily handled in connect()
-    // This event handler would be used if reconnecting to an already-initialized stream
-    if (!this.vizState) return;
-
-    // Extract first visualization from the snapshot
-    const firstViz = event.visualizations[0];
-    if (!firstViz) return;
-
-    // Treat as a full state update using the snapshot's sequence number
-    const result = this.vizState.applyServerUpdate(
-      firstViz.sequenceNumber - 1, // fromSequence (assume no gap for snapshot)
-      firstViz.sequenceNumber,
-      firstViz.splits
-    );
-    this.notifyListeners(result.endState, result.diff);
+    // This event handler is used if reconnecting to an already-initialized stream
+    // For each viz in event.visualizations:
+    //   - Get or create ParticipantVizState for viz.visualizationId
+    //   - Apply full state update with viz.splits, viz.sequenceNumber
+    //   - Notify listeners for that specific visualizationId
   }
 
   /**
@@ -191,12 +229,13 @@ export class SessionVizClient {
   }
 
   /**
-   * Internal: Notify all subscribers of a state change.
+   * Internal: Notify all subscribers of a state change for a specific visualization.
    */
   private notifyListeners(
+    visualizationId: string,
     state: ParticipantVisibleState,
     diff?: ParticipantVisibleDiff
   ): void {
-    this.listeners.forEach(callback => callback(state, diff));
+    this.listeners.forEach(callback => callback(visualizationId, state, diff));
   }
 }

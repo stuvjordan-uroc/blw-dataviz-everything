@@ -75,8 +75,10 @@ export interface StateChangeResult {
 
 /**
  * Callback type for subscribers to state changes.
+ * Called when any visualization's state changes.
  */
 export type StateChangeCallback = (
+  visualizationId: string,
   state: ParticipantVisibleState,
   diff?: ParticipantVisibleDiff
 ) => void;
