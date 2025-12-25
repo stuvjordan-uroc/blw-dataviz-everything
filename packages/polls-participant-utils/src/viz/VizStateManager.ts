@@ -79,11 +79,21 @@ export class VizStateManager {
   ): StateChangeResult {
     const oldVisible = this.currentVisible;
 
-    // Gap detection: if fromSequence doesn't match our current sequence,
-    // we've missed updates. In this case, ignore the diff and use full state.
-    const gapDetected = this.serverState.sequenceNumber !== fromSequence;
+    // Early exit: If we're already at or ahead of this sequence, nothing to do
+    // This commonly happens when receiving a snapshot that matches the state from GET /sessions/:slug
+    // Only take early exit if we have a current visible state to return
+    if (toSequence <= this.serverState.sequenceNumber && oldVisible) {
+      return {
+        endState: oldVisible,
+        diff: { added: [], removed: [], moved: [] }
+      };
+    }
 
     // Update server state with new data
+    // Note: We use newSplits directly rather than applying serverDiff because:
+    // 1. Reference assignment (O(1)) is faster than iterating through diff (O(d))
+    // 2. We must still compute visible diff (server doesn't know client's view state)
+    // 3. Partial recomputation based on diff would add complexity for marginal gains
     this.serverState.splits = newSplits;
     this.serverState.sequenceNumber = toSequence;
 

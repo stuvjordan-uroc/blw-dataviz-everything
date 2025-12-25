@@ -33,6 +33,12 @@ import type {
   VisualizationSnapshotEvent,
   SessionStatusChangedEvent,
 } from 'shared-types';
+import {
+  VisualizationUpdateEventSchema,
+  VisualizationSnapshotEventSchema,
+  SessionStatusChangedEventSchema,
+} from 'shared-types';
+import { ZodError } from 'zod';
 
 import { VizStateManager } from './VizStateManager';
 import type {
@@ -199,24 +205,33 @@ export class SessionVizClient {
     if (!this.eventSource) return;
 
     this.eventSource.addEventListener('visualization.updated', (event: Event) => {
-      // TODO: Add runtime validation using VisualizationUpdateEventSchema from shared-types
-      // Example: const data = VisualizationUpdateEventSchema.parse(JSON.parse((event as MessageEvent).data));
-      const data = JSON.parse((event as MessageEvent).data) as VisualizationUpdateEvent;
-      this.handleVisualizationUpdate(data);
+      try {
+        const rawData = JSON.parse((event as MessageEvent).data);
+        const data = VisualizationUpdateEventSchema.parse(rawData);
+        this.handleVisualizationUpdate(data);
+      } catch (error) {
+        this.handleUnknownPayload('visualization.updated', (event as MessageEvent).data, error);
+      }
     });
 
     this.eventSource.addEventListener('visualization.snapshot', (event: Event) => {
-      // TODO: Add runtime validation using VisualizationSnapshotEventSchema from shared-types
-      // Example: const data = VisualizationSnapshotEventSchema.parse(JSON.parse((event as MessageEvent).data));
-      const data = JSON.parse((event as MessageEvent).data) as VisualizationSnapshotEvent;
-      this.handleVisualizationSnapshot(data);
+      try {
+        const rawData = JSON.parse((event as MessageEvent).data);
+        const data = VisualizationSnapshotEventSchema.parse(rawData);
+        this.handleVisualizationSnapshot(data);
+      } catch (error) {
+        this.handleUnknownPayload('visualization.snapshot', (event as MessageEvent).data, error);
+      }
     });
 
     this.eventSource.addEventListener('session.statusChanged', (event: Event) => {
-      // TODO: Add runtime validation using SessionStatusChangedEventSchema from shared-types
-      // Example: const data = SessionStatusChangedEventSchema.parse(JSON.parse((event as MessageEvent).data));
-      const data = JSON.parse((event as MessageEvent).data) as SessionStatusChangedEvent;
-      this.handleSessionStatusChange(data);
+      try {
+        const rawData = JSON.parse((event as MessageEvent).data);
+        const data = SessionStatusChangedEventSchema.parse(rawData);
+        this.handleSessionStatusChange(data);
+      } catch (error) {
+        this.handleUnknownPayload('session.statusChanged', (event as MessageEvent).data, error);
+      }
     });
   }
 
@@ -240,14 +255,37 @@ export class SessionVizClient {
   /**
    * Internal: Handle visualization snapshot events (initial state).
    * Updates all visualizations from the snapshot.
+   * Used when reconnecting to an already-initialized stream.
    */
   private handleVisualizationSnapshot(event: VisualizationSnapshotEvent): void {
-    // TODO: Handle snapshot event with multiple visualizations
-    // This event handler is used if reconnecting to an already-initialized stream
-    // For each viz in event.visualizations:
-    //   - Get or create VizStateManager for viz.visualizationId
-    //   - Apply full state update with viz.splits, viz.sequenceNumber
-    //   - Notify listeners for that specific visualizationId
+    // Process each visualization in the snapshot
+    for (const viz of event.visualizations) {
+      // Get existing manager or create new one
+      let vizManager = this.vizManagers.get(viz.visualizationId);
+
+      if (!vizManager) {
+        // Create new VizStateManager if it doesn't exist
+        vizManager = new VizStateManager(
+          viz.splits,
+          viz.basisSplitIndices,
+          viz.sequenceNumber,
+          viz.viewMaps
+        );
+        this.vizManagers.set(viz.visualizationId, vizManager);
+      } else {
+        // Apply full state update to existing manager
+        // Use fromSequence = sequenceNumber - 1 to indicate a full snapshot replacement
+        vizManager.applyServerUpdate(
+          viz.sequenceNumber - 1,
+          viz.sequenceNumber,
+          viz.splits
+        );
+      }
+
+      // Notify listeners of the update
+      const visibleState = vizManager.getVisibleState();
+      this.notifyListeners(viz.visualizationId, visibleState);
+    }
   }
 
   /**
@@ -258,6 +296,36 @@ export class SessionVizClient {
     // - Notify UI?
     // - Close EventSource?
     // - Keep showing final state?
+  }
+
+  /**
+   * Internal: Handle messages with unknown/invalid payload structure.
+   * Logs diagnostic information to help debug malformed server messages.
+   */
+  private handleUnknownPayload(eventType: string, rawData: string, error: unknown): void {
+    console.warn(
+      `[SessionVizClient] Received message with unknown payload shape`,
+      {
+        eventType,
+        timestamp: new Date().toISOString(),
+        sessionId: this.sessionData?.id,
+        sessionSlug: this.sessionData?.slug,
+        rawDataPreview: rawData.substring(0, 200), // First 200 chars
+        rawDataLength: rawData.length,
+        error: error instanceof ZodError
+          ? {
+            name: 'ZodError',
+            issues: error.issues.map(issue => ({
+              path: issue.path.join('.'),
+              message: issue.message,
+              code: issue.code,
+            }))
+          }
+          : error instanceof Error
+            ? { name: error.name, message: error.message }
+            : String(error),
+      }
+    );
   }
 
   /**
