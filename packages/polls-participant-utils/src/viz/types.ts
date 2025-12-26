@@ -110,6 +110,20 @@ export type ConnectionStatusCallback = (
 ) => void;
 
 /**
+ * Configuration for canvas visualization renderer.
+ */
+export interface VizRendererConfig {
+  //to be determined
+}
+
+/**
+ * Internal state for canvas visualization renderer.
+ */
+export interface VizRendererState {
+  currentPositions: ParticipantPointPositions;
+}
+
+/**
  * Re-export types from shared packages for convenience
  */
 export type { SplitWithSegmentGroup, Point, ViewMaps, SplitWithSegmentGroupDiff } from 'shared-types';
