@@ -26,11 +26,17 @@ export function buildSegmentVizViewId(
   activeYIndices: number[],
   numXQuestions: number
 ): string {
+
+  //sort the passed indices to guarantee that we always
+  //use sorted indices as keys
+  const sortedX = [...activeXIndices].sort((a, b) => a - b);
+  const sortedY = [...activeYIndices].sort((a, b) => a - b);
+
   // Flatten indices: x-questions stay as-is, y-questions offset by numXQuestions
   // Note: Already in sorted order since all x-indices < numXQuestions <= all y-indices
   const flattened = [
-    ...activeXIndices,
-    ...activeYIndices.map(idx => idx + numXQuestions)
+    ...sortedX,
+    ...sortedY.map(idx => idx + numXQuestions)
   ];
 
   return flattened.join(',');

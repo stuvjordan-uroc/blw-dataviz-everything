@@ -39,48 +39,74 @@ export interface ParticipantPointPosition {
 }
 
 /**
- * The complete visible state for rendering: all points visible in the participant's current view.
+ * A point that has moved from one position to another (for animation).
  */
-export interface ParticipantVisibleState {
-  points: ParticipantPointPosition[];
+export interface PointPositionChange {
+  point: Point;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  dx: number;
+  dy: number;
 }
 
 /**
- * Describes what changed between two participant visible states (for animation).
+ * The complete set of point positions for rendering in the participant's current view.
+ * Stored as a Map keyed by point identifier for O(1) lookups during diff computation.
+ * UI code can iterate with positions.values() or convert to array with Array.from(positions.values()).
  */
-export interface ParticipantVisibleDiff {
+export type ParticipantPointPositions = Map<string, ParticipantPointPosition>;
+
+/**
+ * Describes what changed between two participant point position states (for animation).
+ */
+export interface ParticipantPointPositionsDiff {
   /** Points that were added (didn't exist before) */
   added: ParticipantPointPosition[];
   /** Points that were removed (no longer visible) */
   removed: ParticipantPointPosition[];
   /** Points that moved (with delta x/y from previous position) */
-  moved: Array<{
-    point: Point;
-    fromX: number;
-    fromY: number;
-    toX: number;
-    toY: number;
-    dx: number;
-    dy: number;
-  }>;
+  moved: PointPositionChange[];
 }
 
 /**
  * Result of a state change operation (either from server update or participant view change).
  */
 export interface StateChangeResult {
-  endState: ParticipantVisibleState;
-  diff: ParticipantVisibleDiff;
+  endState: ParticipantPointPositions;
+  diff: ParticipantPointPositionsDiff;
 }
 
 /**
- * Callback type for subscribers to state changes.
- * Called when any visualization's state changes.
+ * Callback type for subscribers to visualization state changes.
+ * Called when any visualization's point positions change.
  */
-export type StateChangeCallback = (
+export type VizStateChangeCallback = (
   visualizationId: string,
-  state: ParticipantVisibleState,
-  diff?: ParticipantVisibleDiff
+  result: StateChangeResult
+) => void;
+
+/**
+ * Callback type for subscribers to session status changes.
+ * Called when the session's open/closed status changes.
+ */
+export type SessionStatusCallback = (
+  isOpen: boolean,
+  timestamp: Date | string
+) => void;
+
+/**
+ * SSE connection status.
+ */
+export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
+
+/**
+ * Callback type for subscribers to connection status changes.
+ * Called when the SSE connection state changes.
+ */
+export type ConnectionStatusCallback = (
+  status: ConnectionStatus
 ) => void;
 
 /**

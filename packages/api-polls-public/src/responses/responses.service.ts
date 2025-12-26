@@ -358,6 +358,8 @@ export class ResponsesService {
         splits: vizState.splits,
         basisSplitIndices: vizState.basisSplitIndices,
         lastUpdated: vizState.lastUpdated,
+        vizWidth: vizState.vizWidth,
+        vizHeight: vizState.vizHeight,
       };
 
       // Only include viewMaps when explicitly requested (e.g., for GET /sessions/:slug)

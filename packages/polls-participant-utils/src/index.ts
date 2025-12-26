@@ -8,6 +8,7 @@
 export { VizStateManager } from './viz/VizStateManager';
 export { SessionVizClient } from './viz/SessionVizClient';
 export * from './viz/viewComputation';
+export * from './viz/scaling';
 
 // Types
 export type {

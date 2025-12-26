@@ -145,7 +145,8 @@ export const VisualizationDataSchema = z.object({
   splits: z.array(SplitWithSegmentGroupSchema),
   basisSplitIndices: z.array(z.number()),
   lastUpdated: z.union([z.string(), z.date()]),
-  viewMaps: ViewMapsSchema,
+  viewMaps: ViewMapsSchema, vizWidth: z.number(),
+  vizHeight: z.number(),
 });
 
 /**

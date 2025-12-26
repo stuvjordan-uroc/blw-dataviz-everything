@@ -76,7 +76,7 @@ export function computeSegmentBounds<T extends { proportion: number }>(
   return responseGroupsWithStats.map((rg, rgIdx) => {
     const segmentBounds = {
       x: currentX,
-      y: segmentGroupBounds.y,
+      y: 0,  // Relative to segment group top edge (all segments align to top)
       width: baseWidth + widthToBeDistributed * rg.proportion,
       height: segmentGroupBounds.height,
       responseGroupIndex: rgIdx

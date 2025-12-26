@@ -1,204 +1,198 @@
 /**
- * Pure scaling functions for transforming abstract-unit coordinates to pixel coordinates.
+ * Scaling utilities for converting abstract coordinate units to pixel coordinates.
  * 
- * These functions handle the presentation layer concern of mapping visualization
- * points from their abstract coordinate space (used by the server and state management)
- * to pixel coordinates for rendering on a specific canvas size.
+ * The server sends all coordinates and dimensions in abstract units. These functions
+ * handle the transformation to pixel coordinates for canvas rendering.
  * 
- * This separation allows:
- * - State to remain canvas-agnostic (no state updates on resize)
- * - Same state to render at multiple scales simultaneously
- * - Resize events to trigger only re-rendering, not state recomputation
+ * Coordinate system:
+ * - Abstract units: Computed by server based on SegmentVizConfig parameters
+ * - Pixel units: Actual canvas rendering coordinates
+ * - Scaling maintains aspect ratio: vizWidth:vizHeight = canvasWidth:canvasHeight
  * 
  * Exports:
- * - scalePointsToCanvas: Transform all points to pixel coordinates
- * - getAbstractBounds: Compute the bounding box of abstract coordinates
- * - scaleCoordinate: Scale a single coordinate value
- * - scaleLength: Scale a length/distance value
+ * - computeCanvasHeight: Calculate pixel height from pixel width + aspect ratio
+ * - scalePoint: Convert abstract x,y to pixel x,y
+ * - scaleXLength: Convert abstract x-axis length to pixels
+ * - scaleYLength: Convert abstract y-axis length to pixels
+ * - scalePointPosition: Helper for ParticipantPointPosition objects
+ * - scalePointPositionChange: Helper for PointPositionChange objects
  */
 
-import type { ParticipantPointPosition } from './types';
+import type { ParticipantPointPosition, PointPositionChange } from './types';
 
 /**
- * Bounds of an abstract coordinate space.
- */
-export interface AbstractBounds {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
-}
-
-/**
- * Pixel coordinates for a single point.
- */
-export interface PixelCoordinates {
-  x: number;
-  y: number;
-}
-
-/**
- * Point with pixel coordinates (for rendering).
- */
-export interface PixelPointPosition {
-  point: ParticipantPointPosition['point'];
-  x: number;
-  y: number;
-}
-
-/**
- * Options for scaling behavior.
- */
-export interface ScalingOptions {
-  /** Padding around the visualization (in pixels) */
-  padding?: number;
-  /** Whether to maintain aspect ratio (default: true) */
-  maintainAspectRatio?: boolean;
-  /** Alignment when aspect ratio creates extra space ('center' | 'top-left') */
-  alignment?: 'center' | 'top-left';
-}
-
-/**
- * Scale abstract-unit coordinates to pixel coordinates for a canvas.
+ * Compute canvas height in pixels to match aspect ratio of abstract dimensions.
  * 
- * Strategy:
- * 1. Determine bounds of abstract coordinate space
- * 2. Calculate scale factors for x and y dimensions
- * 3. Apply padding and aspect ratio constraints
- * 4. Transform each point's coordinates
+ * Given a desired canvas width in pixels, computes the height needed to maintain
+ * the same aspect ratio as the abstract coordinate system.
  * 
- * @param points - Points with abstract-unit coordinates
- * @param canvasWidth - Target canvas width in pixels
- * @param canvasHeight - Target canvas height in pixels
- * @param abstractBounds - Optional pre-computed bounds (auto-computed if not provided)
- * @param options - Scaling behavior options
- * @returns Points with pixel coordinates ready for rendering
+ * @param vizWidth - Canvas width in abstract units
+ * @param vizHeight - Canvas height in abstract units
+ * @param canvasWidth - Desired canvas width in pixels
+ * @returns Canvas height in pixels (rounded to whole number)
+ * 
+ * @example
+ * const height = computeCanvasHeight(800, 600, 1000);
+ * // height = 750 (maintains 4:3 aspect ratio)
  */
-export function scalePointsToCanvas(
-  points: ParticipantPointPosition[],
+export function computeCanvasHeight(
+  vizWidth: number,
+  vizHeight: number,
+  canvasWidth: number
+): number {
+  return Math.round((vizHeight / vizWidth) * canvasWidth);
+}
+
+/**
+ * Scale abstract coordinates to pixel coordinates.
+ * 
+ * Converts a point from abstract coordinate space to pixel coordinate space
+ * for canvas rendering. Results are rounded to whole pixel values.
+ * 
+ * @param x - X coordinate in abstract units
+ * @param y - Y coordinate in abstract units
+ * @param vizWidth - Canvas width in abstract units
+ * @param vizHeight - Canvas height in abstract units
+ * @param canvasWidth - Canvas width in pixels
+ * @param canvasHeight - Canvas height in pixels
+ * @returns Object with x and y in pixel coordinates
+ * 
+ * @example
+ * const pixel = scalePoint(100, 50, 800, 600, 1000, 750);
+ * // pixel = { x: 125, y: 63 }
+ */
+export function scalePoint(
+  x: number,
+  y: number,
+  vizWidth: number,
+  vizHeight: number,
   canvasWidth: number,
-  canvasHeight: number,
-  abstractBounds?: AbstractBounds,
-  options?: ScalingOptions
-): PixelPointPosition[] {
-  // TODO: Implement scaling logic
-  // 1. Compute or use provided abstract bounds
-  // 2. Calculate scale factors with padding
-  // 3. Handle aspect ratio constraints
-  // 4. Transform each point
-
-  return points.map(pp => ({
-    point: pp.point,
-    x: 0, // Placeholder
-    y: 0, // Placeholder
-  }));
-}
-
-/**
- * Compute the bounding box of a set of points in abstract coordinates.
- * 
- * This is useful for:
- * - Pre-computing bounds to avoid recalculation on every scale operation
- * - Determining the extents of a visualization
- * - Calculating margins and padding
- * 
- * @param points - Points with abstract-unit coordinates
- * @returns Bounding box encompassing all points
- */
-export function getAbstractBounds(
-  points: ParticipantPointPosition[]
-): AbstractBounds {
-  // TODO: Implement bounds calculation
-  // Handle empty array case
-  // Find min/max for x and y
-
-  if (points.length === 0) {
-    return { minX: 0, maxX: 1, minY: 0, maxY: 1 };
-  }
-
+  canvasHeight: number
+): { x: number; y: number } {
   return {
-    minX: 0, // Placeholder
-    maxX: 1, // Placeholder
-    minY: 0, // Placeholder
-    maxY: 1, // Placeholder
+    x: Math.round((x / vizWidth) * canvasWidth),
+    y: Math.round((y / vizHeight) * canvasHeight),
   };
 }
 
 /**
- * Scale a single coordinate value from abstract space to pixel space.
+ * Scale an x-axis length from abstract units to pixels.
  * 
- * Linear interpolation from [abstractMin, abstractMax] to [0, pixelSize].
+ * Converts a horizontal distance or width from abstract units to pixels.
+ * Useful for scaling segment widths, gaps, etc.
  * 
- * @param abstractValue - The abstract coordinate value to scale
- * @param abstractMin - Minimum of the abstract range
- * @param abstractMax - Maximum of the abstract range
- * @param pixelSize - Size of the pixel range
- * @param padding - Optional padding in pixels to apply
- * @returns Scaled pixel coordinate
+ * @param length - Length in abstract units
+ * @param vizWidth - Canvas width in abstract units
+ * @param canvasWidth - Canvas width in pixels
+ * @returns Length in pixels (rounded to whole number)
+ * 
+ * @example
+ * const pixelWidth = scaleXLength(50, 800, 1000);
+ * // pixelWidth = 63
  */
-export function scaleCoordinate(
-  abstractValue: number,
-  abstractMin: number,
-  abstractMax: number,
-  pixelSize: number,
-  padding: number = 0
+export function scaleXLength(
+  length: number,
+  vizWidth: number,
+  canvasWidth: number
 ): number {
-  // TODO: Implement linear interpolation
-  // Handle edge cases (abstractMin === abstractMax)
-  // Apply padding
-
-  return 0; // Placeholder
+  return Math.round((length / vizWidth) * canvasWidth);
 }
 
 /**
- * Scale a length or distance value from abstract units to pixels.
+ * Scale a y-axis length from abstract units to pixels.
  * 
- * Unlike scaleCoordinate, this scales a distance rather than a position,
- * so it doesn't need min/max bounds - just the scale factor.
+ * Converts a vertical distance or height from abstract units to pixels.
+ * Useful for scaling segment heights, gaps, etc.
  * 
- * Useful for:
- * - Scaling point radii
- * - Scaling line widths
- * - Scaling spacing values
+ * @param length - Length in abstract units
+ * @param vizHeight - Canvas height in abstract units
+ * @param canvasHeight - Canvas height in pixels
+ * @returns Length in pixels (rounded to whole number)
  * 
- * @param abstractLength - The length in abstract units
- * @param abstractRange - The range of the abstract space
- * @param pixelRange - The range of the pixel space
- * @returns Scaled length in pixels
+ * @example
+ * const pixelHeight = scaleYLength(30, 600, 750);
+ * // pixelHeight = 38
  */
-export function scaleLength(
-  abstractLength: number,
-  abstractRange: number,
-  pixelRange: number
+export function scaleYLength(
+  length: number,
+  vizHeight: number,
+  canvasHeight: number
 ): number {
-  // TODO: Implement proportional scaling
-  // Handle zero range case
-
-  if (abstractRange === 0) return 0;
-
-  return 0; // Placeholder
+  return Math.round((length / vizHeight) * canvasHeight);
 }
 
 /**
- * Calculate the scale factor to fit abstract bounds into pixel dimensions
- * while maintaining aspect ratio.
+ * Scale a ParticipantPointPosition to pixel coordinates.
  * 
- * @param abstractBounds - Bounds of the abstract space
- * @param canvasWidth - Target canvas width
- * @param canvasHeight - Target canvas height
- * @param padding - Padding in pixels
- * @returns Uniform scale factor to apply to both dimensions
+ * Helper function that preserves the point metadata while converting
+ * coordinates to pixels. Returns a new object; does not mutate input.
+ * 
+ * @param position - Point position in abstract coordinates
+ * @param vizWidth - Canvas width in abstract units
+ * @param vizHeight - Canvas height in abstract units
+ * @param canvasWidth - Canvas width in pixels
+ * @param canvasHeight - Canvas height in pixels
+ * @returns New ParticipantPointPosition with pixel coordinates
+ * 
+ * @example
+ * const abstractPos = { point: {id: 1, ...}, x: 100, y: 50 };
+ * const pixelPos = scalePointPosition(abstractPos, 800, 600, 1000, 750);
+ * // pixelPos = { point: {id: 1, ...}, x: 125, y: 63 }
  */
-export function calculateUniformScale(
-  abstractBounds: AbstractBounds,
+export function scalePointPosition(
+  position: ParticipantPointPosition,
+  vizWidth: number,
+  vizHeight: number,
   canvasWidth: number,
-  canvasHeight: number,
-  padding: number = 0
-): number {
-  // TODO: Implement uniform scale calculation
-  // Calculate available space after padding
-  // Compare aspect ratios
-  // Return limiting scale factor
+  canvasHeight: number
+): ParticipantPointPosition {
+  const scaled = scalePoint(position.x, position.y, vizWidth, vizHeight, canvasWidth, canvasHeight);
+  return {
+    point: position.point,
+    x: scaled.x,
+    y: scaled.y,
+  };
+}
 
-  return 1; // Placeholder
+/**
+ * Scale a PointPositionChange to pixel coordinates.
+ * 
+ * Helper function for animation that converts all position values
+ * (from, to, and delta) to pixel coordinates. Returns a new object.
+ * 
+ * @param change - Point position change in abstract coordinates
+ * @param vizWidth - Canvas width in abstract units
+ * @param vizHeight - Canvas height in abstract units
+ * @param canvasWidth - Canvas width in pixels
+ * @param canvasHeight - Canvas height in pixels
+ * @returns New PointPositionChange with pixel coordinates
+ * 
+ * @example
+ * const abstractChange = {
+ *   point: {id: 1, ...},
+ *   fromX: 100, fromY: 50,
+ *   toX: 150, toY: 75,
+ *   dx: 50, dy: 25
+ * };
+ * const pixelChange = scalePointPositionChange(abstractChange, 800, 600, 1000, 750);
+ */
+export function scalePointPositionChange(
+  change: PointPositionChange,
+  vizWidth: number,
+  vizHeight: number,
+  canvasWidth: number,
+  canvasHeight: number
+): PointPositionChange {
+  const from = scalePoint(change.fromX, change.fromY, vizWidth, vizHeight, canvasWidth, canvasHeight);
+  const to = scalePoint(change.toX, change.toY, vizWidth, vizHeight, canvasWidth, canvasHeight);
+
+  return {
+    point: change.point,
+    fromX: from.x,
+    fromY: from.y,
+    toX: to.x,
+    toY: to.y,
+    dx: to.x - from.x,
+    dy: to.y - from.y,
+  };
 }

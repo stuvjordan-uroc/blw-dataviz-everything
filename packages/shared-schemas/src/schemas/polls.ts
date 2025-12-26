@@ -9,6 +9,7 @@ import {
   timestamp,
   boolean,
   primaryKey,
+  real,
 } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
 import type { Question, SegmentVizConfig, SplitWithSegmentGroup, ViewMaps } from "shared-types";
@@ -129,6 +130,8 @@ export const sessionVisualizations = pollsSchema.table(
     splits: jsonb("splits").$type<SplitWithSegmentGroup[]>(),
     viewMaps: jsonb("view_maps").$type<ViewMaps>(),
     lookupMaps: jsonb("lookup_maps").$type<VisualizationLookupMaps>(),
+    vizWidth: real("viz_width").notNull(), // Canvas width in abstract units
+    vizHeight: real("viz_height").notNull(), // Canvas height in abstract units
     computedAt: timestamp("computed_at").defaultNow(),
   },
   (table) => [

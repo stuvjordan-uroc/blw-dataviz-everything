@@ -4,9 +4,13 @@
  * This hook bridges SessionVizClient into React's component lifecycle,
  * providing a declarative API for React components to:
  * - Connect to a session on mount
- * - Receive state updates for all visualizations and trigger re-renders
- * - Access participant actions (switchView, setDisplayMode) for specific visualizations
+ * - Track loading/error/session status (React state)
+ * - Access SessionVizClient for canvas/D3 components to subscribe directly
  * - Clean up connections on unmount
+ * 
+ * Note: Visualization point positions are NOT stored in React state.
+ * Canvas/D3 components should subscribe directly to client.subscribeToVizState()
+ * to avoid unnecessary React re-renders.
  * 
  * Exports:
  * - useSessionViz(slug, apiBaseUrl): Main hook for visualization viewing
@@ -15,50 +19,62 @@
  * ```tsx
  * function VizViewerPage({ sessionSlug }: { sessionSlug: string }) {
  *   const {
- *     vizStates,
- *     vizDiffs,
+ *     client,
  *     isLoading,
  *     error,
  *     sessionData,
- *     switchView,
- *     setDisplayMode
+ *     isSessionOpen,
  *   } = useSessionViz(sessionSlug, 'http://localhost:3005');
  * 
  *   if (isLoading) return <div>Loading...</div>;
  *   if (error) return <div>Error: {error.message}</div>;
- *   if (!vizStates) return null;
+ *   if (!client) return null;
  * 
- *   // Render each visualization separately
+ *   // Pass client to canvas components for direct subscription
  *   return (
  *     <>
- *       {Array.from(vizStates.entries()).map(([vizId, vizState]) => (
+ *       {client.getVisualizationIds().map((vizId) => (
  *         <div key={vizId}>
- *           <VizCanvas points={vizState.points} diff={vizDiffs?.get(vizId)} />
- *           <ViewControls onSwitchView={(viewId) => switchView(vizId, viewId)} />
- *           <DisplayModeToggle onChange={(mode) => setDisplayMode(vizId, mode)} />
+ *           <VizCanvas vizId={vizId} client={client} />
+ *           <ViewControls 
+ *             onSwitchView={(viewId) => client.switchView(vizId, viewId)} 
+ *           />
+ *           <DisplayModeToggle 
+ *             onChange={(mode) => client.setDisplayMode(vizId, mode)} 
+ *           />
  *         </div>
  *       ))}
+ *       <ResponseForm disabled={!isSessionOpen} />
  *     </>
  *   );
+ * }
+ * 
+ * // Canvas component subscribes directly to avoid React re-renders
+ * function VizCanvas({ vizId, client }: { vizId: string, client: SessionVizClient }) {
+ *   const canvasRef = useRef<HTMLCanvasElement>(null);
+ *   
+ *   useEffect(() => {
+ *     return client.subscribeToVizState((id, result) => {
+ *       if (id === vizId) {
+ *         drawToCanvas(canvasRef.current, result.endState, result.diff);
+ *       }
+ *     });
+ *   }, [vizId, client]);
+ *   
+ *   return <canvas ref={canvasRef} />;
  * }
  * ```
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PollsApiClient } from 'api-polls-client';
 import type { SessionResponse } from 'api-polls-client';
 import { SessionVizClient } from '../viz/SessionVizClient';
-import type {
-  ParticipantVisibleState,
-  ParticipantVisibleDiff,
-} from '../viz/types';
+import type { ConnectionStatus } from '../viz/types';
 
 export interface UseSessionVizResult {
-  /** Current visible states for all visualizations, keyed by visualizationId, or null if not yet loaded */
-  vizStates: Map<string, ParticipantVisibleState> | null;
-
-  /** Most recent diffs for all visualizations (for animation), keyed by visualizationId, or null if no recent changes */
-  vizDiffs: Map<string, ParticipantVisibleDiff> | null;
+  /** SessionVizClient instance for subscribing to viz updates and calling actions */
+  client: SessionVizClient | null;
 
   /** True while initial connection is being established */
   isLoading: boolean;
@@ -69,11 +85,11 @@ export interface UseSessionVizResult {
   /** Session metadata and configuration */
   sessionData: SessionResponse | null;
 
-  /** Change which questions are active in the view for a specific visualization */
-  switchView: (visualizationId: string, viewId: string) => void;
+  /** True if session is open (accepting responses), false if closed, null if unknown */
+  isSessionOpen: boolean | null;
 
-  /** Toggle between collapsed and expanded display modes for a specific visualization */
-  setDisplayMode: (visualizationId: string, mode: 'collapsed' | 'expanded') => void;
+  /** Current SSE connection status */
+  connectionStatus: ConnectionStatus;
 }
 
 /**
@@ -81,44 +97,81 @@ export interface UseSessionVizResult {
  * 
  * @param slug - The session's unique slug
  * @param apiBaseUrl - Base URL of the polling API (e.g., 'http://localhost:3005')
- * @returns Object with viz state, loading state, error state, and action handlers
+ * @returns Object with client instance, loading state, error state, and session metadata
  */
 export function useSessionViz(
   slug: string,
   apiBaseUrl: string
 ): UseSessionVizResult {
-  // TODO: Implement hook logic
-  // 1. Create SessionVizClient instance (useMemo or useState)
-  // 2. Set up state for vizStates (Map), vizDiffs (Map), isLoading, error
-  // 3. useEffect to connect on mount and disconnect on unmount
-  // 4. Subscribe to client updates and update React state:
-  //    - On callback(visualizationId, state, diff):
-  //      - Update vizStates Map with new state for visualizationId
-  //      - Update vizDiffs Map with new diff for visualizationId
-  // 5. Wrap action methods (switchView, setDisplayMode) in useCallback
+  // Create API client and SessionVizClient (stable across renders)
+  const client = useMemo(() => {
+    const apiClient = new PollsApiClient(apiBaseUrl);
+    return new SessionVizClient(apiClient);
+  }, [apiBaseUrl]);
 
-  const [vizStates, setVizStates] = useState<Map<string, ParticipantVisibleState> | null>(null);
-  const [vizDiffs, setVizDiffs] = useState<Map<string, ParticipantVisibleDiff> | null>(null);
+  // React state for UI-relevant data only
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [sessionData, setSessionData] = useState<SessionResponse | null>(null);
+  const [isSessionOpen, setIsSessionOpen] = useState<boolean | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const [clientReady, setClientReady] = useState(false);
 
-  // Placeholder implementations
-  const switchView = useCallback((visualizationId: string, viewId: string) => {
-    // TODO: Implement
-  }, []);
+  // Connect to session and set up subscriptions
+  useEffect(() => {
+    let mounted = true;
 
-  const setDisplayMode = useCallback((visualizationId: string, mode: 'collapsed' | 'expanded') => {
-    // TODO: Implement
-  }, []);
+    async function initialize() {
+      try {
+        // Connect to session
+        await client.connect(slug);
+
+        if (!mounted) return;
+
+        // Get session metadata
+        setSessionData(client.getSessionData());
+        setIsSessionOpen(client.getSessionStatus());
+        setClientReady(true);
+        setIsLoading(false);
+
+        // Subscribe to session status changes (affects React UI)
+        const unsubscribeStatus = client.subscribeToSessionStatus((isOpen) => {
+          setIsSessionOpen(isOpen);
+        });
+
+        // Subscribe to connection status changes (affects React UI)
+        const unsubscribeConnection = client.subscribeToConnectionStatus((status) => {
+          setConnectionStatus(status);
+        });
+
+        // Cleanup on unmount
+        return () => {
+          mounted = false;
+          unsubscribeStatus();
+          unsubscribeConnection();
+          client.disconnect();
+        };
+      } catch (err) {
+        if (!mounted) return;
+        setError(err instanceof Error ? err : new Error(String(err)));
+        setIsLoading(false);
+      }
+    }
+
+    const cleanup = initialize();
+
+    return () => {
+      mounted = false;
+      cleanup.then(fn => fn?.());
+    };
+  }, [client, slug]);
 
   return {
-    vizStates,
-    vizDiffs,
+    client: clientReady ? client : null,
     isLoading,
     error,
     sessionData,
-    switchView,
-    setDisplayMode,
+    isSessionOpen,
+    connectionStatus,
   };
 }

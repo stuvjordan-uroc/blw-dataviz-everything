@@ -43,6 +43,8 @@ export interface VisualizationData {
   basisSplitIndices: number[];
   lastUpdated: string | Date;
   viewMaps: ViewMaps; // Precomputed view mappings for efficient view switching
+  vizWidth: number; // Canvas width in abstract units
+  vizHeight: number; // Canvas height in abstract units
 }
 
 /**

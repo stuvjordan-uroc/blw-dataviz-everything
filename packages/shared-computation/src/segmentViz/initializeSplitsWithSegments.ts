@@ -5,7 +5,7 @@ import { computeSegmentGroupBounds, getWidthHeight } from "./geometry";
 import { setBasisSplitIndices } from "../statistics/setBasisSplitIndices";
 import { buildSegmentVizViewId } from "./buildSegmentVizViewId";
 
-export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig): { basisSplitIndices: number[], splits: SplitWithSegmentGroup[], viewMaps: ViewMaps } {
+export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig): { basisSplitIndices: number[], splits: SplitWithSegmentGroup[], viewMaps: ViewMaps, vizWidth: number, vizHeight: number } {
 
   //create the array to hold the splits we produce
   const splits: SplitWithSegmentGroup[] = [];
@@ -20,7 +20,7 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
   //number of x-axis grouping questions (for index offset calculation)
   const numXQuestions = segmentVizConfig.groupingQuestions.x.length;
 
-  //compute the vizWidth and vizHeight
+  //compute the vizWidth and vizHeight (will be returned to caller)
   const [vizWidth, vizHeight] = getWidthHeight(segmentVizConfig);
 
   //generate the x-axis views
@@ -234,6 +234,8 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
     basisSplitIndices: allBasisSplits.map(bs => bs.splitIdx),
     splits: splits,
     viewMaps: viewMaps,
+    vizWidth: vizWidth,
+    vizHeight: vizHeight,
   }
 
 }

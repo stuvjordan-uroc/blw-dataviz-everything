@@ -26,20 +26,23 @@ import type {
   ViewMaps,
   ViewState,
   ServerState,
-  ParticipantVisibleState,
+  ParticipantPointPositions,
   StateChangeResult,
 } from './types';
 
 import {
-  computeVisiblePoints,
-  computeVisiblePointsDiff,
+  initializePointPositions,
+  computePointPositionsDiff,
+  updatePointIdentities,
+  updatePositionsForViewChange,
+  updatePositionsForServerChange,
 } from './viewComputation';
 
 export class VizStateManager {
   private serverState: ServerState;
   private viewState: ViewState;
   private viewMaps: ViewMaps;
-  private currentVisible: ParticipantVisibleState | null = null;
+  private currentPositions: ParticipantPointPositions | null = null;
 
   constructor(
     initialSplits: SplitWithSegmentGroup[],
@@ -56,9 +59,13 @@ export class VizStateManager {
     this.viewMaps = viewMaps;
     this.viewState = {
       viewId: initialViewState?.viewId ?? '', // Default to base view (no active questions)
-      displayMode: initialViewState?.displayMode ?? 'collapsed',
+      displayMode: initialViewState?.displayMode ?? 'expanded',
     };
-    this.currentVisible = this.computeCurrentVisibleState();
+    this.currentPositions = initializePointPositions(
+      this.serverState,
+      this.viewState,
+      this.viewMaps
+    );
   }
 
   /**
@@ -77,33 +84,69 @@ export class VizStateManager {
     newSplits: SplitWithSegmentGroup[],
     serverDiff?: SplitWithSegmentGroupDiff[]
   ): StateChangeResult {
-    const oldVisible = this.currentVisible;
+    const positions = this.currentPositions;
 
     // Early exit: If we're already at or ahead of this sequence, nothing to do
     // This commonly happens when receiving a snapshot that matches the state from GET /sessions/:slug
     // Only take early exit if we have a current visible state to return
-    if (toSequence <= this.serverState.sequenceNumber && oldVisible) {
+    if (toSequence <= this.serverState.sequenceNumber && positions) {
       return {
-        endState: oldVisible,
+        endState: positions,
         diff: { added: [], removed: [], moved: [] }
       };
     }
 
     // Update server state with new data
-    // Note: We use newSplits directly rather than applying serverDiff because:
-    // 1. Reference assignment (O(1)) is faster than iterating through diff (O(d))
-    // 2. We must still compute visible diff (server doesn't know client's view state)
-    // 3. Partial recomputation based on diff would add complexity for marginal gains
+    // Note: We always update the splits reference (O(1)) rather than mutating in place
     this.serverState.splits = newSplits;
     this.serverState.sequenceNumber = toSequence;
 
-    const newVisible = this.computeCurrentVisibleState();
-    this.currentVisible = newVisible;
+    // Choose computation path based on whether we have usable diff
+    if (fromSequence === this.serverState.sequenceNumber - 1 && serverDiff && positions) {
+      // Incremental path: update points and positions based on server diff
+      // Step 1: Add/remove points (mutates positions, which is this.currentPositions)
+      const identityChanges = updatePointIdentities(
+        positions,
+        serverDiff,
+        this.serverState,
+        this.viewState,
+        this.viewMaps
+      );
 
-    return {
-      endState: newVisible,
-      diff: computeVisiblePointsDiff(oldVisible, newVisible),
-    };
+      // Step 2: Update positions for existing points that moved (mutates positions)
+      const movedPoints = updatePositionsForServerChange(
+        positions,
+        serverDiff,
+        this.serverState,
+        this.viewState,
+        this.viewMaps
+      );
+
+      // Assemble full diff from identity changes (added/removed) + position changes (moved)
+      return {
+        endState: positions,
+        diff: {
+          added: identityChanges.added,
+          removed: identityChanges.removed,
+          moved: movedPoints,
+        },
+      };
+    } else {
+      // Full recomputation path: snapshot or sequence gap
+      // Need full rebuild because we don't have a valid diff or sequential update
+      const newPositions = initializePointPositions(
+        this.serverState,
+        this.viewState,
+        this.viewMaps
+      );
+      const diff = computePointPositionsDiff(positions, newPositions);
+      this.currentPositions = newPositions;
+
+      return {
+        endState: newPositions,
+        diff: diff,
+      };
+    }
   }
 
   /**
@@ -113,14 +156,29 @@ export class VizStateManager {
    * @returns End state and diff for animation
    */
   setView(viewId: string): StateChangeResult {
-    const oldVisible = this.currentVisible;
-    this.viewState.viewId = viewId;
-    const newVisible = this.computeCurrentVisibleState();
-    this.currentVisible = newVisible;
+    // No-op if view hasn't changed
+    if (this.viewState.viewId === viewId) {
+      return {
+        endState: this.currentPositions!,
+        diff: { added: [], removed: [], moved: [] },
+      };
+    }
+
+    // currentPositions is guaranteed non-null after constructor runs
+    const positions = this.currentPositions!;
+    const oldViewState = this.viewState;
+    this.viewState = { ...oldViewState, viewId };
+
+    const diff = updatePositionsForViewChange(
+      positions,
+      this.serverState,
+      this.viewState,
+      this.viewMaps
+    );
 
     return {
-      endState: newVisible,
-      diff: computeVisiblePointsDiff(oldVisible, newVisible),
+      endState: positions,
+      diff,
     };
   }
 
@@ -131,22 +189,37 @@ export class VizStateManager {
    * @returns End state and diff for animation
    */
   setDisplayMode(mode: 'collapsed' | 'expanded'): StateChangeResult {
-    const oldVisible = this.currentVisible;
-    this.viewState.displayMode = mode;
-    const newVisible = this.computeCurrentVisibleState();
-    this.currentVisible = newVisible;
+    // No-op if display mode hasn't changed
+    if (this.viewState.displayMode === mode) {
+      return {
+        endState: this.currentPositions!,
+        diff: { added: [], removed: [], moved: [] },
+      };
+    }
+
+    // currentPositions is guaranteed non-null after constructor runs
+    const positions = this.currentPositions!;
+    const oldViewState = this.viewState;
+    this.viewState = { ...oldViewState, displayMode: mode };
+
+    const diff = updatePositionsForViewChange(
+      positions,
+      this.serverState,
+      this.viewState,
+      this.viewMaps
+    );
 
     return {
-      endState: newVisible,
-      diff: computeVisiblePointsDiff(oldVisible, newVisible),
+      endState: positions,
+      diff,
     };
   }
 
   /**
-   * Get current visible points without changing state.
+   * Get current point positions without changing state.
    */
-  getVisibleState(): ParticipantVisibleState {
-    return this.currentVisible ?? this.computeCurrentVisibleState();
+  getVisibleState(): ParticipantPointPositions {
+    return this.currentPositions!;
   }
 
   /**
@@ -163,18 +236,7 @@ export class VizStateManager {
     return {
       splits: this.serverState.splits,
       basisSplitIndices: this.serverState.basisSplitIndices,
+      sequenceNumber: this.serverState.sequenceNumber,
     };
-  }
-
-  /**
-   * Internal helper: Compute current visible state using pure functions.
-   */
-  private computeCurrentVisibleState(): ParticipantVisibleState {
-    return computeVisiblePoints(
-      this.serverState.splits,
-      this.viewState.viewId,
-      this.viewState.displayMode,
-      this.viewMaps
-    );
   }
 }

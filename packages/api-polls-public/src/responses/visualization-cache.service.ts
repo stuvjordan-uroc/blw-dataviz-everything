@@ -15,6 +15,8 @@ interface VisualizationState {
   splits: SplitWithSegmentGroup[];
   lookupMaps: VisualizationLookupMaps;
   viewMaps: ViewMaps; // Precomputed view mappings for client-side view switching
+  vizWidth: number; // Canvas width in abstract units
+  vizHeight: number; // Canvas height in abstract units
   sequenceNumber: number;
   lastUpdated: Date;
 }
@@ -165,6 +167,8 @@ export class VisualizationCacheService {
           profileToSplitIndex: {},
         },
         viewMaps: vizDbData.viewMaps || {},
+        vizWidth: vizDbData.vizWidth,
+        vizHeight: vizDbData.vizHeight,
         sequenceNumber: 0,
         lastUpdated: vizDbData.computedAt || new Date(),
       });

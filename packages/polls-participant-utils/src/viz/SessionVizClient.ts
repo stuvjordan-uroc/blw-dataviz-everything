@@ -42,17 +42,23 @@ import { ZodError } from 'zod';
 
 import { VizStateManager } from './VizStateManager';
 import type {
-  ParticipantVisibleState,
-  ParticipantVisibleDiff,
-  StateChangeCallback,
+  ParticipantPointPositions,
+  StateChangeResult,
+  VizStateChangeCallback,
+  SessionStatusCallback,
+  ConnectionStatus,
+  ConnectionStatusCallback,
 } from './types';
 
 export class SessionVizClient {
   private apiClient: PollsApiClient;
   private vizManagers: Map<string, VizStateManager> = new Map();
   private eventSource: EventSource | null = null;
-  private listeners: Set<StateChangeCallback> = new Set();
+  private vizStateListeners: Set<VizStateChangeCallback> = new Set();
+  private sessionStatusListeners: Set<SessionStatusCallback> = new Set();
+  private connectionStatusListeners: Set<ConnectionStatusCallback> = new Set();
   private sessionData: SessionResponse | null = null;
+  private connectionStatus: ConnectionStatus = 'disconnected';
 
   constructor(apiClient: PollsApiClient) {
     this.apiClient = apiClient;
@@ -66,12 +72,12 @@ export class SessionVizClient {
    * 2. Initializes one VizStateManager per visualization
    * 3. Opens SSE connection for live updates
    * 4. Registers event handlers
-   * 5. Returns map of initial visible states
+   * 5. Returns map of initial point positions
    * 
    * @param slug - The session's unique slug
-   * @returns Promise resolving to Map of initial visible states keyed by visualizationId
+   * @returns Promise resolving to Map of initial point positions keyed by visualizationId
    */
-  async connect(slug: string): Promise<Map<string, ParticipantVisibleState>> {
+  async connect(slug: string): Promise<Map<string, ParticipantPointPositions>> {
 
     //get session data
     this.sessionData = await this.apiClient.getSession(slug)
@@ -95,8 +101,8 @@ export class SessionVizClient {
     //call internal method to connect event handlers to event source
     this.attachEventHandlers();
 
-    //return map of initial visible states
-    const initialStates = new Map<string, ParticipantVisibleState>();
+    //return map of initial point positions
+    const initialStates = new Map<string, ParticipantPointPositions>();
     this.vizManagers.forEach((vizManager, id) => {
       initialStates.set(id, vizManager.getVisibleState());
     });
@@ -105,15 +111,39 @@ export class SessionVizClient {
   }
 
   /**
-   * Subscribe to state changes.
-   * Callback will be invoked whenever visible state changes (from server or participant).
+   * Subscribe to visualization state changes.
+   * Callback will be invoked whenever point positions change (from server or participant view changes).
    * 
-   * @param callback - Function to call on state changes
+   * @param callback - Function to call on visualization state changes
    * @returns Unsubscribe function
    */
-  subscribe(callback: StateChangeCallback): () => void {
-    this.listeners.add(callback);
-    return () => this.listeners.delete(callback);
+  subscribeToVizState(callback: VizStateChangeCallback): () => void {
+    this.vizStateListeners.add(callback);
+    return () => this.vizStateListeners.delete(callback);
+  }
+
+  /**
+   * Subscribe to session status changes.
+   * Callback will be invoked when the session opens or closes.
+   * 
+   * @param callback - Function to call on session status changes
+   * @returns Unsubscribe function
+   */
+  subscribeToSessionStatus(callback: SessionStatusCallback): () => void {
+    this.sessionStatusListeners.add(callback);
+    return () => this.sessionStatusListeners.delete(callback);
+  }
+
+  /**
+   * Subscribe to connection status changes.
+   * Callback will be invoked when the SSE connection state changes.
+   * 
+   * @param callback - Function to call on connection status changes
+   * @returns Unsubscribe function
+   */
+  subscribeToConnectionStatus(callback: ConnectionStatusCallback): () => void {
+    this.connectionStatusListeners.add(callback);
+    return () => this.connectionStatusListeners.delete(callback);
   }
 
   /**
@@ -129,7 +159,7 @@ export class SessionVizClient {
     }
 
     const result = vizManager.setView(viewId);
-    this.notifyListeners(visualizationId, result.endState, result.diff);
+    this.notifyVizStateListeners(visualizationId, result);
   }
 
   /**
@@ -145,7 +175,7 @@ export class SessionVizClient {
     }
 
     const result = vizManager.setDisplayMode(mode);
-    this.notifyListeners(visualizationId, result.endState, result.diff);
+    this.notifyVizStateListeners(visualizationId, result);
   }
 
   /**
@@ -155,7 +185,10 @@ export class SessionVizClient {
     this.eventSource?.close();
     this.eventSource = null;
     this.vizManagers.clear();
-    this.listeners.clear();
+    this.vizStateListeners.clear();
+    this.sessionStatusListeners.clear();
+    this.connectionStatusListeners.clear();
+    this.connectionStatus = 'disconnected';
   }
 
   /**
@@ -166,23 +199,41 @@ export class SessionVizClient {
   }
 
   /**
-   * Get visible state for a specific visualization.
+   * Get current session open/closed status.
    * 
-   * @param visualizationId - The visualization to get state for
-   * @returns Current visible state or null if visualization not found
+   * @returns true if session is open (accepting responses), false if closed, null if not connected
    */
-  getVisibleState(visualizationId: string): ParticipantVisibleState | null {
+  getSessionStatus(): boolean | null {
+    return this.sessionData?.isOpen ?? null;
+  }
+
+  /**
+   * Get current SSE connection status.
+   * 
+   * @returns Current connection status
+   */
+  getConnectionStatus(): ConnectionStatus {
+    return this.connectionStatus;
+  }
+
+  /**
+   * Get current point positions for a specific visualization.
+   * 
+   * @param visualizationId - The visualization to get positions for
+   * @returns Current point positions or null if visualization not found
+   */
+  getVisibleState(visualizationId: string): ParticipantPointPositions | null {
     const vizManager = this.vizManagers.get(visualizationId);
     return vizManager ? vizManager.getVisibleState() : null;
   }
 
   /**
-   * Get visible states for all visualizations.
+   * Get point positions for all visualizations.
    * 
-   * @returns Map of visualizationId to current visible state
+   * @returns Map of visualizationId to current point positions
    */
-  getAllVisibleStates(): Map<string, ParticipantVisibleState> {
-    const states = new Map<string, ParticipantVisibleState>();
+  getAllVisibleStates(): Map<string, ParticipantPointPositions> {
+    const states = new Map<string, ParticipantPointPositions>();
     this.vizManagers.forEach((vizManager, id) => {
       states.set(id, vizManager.getVisibleState());
     });
@@ -203,6 +254,21 @@ export class SessionVizClient {
    */
   private attachEventHandlers(): void {
     if (!this.eventSource) return;
+
+    // Listen to EventSource connection status events
+    this.eventSource.addEventListener('open', () => {
+      this.updateConnectionStatus('connected');
+    });
+
+    this.eventSource.addEventListener('error', () => {
+      // EventSource will automatically attempt to reconnect
+      // readyState: 0 = CONNECTING (reconnecting), 1 = OPEN, 2 = CLOSED
+      if (this.eventSource?.readyState === EventSource.CONNECTING) {
+        this.updateConnectionStatus('reconnecting');
+      } else {
+        this.updateConnectionStatus('disconnected');
+      }
+    });
 
     this.eventSource.addEventListener('visualization.updated', (event: Event) => {
       try {
@@ -249,7 +315,7 @@ export class SessionVizClient {
       event.splits,
       event.splitDiffs
     );
-    this.notifyListeners(event.visualizationId, result.endState, result.diff);
+    this.notifyVizStateListeners(event.visualizationId, result);
   }
 
   /**
@@ -262,6 +328,7 @@ export class SessionVizClient {
     for (const viz of event.visualizations) {
       // Get existing manager or create new one
       let vizManager = this.vizManagers.get(viz.visualizationId);
+      let result: StateChangeResult;
 
       if (!vizManager) {
         // Create new VizStateManager if it doesn't exist
@@ -272,19 +339,25 @@ export class SessionVizClient {
           viz.viewMaps
         );
         this.vizManagers.set(viz.visualizationId, vizManager);
+
+        // For initial creation, all points are "added"
+        const visibleState = vizManager.getVisibleState();
+        result = {
+          endState: visibleState,
+          diff: { added: Array.from(visibleState.values()), removed: [], moved: [] },
+        };
       } else {
         // Apply full state update to existing manager
         // Use fromSequence = sequenceNumber - 1 to indicate a full snapshot replacement
-        vizManager.applyServerUpdate(
+        result = vizManager.applyServerUpdate(
           viz.sequenceNumber - 1,
           viz.sequenceNumber,
           viz.splits
         );
       }
 
-      // Notify listeners of the update
-      const visibleState = vizManager.getVisibleState();
-      this.notifyListeners(viz.visualizationId, visibleState);
+      // Notify listeners with the actual result (preserves real diffs)
+      this.notifyVizStateListeners(viz.visualizationId, result);
     }
   }
 
@@ -292,10 +365,14 @@ export class SessionVizClient {
    * Internal: Handle session status changes (open/closed).
    */
   private handleSessionStatusChange(event: SessionStatusChangedEvent): void {
-    // TODO: Decide what to do when session closes
-    // - Notify UI?
-    // - Close EventSource?
-    // - Keep showing final state?
+    // Update session data (guaranteed non-null since events only flow after connect())
+    this.sessionData!.isOpen = event.isOpen;
+
+    // Notify all session status listeners
+    this.notifySessionStatusListeners(event.isOpen, event.timestamp);
+
+    // Note: Server will close the SSE connection when session closes,
+    // so we don't need to manually close it here
   }
 
   /**
@@ -329,13 +406,32 @@ export class SessionVizClient {
   }
 
   /**
-   * Internal: Notify all subscribers of a state change for a specific visualization.
+   * Internal: Notify all subscribers of a visualization state change.
    */
-  private notifyListeners(
+  private notifyVizStateListeners(
     visualizationId: string,
-    state: ParticipantVisibleState,
-    diff?: ParticipantVisibleDiff
+    result: StateChangeResult
   ): void {
-    this.listeners.forEach(callback => callback(visualizationId, state, diff));
+    this.vizStateListeners.forEach(callback => callback(visualizationId, result));
+  }
+
+  /**
+   * Internal: Notify all subscribers of a session status change.
+   */
+  private notifySessionStatusListeners(
+    isOpen: boolean,
+    timestamp: Date | string
+  ): void {
+    this.sessionStatusListeners.forEach(callback => callback(isOpen, timestamp));
+  }
+
+  /**
+   * Internal: Update connection status and notify listeners.
+   */
+  private updateConnectionStatus(status: ConnectionStatus): void {
+    if (this.connectionStatus !== status) {
+      this.connectionStatus = status;
+      this.connectionStatusListeners.forEach(callback => callback(status));
+    }
   }
 }
