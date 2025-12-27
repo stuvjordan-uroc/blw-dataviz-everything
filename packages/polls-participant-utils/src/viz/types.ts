@@ -6,6 +6,7 @@
  */
 
 import type { SplitWithSegmentGroup, Point, ViewMaps, SplitWithSegmentGroupDiff } from 'shared-types';
+import type { SessionVizClient } from './SessionVizClient';
 
 /**
  * Defines which view a participant is looking at.
@@ -110,10 +111,47 @@ export type ConnectionStatusCallback = (
 ) => void;
 
 /**
+ * Image data for rendering a point.
+ */
+export interface PointImage {
+  /** The image element to draw */
+  image: HTMLImageElement;
+
+  /** X offset to center image on point (defaults to image.width / 2) */
+  offsetX?: number;
+
+  /** Y offset to center image on point (defaults to image.height / 2) */
+  offsetY?: number;
+}
+
+/**
  * Configuration for canvas visualization renderer.
  */
 export interface VizRendererConfig {
-  //to be determined
+  /** The canvas element to render on */
+  canvas: HTMLCanvasElement;
+
+  /** Desired canvas width in pixels */
+  canvasWidth: number;
+
+  /** The SessionVizClient managing the session */
+  client: SessionVizClient;
+
+  /** The visualization ID to render */
+  visualizationId: string;
+
+  /**
+   * Option 1: Direct image selection function.
+   * Return image and optional offset for centering.
+   */
+  getImage?: (point: Point, viewState: ViewState) => PointImage;
+
+  /**
+   * Option 2: Key-based image selection.
+   * Provide both getImageKey and images map.
+   */
+  getImageKey?: (point: Point, viewState: ViewState) => string;
+  images?: Map<string, PointImage>;
 }
 
 /**

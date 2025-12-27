@@ -7,6 +7,7 @@
 // Visualization viewing
 export { VizStateManager } from './viz/VizStateManager';
 export { SessionVizClient } from './viz/SessionVizClient';
+export { VizRenderer } from './viz/VizRenderer';
 export * from './viz/viewComputation';
 export * from './viz/scaling';
 
@@ -23,6 +24,8 @@ export type {
   Point,
   ViewMaps,
   SplitWithSegmentGroupDiff,
+  VizRendererConfig,
+  PointImage,
 } from './viz/types';
 
 // React hooks

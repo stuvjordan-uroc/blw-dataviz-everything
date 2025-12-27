@@ -48,6 +48,7 @@ import type {
   SessionStatusCallback,
   ConnectionStatus,
   ConnectionStatusCallback,
+  ViewState,
 } from './types';
 
 export class SessionVizClient {
@@ -112,13 +113,24 @@ export class SessionVizClient {
 
   /**
    * Subscribe to visualization state changes.
-   * Callback will be invoked whenever point positions change (from server or participant view changes).
+   * Callback will be invoked immediately with current state for all visualizations,
+   * and then whenever point positions change (from server or participant view changes).
    * 
    * @param callback - Function to call on visualization state changes
    * @returns Unsubscribe function
    */
   subscribeToVizState(callback: VizStateChangeCallback): () => void {
     this.vizStateListeners.add(callback);
+
+    // Immediately invoke callback with current state for all visualizations
+    this.vizManagers.forEach((vizManager, vizId) => {
+      const currentPositions = vizManager.getVisibleState();
+      callback(vizId, {
+        endState: currentPositions,
+        diff: { added: [], removed: [], moved: [] } // Empty diff for initial state
+      });
+    });
+
     return () => this.vizStateListeners.delete(callback);
   }
 
@@ -225,6 +237,17 @@ export class SessionVizClient {
   getVisibleState(visualizationId: string): ParticipantPointPositions | null {
     const vizManager = this.vizManagers.get(visualizationId);
     return vizManager ? vizManager.getVisibleState() : null;
+  }
+
+  /**
+   * Get current view state for a specific visualization.
+   * 
+   * @param visualizationId - The visualization to get view state for
+   * @returns Current view state or null if visualization not found
+   */
+  getViewState(visualizationId: string): ViewState | null {
+    const vizManager = this.vizManagers.get(visualizationId);
+    return vizManager ? vizManager.getViewState() : null;
   }
 
   /**
