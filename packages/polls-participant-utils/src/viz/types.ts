@@ -72,11 +72,27 @@ export interface ParticipantPointPositionsDiff {
 }
 
 /**
+ * Describes what changed in ViewState (for animating image transitions).
+ */
+export interface ViewStateDiff {
+  /** Whether the viewId changed */
+  viewIdChanged: boolean;
+  /** Previous viewId (if it changed) */
+  previousViewId?: string;
+  /** Whether the displayMode changed */
+  displayModeChanged: boolean;
+  /** Previous displayMode (if it changed) */
+  previousDisplayMode?: 'collapsed' | 'expanded';
+}
+
+/**
  * Result of a state change operation (either from server update or participant view change).
  */
 export interface StateChangeResult {
-  endState: ParticipantPointPositions;
-  diff: ParticipantPointPositionsDiff;
+  pointPositions: ParticipantPointPositions;
+  pointPositionsDiff: ParticipantPointPositionsDiff;
+  viewState: ViewState;
+  viewStateDiff: ViewStateDiff;
 }
 
 /**

@@ -125,9 +125,12 @@ export class SessionVizClient {
     // Immediately invoke callback with current state for all visualizations
     this.vizManagers.forEach((vizManager, vizId) => {
       const currentPositions = vizManager.getVisibleState();
+      const currentViewState = vizManager.getViewState();
       callback(vizId, {
-        endState: currentPositions,
-        diff: { added: [], removed: [], moved: [] } // Empty diff for initial state
+        pointPositions: currentPositions,
+        pointPositionsDiff: { added: [], removed: [], moved: [] }, // Empty diff for initial state
+        viewState: currentViewState,
+        viewStateDiff: { viewIdChanged: false, displayModeChanged: false },
       });
     });
 

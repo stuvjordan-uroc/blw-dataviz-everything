@@ -91,8 +91,10 @@ export class VizStateManager {
     // Only take early exit if we have a current visible state to return
     if (toSequence <= this.serverState.sequenceNumber && positions) {
       return {
-        endState: positions,
-        diff: { added: [], removed: [], moved: [] }
+        pointPositions: positions,
+        pointPositionsDiff: { added: [], removed: [], moved: [] },
+        viewState: this.viewState,
+        viewStateDiff: { viewIdChanged: false, displayModeChanged: false },
       };
     }
 
@@ -124,12 +126,14 @@ export class VizStateManager {
 
       // Assemble full diff from identity changes (added/removed) + position changes (moved)
       return {
-        endState: positions,
-        diff: {
+        pointPositions: positions,
+        pointPositionsDiff: {
           added: identityChanges.added,
           removed: identityChanges.removed,
           moved: movedPoints,
         },
+        viewState: this.viewState,
+        viewStateDiff: { viewIdChanged: false, displayModeChanged: false },
       };
     } else {
       // Full recomputation path: snapshot or sequence gap
@@ -143,8 +147,10 @@ export class VizStateManager {
       this.currentPositions = newPositions;
 
       return {
-        endState: newPositions,
-        diff: diff,
+        pointPositions: newPositions,
+        pointPositionsDiff: diff,
+        viewState: this.viewState,
+        viewStateDiff: { viewIdChanged: false, displayModeChanged: false },
       };
     }
   }
@@ -159,8 +165,10 @@ export class VizStateManager {
     // No-op if view hasn't changed
     if (this.viewState.viewId === viewId) {
       return {
-        endState: this.currentPositions!,
-        diff: { added: [], removed: [], moved: [] },
+        pointPositions: this.currentPositions!,
+        pointPositionsDiff: { added: [], removed: [], moved: [] },
+        viewState: this.viewState,
+        viewStateDiff: { viewIdChanged: false, displayModeChanged: false },
       };
     }
 
@@ -177,8 +185,14 @@ export class VizStateManager {
     );
 
     return {
-      endState: positions,
-      diff,
+      pointPositions: positions,
+      pointPositionsDiff: diff,
+      viewState: this.viewState,
+      viewStateDiff: {
+        viewIdChanged: true,
+        previousViewId: oldViewState.viewId,
+        displayModeChanged: false,
+      },
     };
   }
 
@@ -192,8 +206,10 @@ export class VizStateManager {
     // No-op if display mode hasn't changed
     if (this.viewState.displayMode === mode) {
       return {
-        endState: this.currentPositions!,
-        diff: { added: [], removed: [], moved: [] },
+        pointPositions: this.currentPositions!,
+        pointPositionsDiff: { added: [], removed: [], moved: [] },
+        viewState: this.viewState,
+        viewStateDiff: { viewIdChanged: false, displayModeChanged: false },
       };
     }
 
@@ -210,8 +226,14 @@ export class VizStateManager {
     );
 
     return {
-      endState: positions,
-      diff,
+      pointPositions: positions,
+      pointPositionsDiff: diff,
+      viewState: this.viewState,
+      viewStateDiff: {
+        viewIdChanged: false,
+        displayModeChanged: true,
+        previousDisplayMode: oldViewState.displayMode,
+      },
     };
   }
 

@@ -66,13 +66,9 @@ export class VizRenderer {
     // Callback fires immediately with current state, then on future updates
     this.unsubscribe = config.client.subscribeToVizState((vizId, result) => {
       if (vizId === this.visualizationId) {
-        // Query current ViewState (needed for image selection)
-        const newViewState = config.client.getViewState(vizId);
-        if (!newViewState) {
-          throw new Error(`ViewState not found for visualization ${vizId} - client may be disconnected`);
-        }
-        this.viewState = newViewState;
-        this.currentPositions = result.endState;
+        // Get ViewState from result (needed for image selection)
+        this.viewState = result.viewState;
+        this.currentPositions = result.pointPositions;
 
         // Set canvas dimensions if not yet set (first callback only)
         if (this.canvasPixelWidth === 0) {
