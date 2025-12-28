@@ -141,6 +141,35 @@ export interface PointImage {
 }
 
 /**
+ * Animation configuration for VizRenderer.
+ * 
+ * Controls timing for different types of state transitions.
+ * Easing functions are hard-coded per animation type:
+ * - Appear: ease-out (decelerating)
+ * - Disappear: ease-in (accelerating)
+ * - Move: ease-in-out (smooth)
+ * - Image change: ease-in-out (smooth, synced with move)
+ * 
+ * Sequencing is hard-coded: disappear → (move + imageChange) → appear
+ */
+export interface VizRendererAnimationConfig {
+  /** Duration for points appearing (fade in). Default: 200ms */
+  appearDuration?: number;
+
+  /** Duration for points disappearing (fade out). Default: 150ms */
+  disappearDuration?: number;
+
+  /** Duration for points moving to new positions. Default: 400ms */
+  moveDuration?: number;
+
+  /** Duration for point images changing (cross-fade). Default: matches moveDuration */
+  imageChangeDuration?: number;
+
+  /** Set to false to disable all animations. Default: true */
+  enabled?: boolean;
+}
+
+/**
  * Configuration for canvas visualization renderer.
  */
 export interface VizRendererConfig {
@@ -168,6 +197,12 @@ export interface VizRendererConfig {
    */
   getImageKey?: (point: Point, viewState: ViewState) => string;
   images?: Map<string, PointImage>;
+
+  /**
+   * Animation configuration. Pass false to disable all animations.
+   * Default: enabled with default durations (200/150/400ms)
+   */
+  animation?: VizRendererAnimationConfig | false;
 }
 
 /**

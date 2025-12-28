@@ -14,7 +14,8 @@ import type {
   VizRendererState,
   ParticipantPointPositions,
   ViewState,
-  PointImage
+  PointImage,
+  StateChangeResult
 } from './types';
 import { computeCanvasHeight, scalePoint } from './scaling';
 
@@ -28,6 +29,7 @@ export class VizRenderer {
   private currentPositions: ParticipantPointPositions;
   private config: VizRendererConfig;
   private viewState: ViewState;
+  private currentResult: StateChangeResult | null = null;
   private unsubscribe: (() => void) | null = null;
 
   constructor(config: VizRendererConfig) {
@@ -66,7 +68,8 @@ export class VizRenderer {
     // Callback fires immediately with current state, then on future updates
     this.unsubscribe = config.client.subscribeToVizState((vizId, result) => {
       if (vizId === this.visualizationId) {
-        // Get ViewState from result (needed for image selection)
+        // Store the result for animation access
+        this.currentResult = result;
         this.viewState = result.viewState;
         this.currentPositions = result.pointPositions;
 
@@ -74,8 +77,15 @@ export class VizRenderer {
         if (this.canvasPixelWidth === 0) {
           this.setCanvasWidth(config.canvasWidth);
         } else {
-          // Subsequent updates just redraw
-          this.drawCurrentPointPositions();
+          // Subsequent updates: animate if enabled, otherwise redraw immediately
+          const animationEnabled = config.animation !== false &&
+            (config.animation === undefined || config.animation.enabled !== false);
+
+          if (animationEnabled) {
+            this.transitionToCurrentPointPositions();
+          } else {
+            this.drawCurrentPointPositions();
+          }
         }
       }
     });
@@ -147,6 +157,22 @@ export class VizRenderer {
       offsetX: pointImage.offsetX ?? pointImage.image.width / 2,
       offsetY: pointImage.offsetY ?? pointImage.image.height / 2,
     };
+  }
+
+  /**
+   * Animate transition to the current point positions.
+   * Uses StateChangeResult diffs to determine what to animate:
+   * - Disappearing points (fade out)
+   * - Moving points (position interpolation)
+   * - Image changes (cross-fade)
+   * - Appearing points (fade in)
+   * 
+   * Sequencing: disappear → (move + imageChange) → appear
+   */
+  private transitionToCurrentPointPositions(): void {
+    // TODO: Implement animation logic
+    // For now, just draw immediately
+    this.drawCurrentPointPositions();
   }
 
   /**
