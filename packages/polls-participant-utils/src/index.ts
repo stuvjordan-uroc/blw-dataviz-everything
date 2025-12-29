@@ -9,7 +9,7 @@ export { VizStateManager } from './viz/VizStateManager';
 export { SessionVizClient } from './viz/SessionVizClient';
 export { VizRenderer } from './viz/VizRenderer';
 export * from './viz/viewComputation';
-export * from './viz/scaling';
+export * from './viz/VizRenderer/scaling';
 
 // Types
 export type {
@@ -30,7 +30,11 @@ export type {
 
 // React hooks
 export { useSessionViz } from './react/useSessionViz';
-export type { UseSessionVizResult } from './react/useSessionViz';
+export type {
+  UseSessionVizResult,
+  UseSessionVizConfig,
+  VizRendererInfo
+} from './react/useSessionViz';
 export { useResponseForm } from './react/useResponseForm';
 
 // Response submission utilities (future)

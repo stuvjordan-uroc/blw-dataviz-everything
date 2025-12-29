@@ -18,7 +18,7 @@
  * - scalePointPositionChange: Helper for PointPositionChange objects
  */
 
-import type { ParticipantPointPosition, PointPositionChange } from './types';
+import type { ParticipantPointPosition, PointPositionChange } from '../types';
 
 /**
  * Compute canvas height in pixels to match aspect ratio of abstract dimensions.

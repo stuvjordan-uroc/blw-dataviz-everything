@@ -164,9 +164,6 @@ export interface VizRendererAnimationConfig {
 
   /** Duration for point images changing (cross-fade). Default: matches moveDuration */
   imageChangeDuration?: number;
-
-  /** Set to false to disable all animations. Default: true */
-  enabled?: boolean;
 }
 
 /**
@@ -199,17 +196,12 @@ export interface VizRendererConfig {
   images?: Map<string, PointImage>;
 
   /**
-   * Animation configuration. Pass false to disable all animations.
-   * Default: enabled with default durations (200/150/400ms)
+   * Animation configuration.
+   * - undefined: Animations enabled with default durations (200/150/400ms)
+   * - false: Animations disabled (instant state changes)
+   * - object: Animations enabled with custom durations
    */
   animation?: VizRendererAnimationConfig | false;
-}
-
-/**
- * Internal state for canvas visualization renderer.
- */
-export interface VizRendererState {
-  currentPositions: ParticipantPointPositions;
 }
 
 /**

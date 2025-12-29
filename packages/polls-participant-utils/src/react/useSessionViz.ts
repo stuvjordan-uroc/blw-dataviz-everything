@@ -1,177 +1,229 @@
 /**
- * React hook for consuming session visualization state.
+ * React hook for fully encapsulated session visualization setup.
  * 
- * This hook bridges SessionVizClient into React's component lifecycle,
- * providing a declarative API for React components to:
- * - Connect to a session on mount
- * - Track loading/error/session status (React state)
- * - Access SessionVizClient for canvas/D3 components to subscribe directly
- * - Clean up connections on unmount
+ * This hook provides a complete, batteries-included solution for displaying
+ * session visualizations. It internally:
+ * - Creates and manages a SessionVizClient
+ * - Fetches session data and connects to live updates
+ * - Creates canvas elements for each visualization
+ * - Instantiates VizRenderer for each canvas (with animations already running)
+ * - Returns everything needed for the UI to display and control visualizations
  * 
- * Note: Visualization point positions are NOT stored in React state.
- * Canvas/D3 components should subscribe directly to client.subscribeToVizState()
- * to avoid unnecessary React re-renders.
+ * The returned canvases are detached from the DOM - the caller just needs to
+ * attach them wherever they want in the component tree.
  * 
- * Exports:
- * - useSessionViz(slug, apiBaseUrl): Main hook for visualization viewing
+ * @example
+ * const { client, sessionData, renderers, isLoading, error } = useSessionViz({
+ *   slug: 'my-session',
+ *   apiBaseUrl: 'http://localhost:3005',
+ *   canvasWidth: 600,
+ *   getImageKey: (point) => getLabel(point),
+ *   images: imageMap,
+ * });
  * 
- * Usage example:
- * ```tsx
- * function VizViewerPage({ sessionSlug }: { sessionSlug: string }) {
- *   const {
- *     client,
- *     isLoading,
- *     error,
- *     sessionData,
- *     isSessionOpen,
- *   } = useSessionViz(sessionSlug, 'http://localhost:3005');
+ * // In render: attach canvases to DOM
+ * renderers.map(renderer => (
+ *   containerRef.current.appendChild(renderer.canvas)
+ * ));
  * 
- *   if (isLoading) return <div>Loading...</div>;
- *   if (error) return <div>Error: {error.message}</div>;
- *   if (!client) return null;
- * 
- *   // Pass client to canvas components for direct subscription
- *   return (
- *     <>
- *       {client.getVisualizationIds().map((vizId) => (
- *         <div key={vizId}>
- *           <VizCanvas vizId={vizId} client={client} />
- *           <ViewControls 
- *             onSwitchView={(viewId) => client.switchView(vizId, viewId)} 
- *           />
- *           <DisplayModeToggle 
- *             onChange={(mode) => client.setDisplayMode(vizId, mode)} 
- *           />
- *         </div>
- *       ))}
- *       <ResponseForm disabled={!isSessionOpen} />
- *     </>
- *   );
- * }
- * 
- * // Canvas component subscribes directly to avoid React re-renders
- * function VizCanvas({ vizId, client }: { vizId: string, client: SessionVizClient }) {
- *   const canvasRef = useRef<HTMLCanvasElement>(null);
- *   
- *   useEffect(() => {
- *     return client.subscribeToVizState((id, result) => {
- *       if (id === vizId) {
- *         drawToCanvas(canvasRef.current, result.endState, result.diff);
- *       }
- *     });
- *   }, [vizId, client]);
- *   
- *   return <canvas ref={canvasRef} />;
- * }
- * ```
+ * // Control visualizations via client
+ * client.switchView(vizId, viewId);
+ * client.setDisplayMode(vizId, 'collapsed');
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { PollsApiClient } from 'api-polls-client';
-import type { SessionResponse } from 'api-polls-client';
+import type { SessionResponse, VisualizationData } from 'shared-types';
 import { SessionVizClient } from '../viz/SessionVizClient';
-import type { ConnectionStatus } from '../viz/types';
+import { VizRenderer } from '../viz/VizRenderer';
+import type { VizRendererConfig } from '../viz/types';
 
+/**
+ * Configuration for the useSessionViz hook.
+ * Combines SessionVizClient config with VizRenderer config.
+ */
+export interface UseSessionVizConfig {
+  /** Session slug to connect to */
+  slug: string;
+
+  /** Base URL of the polling API (e.g., 'http://localhost:3005') */
+  apiBaseUrl: string;
+
+  /** Canvas width in pixels for all visualizations */
+  canvasWidth: number;
+
+  /** Optional animation configuration (passed to VizRenderer) */
+  animation?: VizRendererConfig['animation'];
+
+  /**
+   * Image configuration - must provide EITHER:
+   * - getImage: Direct function to get image for a point
+   * - getImageKey + images: Key-based lookup (preferred)
+   */
+  getImage?: VizRendererConfig['getImage'];
+  getImageKey?: VizRendererConfig['getImageKey'];
+  images?: VizRendererConfig['images'];
+}
+
+/**
+ * Renderer object for a single visualization.
+ * Contains the canvas element and metadata.
+ */
+export interface VizRendererInfo {
+  /** Unique ID for this visualization */
+  visualizationId: string;
+
+  /** Canvas element (detached, ready to append to DOM) */
+  canvas: HTMLCanvasElement;
+
+  /** Full visualization metadata from server */
+  data: VisualizationData;
+}
+
+/**
+ * Return value from useSessionViz hook.
+ */
 export interface UseSessionVizResult {
-  /** SessionVizClient instance for subscribing to viz updates and calling actions */
+  /** SessionVizClient instance for controlling visualizations */
   client: SessionVizClient | null;
+
+  /** Full session metadata and configuration */
+  sessionData: SessionResponse | null;
+
+  /** Array of renderer objects (canvases + metadata) */
+  renderers: VizRendererInfo[];
 
   /** True while initial connection is being established */
   isLoading: boolean;
 
-  /** Error if connection or data fetch failed */
+  /** Error if connection or setup failed */
   error: Error | null;
-
-  /** Session metadata and configuration */
-  sessionData: SessionResponse | null;
-
-  /** True if session is open (accepting responses), false if closed, null if unknown */
-  isSessionOpen: boolean | null;
-
-  /** Current SSE connection status */
-  connectionStatus: ConnectionStatus;
 }
 
 /**
- * React hook for session visualization viewing.
+ * Fully encapsulated hook for session visualization viewing.
  * 
- * @param slug - The session's unique slug
- * @param apiBaseUrl - Base URL of the polling API (e.g., 'http://localhost:3005')
- * @returns Object with client instance, loading state, error state, and session metadata
+ * Creates SessionVizClient, canvases, and VizRenderers internally.
+ * Returns detached canvases ready to attach to DOM wherever needed.
+ * 
+ * @param config - Configuration including session slug, API URL, and rendering options
+ * @returns Object with client, session data, renderers, loading state, and errors
  */
-export function useSessionViz(
-  slug: string,
-  apiBaseUrl: string
-): UseSessionVizResult {
+export function useSessionViz(config: UseSessionVizConfig): UseSessionVizResult {
+  const { slug, apiBaseUrl, canvasWidth, animation, getImage, getImageKey, images } = config;
+
   // Create API client and SessionVizClient (stable across renders)
   const client = useMemo(() => {
     const apiClient = new PollsApiClient(apiBaseUrl);
     return new SessionVizClient(apiClient);
   }, [apiBaseUrl]);
 
-  // React state for UI-relevant data only
+  // React state for UI-relevant data
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [sessionData, setSessionData] = useState<SessionResponse | null>(null);
-  const [isSessionOpen, setIsSessionOpen] = useState<boolean | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
-  const [clientReady, setClientReady] = useState(false);
+  const [renderers, setRenderers] = useState<VizRendererInfo[]>([]);
 
-  // Connect to session and set up subscriptions
+  // Track VizRenderer instances for cleanup
+  const vizRenderersRef = useRef<VizRenderer[]>([]);
+
+  // Connect to session and create renderers
   useEffect(() => {
     let mounted = true;
 
-    async function initialize() {
+    // Cleanup function
+    const cleanup = () => {
+      // Destroy all VizRenderers
+      vizRenderersRef.current.forEach(renderer => renderer.destroy());
+      vizRenderersRef.current = [];
+    };
+
+    async function connect() {
       try {
+        setIsLoading(true);
+        setError(null);
+
         // Connect to session
         await client.connect(slug);
 
-        if (!mounted) return;
+        if (!mounted) {
+          cleanup();
+          return;
+        }
 
-        // Get session metadata
-        setSessionData(client.getSessionData());
-        setIsSessionOpen(client.getSessionStatus());
-        setClientReady(true);
+        // Get session data
+        const data = client.getSessionData();
+        if (!data) {
+          throw new Error('Failed to get session data after connecting');
+        }
+
+        setSessionData(data);
+
+        // Create canvas and VizRenderer for each visualization
+        const rendererInfos: VizRendererInfo[] = [];
+        const vizRendererInstances: VizRenderer[] = [];
+
+        for (const vizData of data.visualizations) {
+          // Create detached canvas
+          const canvas = document.createElement('canvas');
+
+          // Create VizRenderer (starts rendering immediately on detached canvas)
+          const renderer = new VizRenderer({
+            canvas,
+            visualizationId: vizData.visualizationId,
+            client,
+            canvasWidth,
+            animation,
+            getImage,
+            getImageKey,
+            images,
+          });
+
+          vizRendererInstances.push(renderer);
+
+          rendererInfos.push({
+            visualizationId: vizData.visualizationId,
+            canvas,
+            data: vizData,
+          });
+        }
+
+        if (!mounted) {
+          // Component unmounted during setup - clean up
+          vizRendererInstances.forEach(r => r.destroy());
+          return;
+        }
+
+        // Store instances for cleanup
+        vizRenderersRef.current = vizRendererInstances;
+
+        // Update state
+        setRenderers(rendererInfos);
         setIsLoading(false);
 
-        // Subscribe to session status changes (affects React UI)
-        const unsubscribeStatus = client.subscribeToSessionStatus((isOpen) => {
-          setIsSessionOpen(isOpen);
-        });
-
-        // Subscribe to connection status changes (affects React UI)
-        const unsubscribeConnection = client.subscribeToConnectionStatus((status) => {
-          setConnectionStatus(status);
-        });
-
-        // Cleanup on unmount
-        return () => {
-          mounted = false;
-          unsubscribeStatus();
-          unsubscribeConnection();
-          client.disconnect();
-        };
       } catch (err) {
-        if (!mounted) return;
-        setError(err instanceof Error ? err : new Error(String(err)));
-        setIsLoading(false);
+        if (mounted) {
+          setError(err instanceof Error ? err : new Error(String(err)));
+          setIsLoading(false);
+        }
       }
     }
 
-    const cleanup = initialize();
+    connect();
 
+    // Cleanup on unmount or slug change
     return () => {
       mounted = false;
-      cleanup.then(fn => fn?.());
+      cleanup();
+      client.disconnect();
     };
-  }, [client, slug]);
+  }, [slug, client, canvasWidth, animation, getImage, getImageKey, images]);
 
   return {
-    client: clientReady ? client : null,
+    client: isLoading ? null : client,
+    sessionData,
+    renderers,
     isLoading,
     error,
-    sessionData,
-    isSessionOpen,
-    connectionStatus,
   };
 }
