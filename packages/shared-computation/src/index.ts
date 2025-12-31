@@ -15,12 +15,24 @@ import { initializeSplitsWithSegments } from "./segmentViz/initializeSplitsWithS
 import { updateAllSplitsWithSegmentsFromResponses } from "./segmentViz/update";
 import { buildSegmentVizViewId } from "./segmentViz/buildSegmentVizViewId";
 
+/**
+ * from imageGeneration
+ */
+
+import { generateCircleImage } from "./imageGeneration";
+import type { CircleImageOptions } from "./imageGeneration";
+
 export {
   initializeSplits,
   updateAllSplitsFromResponses,
   initializeSplitsWithSegments,
   updateAllSplitsWithSegmentsFromResponses,
-  buildSegmentVizViewId
+  buildSegmentVizViewId,
+  generateCircleImage,
+}
+
+export type {
+  CircleImageOptions,
 }
 
 // Re-export types that are now defined in shared-types for backwards compatibility

@@ -25,16 +25,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "shared-types": "*"
+    "shared-schemas": "*",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@types/d3-interpolate": "^3.0.4",
     "@types/jest": "^29.5.14",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.5",
     "typescript": "^5.6.3"
-  },
-  "dependencies": {
-    "shared-schemas": "*",
-    "zod": "^3.22.0"
   }
 }

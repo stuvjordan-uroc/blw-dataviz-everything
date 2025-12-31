@@ -42,6 +42,7 @@ export class VizStateManager {
   private serverState: ServerState;
   private viewState: ViewState;
   private viewMaps: ViewMaps;
+  private imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }>;
   private currentPositions: ParticipantPointPositions | null = null;
 
   constructor(
@@ -49,6 +50,7 @@ export class VizStateManager {
     basisSplitIndices: number[],
     initialSequenceNumber: number,
     viewMaps: ViewMaps,
+    imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }>,
     initialViewState?: Partial<ViewState>
   ) {
     this.serverState = {
@@ -57,6 +59,7 @@ export class VizStateManager {
       sequenceNumber: initialSequenceNumber,
     };
     this.viewMaps = viewMaps;
+    this.imageMap = imageMap;
     this.viewState = {
       viewId: initialViewState?.viewId ?? '', // Default to base view (no active questions)
       displayMode: initialViewState?.displayMode ?? 'expanded',

@@ -40,6 +40,59 @@ export interface ResponseGroup {
 }
 
 /**
+ * Color configuration for all response groups on a specific grouping question.
+ * 
+ * When this grouping question is active, ALL of its response groups use these color ranges
+ * instead of the base color range. This ensures consistent coloring for the entire question.
+ * 
+ * The colorRanges array must contain exactly one color range per response group,
+ * in the same order as the grouping question's responseGroups array.
+ */
+export interface GroupColorOverride {
+  /** 
+   * The grouping question to which this override applies.
+   * Must be a question from either groupingQuestions.x or groupingQuestions.y
+   */
+  question: GroupingQuestion;
+
+  /** 
+   * Color ranges for each response group on this question.
+   * Must have length equal to the question's responseGroups.length.
+   * colorRanges[i] applies to the question's responseGroups[i].
+   * Each range is [startHex, endHex] for interpolating based on response question value.
+   */
+  colorRanges: [string, string][];
+}
+
+/**
+ * Image generation configuration for a visualization.
+ * 
+ * Defines how to generate circle images for points, including size and coloring rules.
+ * All circles have fixed stroke (1px black at 65% opacity) and fill opacity (65%),
+ * with only fill color varying based on these rules.
+ */
+export interface VisualizationImageConfig {
+  /** Radius of all circle images in pixels */
+  circleRadius: number;
+
+  /** 
+   * Base color range for response question groups.
+   * Colors are interpolated from left-most to right-most response group.
+   * [leftmostGroupColor, rightmostGroupColor] as hex codes (e.g., ["#ff0000", "#0000ff"])
+   */
+  baseColorRange: [string, string];
+
+  /** 
+   * Color overrides for specific grouping questions.
+   * When multiple grouping questions are active, the leftmost question in this array
+   * that is active takes precedence. All response groups on that question use the
+   * override color ranges instead of the base color range.
+   * Array order matters: first (leftmost) matching active question wins.
+   */
+  groupColorOverrides: GroupColorOverride[];
+}
+
+/**
  * Configuration for a segment visualization
  * 
  * Defines how responses to a question should be visualized as segments,
@@ -60,6 +113,8 @@ export type SegmentVizConfig = {
   groupGapY: number; // Height (y-axis length) of gap between segment groups along the vertical axis
   responseGap: number; // X-axis gap between segments within a segment group
   baseSegmentWidth: number; // X-axis base width of all segments
+  // Image generation configuration
+  images: VisualizationImageConfig;
 };
 
 /**
@@ -96,6 +151,23 @@ export interface PointPosition {
 }
 
 /**
+ * Image data for rendering a point
+ */
+export interface PointImage {
+  /** 
+   * SVG image as a data URL (e.g., "data:image/svg+xml;base64,PHN2Zy4uLg==")
+   * Can be used directly as img.src or converted to PNG for canvas rendering
+   */
+  svgDataURL: string;
+
+  /** Offset from top-left corner of image to its center point */
+  offsetToCenter: {
+    x: number;
+    y: number;
+  };
+}
+
+/**
  * Response group with statistics and segment visualization data
  * 
  * Extends ResponseGroupWithStats (from shared-computation) with:
@@ -110,6 +182,7 @@ export interface ResponseGroupWithStatsAndSegment {
   proportion: number;
   bounds: RectBounds;
   pointPositions: PointPosition[];
+  pointImage: PointImage;
 }
 
 /**

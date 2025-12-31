@@ -23,6 +23,8 @@ export type {
   ResponseQuestion,
   GroupingQuestion,
   ResponseGroup,
+  GroupColorOverride,
+  VisualizationImageConfig,
   SegmentVizConfig,
   RectBounds,
   Point,
@@ -31,6 +33,7 @@ export type {
   SplitWithSegmentGroup,
   SplitWithSegmentGroupDiff,
   ViewMaps,
+  PointImage
 } from './visualization';
 
 /**
@@ -47,6 +50,28 @@ export type {
   SubmitResponsesDto,
   SubmitResponsesResponse,
 } from './polls-api-contract';
+
+/**
+ * Zod schemas for visualization types
+ * Re-exported from visualization.zod.ts for runtime validation
+ */
+export {
+  QuestionSchema,
+  ResponseGroupSchema,
+  ResponseQuestionSchema,
+  GroupingQuestionSchema,
+  GroupColorOverrideSchema,
+  VisualizationImageConfigSchema,
+  SegmentVizConfigSchema,
+  RectBoundsSchema,
+  PointSchema,
+  PointPositionSchema,
+  PointImageSchema,
+  ResponseGroupWithStatsAndSegmentSchema,
+  SplitWithSegmentGroupSchema,
+  SplitWithSegmentGroupDiffSchema,
+  ViewMapsSchema,
+} from './visualization.zod';
 
 /**
  * Zod schemas for API contract validation

@@ -295,12 +295,14 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
         collapsed: splitStatsUpdated.responseGroups.collapsed.map((crg, crgIdx) => ({
           ...crg,
           bounds: segmentBoundsUpdated.collapsed[crgIdx],
-          pointPositions: pointPositionsUpdated.collapsed[crgIdx]
+          pointPositions: pointPositionsUpdated.collapsed[crgIdx],
+          pointImage: split.responseGroups.collapsed[crgIdx].pointImage
         })),
-        expanded: splitStatsUpdated.responseGroups.collapsed.map((erg, ergIdx) => ({
+        expanded: splitStatsUpdated.responseGroups.expanded.map((erg, ergIdx) => ({
           ...erg,
-          bounds: segmentBoundsUpdated.collapsed[ergIdx],
-          pointPositions: pointPositionsUpdated.collapsed[ergIdx]
+          bounds: segmentBoundsUpdated.expanded[ergIdx],
+          pointPositions: pointPositionsUpdated.expanded[ergIdx],
+          pointImage: split.responseGroups.expanded[ergIdx].pointImage
         }))
       }
     },
@@ -470,12 +472,14 @@ export function updateBasisSplitWithSegmentsFromResponses(
         collapsed: newSplitStats.responseGroups.collapsed.map((crg, crgIdx) => ({
           ...crg,
           bounds: segmentsUpdated.collapsed[crgIdx],
-          pointPositions: pointPositionsUpdated.collapsed[crgIdx]
+          pointPositions: pointPositionsUpdated.collapsed[crgIdx],
+          pointImage: basisSplit.responseGroups.collapsed[crgIdx].pointImage
         })),
         expanded: newSplitStats.responseGroups.expanded.map((erg, ergIdx) => ({
           ...erg,
           bounds: segmentsUpdated.expanded[ergIdx],
-          pointPositions: pointPositionsUpdated.expanded[ergIdx]
+          pointPositions: pointPositionsUpdated.expanded[ergIdx],
+          pointImage: basisSplit.responseGroups.expanded[ergIdx].pointImage
         }))
       }
     },

@@ -6,134 +6,18 @@
  */
 
 import { z } from 'zod';
-
-/**
- * Schema for Point type (referenced in visualization types)
- */
-const PointSchema = z.object({
-  respondentId: z.number(),
-  responseValue: z.number(),
-});
-
-/**
- * Schema for RectBounds type
- */
-const RectBoundsSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  width: z.number(),
-  height: z.number(),
-});
-
-/**
- * Schema for PointPosition type
- */
-const PointPositionSchema = z.object({
-  point: PointSchema,
-  x: z.number(),
-  y: z.number(),
-});
-
-/**
- * Schema for ResponseGroup type
- */
-const ResponseGroupSchema = z.object({
-  label: z.string(),
-  values: z.array(z.number()),
-});
-
-/**
- * Schema for ResponseGroupWithStatsAndSegment type
- */
-const ResponseGroupWithStatsAndSegmentSchema = z.object({
-  label: z.string(),
-  values: z.array(z.number()),
-  totalCount: z.number(),
-  totalWeight: z.number(),
-  proportion: z.number(),
-  bounds: RectBoundsSchema,
-  pointPositions: z.array(PointPositionSchema),
-});
-
-/**
- * Schema for SplitWithSegmentGroup type
- */
-const SplitWithSegmentGroupSchema = z.object({
-  basisSplitIndices: z.array(z.number()),
-  groups: z.array(z.object({
-    question: z.any(), // Question type is complex, using z.any() for now
-    responseGroup: ResponseGroupSchema.nullable(),
-  })),
-  totalWeight: z.number(),
-  totalCount: z.number(),
-  segmentGroupBounds: RectBoundsSchema,
-  points: z.array(z.array(PointSchema)),
-  responseGroups: z.object({
-    collapsed: z.array(ResponseGroupWithStatsAndSegmentSchema),
-    expanded: z.array(ResponseGroupWithStatsAndSegmentSchema),
-  }),
-});
-
-/**
- * Schema for SplitWithSegmentGroupDiff type
- */
-const SplitWithSegmentGroupDiffSchema = z.object({
-  stats: z.object({
-    totalCount: z.number(),
-    totalWeight: z.number(),
-    responseGroups: z.object({
-      collapsed: z.array(z.object({
-        label: z.string(),
-        values: z.array(z.number()),
-        totalCount: z.number(),
-        totalWeight: z.number(),
-        proportion: z.number(),
-      })),
-      expanded: z.array(z.object({
-        label: z.string(),
-        values: z.array(z.number()),
-        totalCount: z.number(),
-        totalWeight: z.number(),
-        proportion: z.number(),
-      })),
-    }),
-  }),
-  points: z.object({
-    added: z.array(z.array(PointSchema)),
-    removed: z.array(z.array(PointSchema)),
-  }),
-  segments: z.object({
-    collapsed: z.array(RectBoundsSchema),
-    expanded: z.array(RectBoundsSchema),
-  }),
-  pointPositions: z.object({
-    expanded: z.array(z.array(z.object({
-      point: PointSchema,
-      x: z.number(),
-      y: z.number(),
-    }).nullable())),
-    collapsed: z.array(z.array(z.object({
-      point: PointSchema,
-      x: z.number(),
-      y: z.number(),
-    }).nullable())),
-  }),
-});
-
-/**
- * Schema for ViewMaps type
- */
-const ViewMapsSchema = z.record(z.string(), z.array(z.number()));
-
-/**
- * Schema for SegmentVizConfig type
- */
-const SegmentVizConfigSchema = z.object({
-  responseQuestion: z.any(), // Complex type, using z.any() for now
-  groupingQuestions: z.any(), // Complex type, using z.any() for now
-  scaling: z.any(), // Complex type, using z.any() for now
-  layout: z.any(), // Complex type, using z.any() for now
-});
+import {
+  PointSchema,
+  RectBoundsSchema,
+  PointPositionSchema,
+  ResponseGroupSchema,
+  ResponseGroupWithStatsAndSegmentSchema,
+  SplitWithSegmentGroupSchema,
+  SplitWithSegmentGroupDiffSchema,
+  ViewMapsSchema,
+  SegmentVizConfigSchema,
+  QuestionSchema,
+} from './visualization.zod';
 
 /**
  * Schema for VisualizationData
@@ -145,7 +29,8 @@ export const VisualizationDataSchema = z.object({
   splits: z.array(SplitWithSegmentGroupSchema),
   basisSplitIndices: z.array(z.number()),
   lastUpdated: z.union([z.string(), z.date()]),
-  viewMaps: ViewMapsSchema, vizWidth: z.number(),
+  viewMaps: ViewMapsSchema,
+  vizWidth: z.number(),
   vizHeight: z.number(),
 });
 

@@ -41,6 +41,7 @@ import {
 import { ZodError } from 'zod';
 
 import { VizStateManager } from './VizStateManager';
+import { loadAllSessionImages } from './sessionImages';
 import type {
   ParticipantPointPositions,
   StateChangeResult,
@@ -83,6 +84,9 @@ export class SessionVizClient {
     //get session data
     this.sessionData = await this.apiClient.getSession(slug)
 
+    //load and rasterize all images
+    const sessionImages = await loadAllSessionImages(this.sessionData.visualizations);
+
     //loop through the sessionData.visualization array.
     //for each visualization, create a VizStateManager
     for (const viz of this.sessionData.visualizations) {
@@ -90,7 +94,8 @@ export class SessionVizClient {
         viz.splits,
         viz.basisSplitIndices,
         viz.sequenceNumber,
-        viz.viewMaps
+        viz.viewMaps,
+        sessionImages
       )
       this.vizManagers.set(viz.visualizationId, vizState)
     }

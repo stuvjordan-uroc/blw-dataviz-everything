@@ -40,6 +40,18 @@ export interface ParticipantPointPosition {
 }
 
 /**
+ * A single point with its position and image for rendering.
+ * This is the new type that includes image data.
+ */
+export interface ParticipantPointData {
+  point: Point;
+  x: number;
+  y: number;
+  image: HTMLImageElement;
+  offsetToCenter: { x: number; y: number };
+}
+
+/**
  * A point that has moved from one position to another (for animation).
  */
 export interface PointPositionChange {
@@ -53,11 +65,36 @@ export interface PointPositionChange {
 }
 
 /**
+ * A point that has moved from one position to another, with image data (for animation).
+ * This is the new type that includes image data and offsets.
+ */
+export interface ParticipantPointDataChange {
+  point: Point;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  dx: number;
+  dy: number;
+  fromImage: HTMLImageElement;
+  fromOffsetToCenter: { x: number; y: number };
+  toImage: HTMLImageElement;
+  toOffsetToCenter: { x: number; y: number };
+}
+
+/**
  * The complete set of point positions for rendering in the participant's current view.
  * Stored as a Map keyed by point identifier for O(1) lookups during diff computation.
  * UI code can iterate with positions.values() or convert to array with Array.from(positions.values()).
  */
 export type ParticipantPointPositions = Map<string, ParticipantPointPosition>;
+
+/**
+ * The complete set of point data (position + image) for rendering in the participant's current view.
+ * Stored as a Map keyed by point identifier for O(1) lookups during diff computation.
+ * UI code can iterate with pointData.values() or convert to array with Array.from(pointData.values()).
+ */
+export type ParticipantPointDataMap = Map<string, ParticipantPointData>;
 
 /**
  * Describes what changed between two participant point position states (for animation).
@@ -69,6 +106,19 @@ export interface ParticipantPointPositionsDiff {
   removed: ParticipantPointPosition[];
   /** Points that moved (with delta x/y from previous position) */
   moved: PointPositionChange[];
+}
+
+/**
+ * Describes what changed between two participant point data states (for animation).
+ * Includes both position and image changes.
+ */
+export interface ParticipantPointDataDiff {
+  /** Points that were added (didn't exist before) */
+  added: ParticipantPointData[];
+  /** Points that were removed (no longer visible) */
+  removed: ParticipantPointData[];
+  /** Points that persisted but changed (position, image, or both) */
+  persisted: ParticipantPointDataChange[];
 }
 
 /**

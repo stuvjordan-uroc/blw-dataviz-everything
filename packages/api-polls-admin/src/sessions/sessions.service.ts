@@ -7,7 +7,7 @@ import {
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { DATABASE_CONNECTION } from "../database/database.providers";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and, or } from "drizzle-orm";
 import {
   sessions,
   pollQuestions,
@@ -21,7 +21,11 @@ import {
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 import { initializeSplitsWithSegments } from "shared-computation";
-import type { SegmentVizConfig, SplitWithSegmentGroup } from "shared-types";
+import type {
+  SegmentVizConfig,
+  SplitWithSegmentGroup,
+} from "shared-types";
+import { validateSessionConfig } from "./validate-session-config";
 
 /**
  * Type definitions for session operations
@@ -88,109 +92,25 @@ export class SessionsService {
    * @returns The newly created session with its ID and generated slug
    */
   async create(sessionData: NewSession): Promise<Session> {
-    // Validate session configuration structure and basic constraints
-    if (sessionData.sessionConfig) {
-      sessionConfigSchema.parse(sessionData.sessionConfig);
-    }
-
     return await this.db.transaction(async (tx) => {
       // Generate a unique slug if not provided
       const slug = sessionData.slug || this.generateSlug();
 
-      // Extract all questions from questionOrder
+      // Extract configuration
       const questionOrder = sessionData.sessionConfig?.questionOrder || [];
       const visualizationsInput = sessionData.sessionConfig?.visualizations || [];
 
-      // Generate IDs for visualizations and create the final array
+      // Generate IDs for visualizations
       const visualizations = visualizationsInput.map((viz) => ({
         id: this.generateVizId(),
         ...viz,
       }));
 
-      // Require at least one question
-      if (questionOrder.length === 0) {
-        throw new BadRequestException(
-          "Session must have at least one question in questionOrder array"
-        );
-      }
-
-      // Require at least one visualization
-      if (visualizations.length === 0) {
-        throw new BadRequestException(
-          "Session must have at least one visualization"
-        );
-      }
-
-      // Collect all questions referenced in visualizations
-      const vizQuestions = new Set<string>();
-      for (const viz of visualizations) {
-        // Add response question
-        const rq = viz.responseQuestion.question;
-        vizQuestions.add(`${rq.varName}:${rq.batteryName}:${rq.subBattery}`);
-
-        // Add x-axis grouping questions
-        for (const gq of viz.groupingQuestions.x) {
-          const q = gq.question;
-          vizQuestions.add(`${q.varName}:${q.batteryName}:${q.subBattery}`);
-        }
-
-        // Add y-axis grouping questions
-        for (const gq of viz.groupingQuestions.y) {
-          const q = gq.question;
-          vizQuestions.add(`${q.varName}:${q.batteryName}:${q.subBattery}`);
-        }
-      }
-
-      // Validate all visualization questions are in questionOrder
-      const questionOrderSet = new Set(
-        questionOrder.map(q => `${q.varName}:${q.batteryName}:${q.subBattery}`)
+      // Validate the session configuration (consolidated validation)
+      await validateSessionConfig(
+        { questionOrder, visualizations },
+        tx
       );
-
-      const missingFromOrder = Array.from(vizQuestions).filter(
-        qKey => !questionOrderSet.has(qKey)
-      );
-
-      if (missingFromOrder.length > 0) {
-        throw new BadRequestException(
-          `The following questions are referenced in visualizations but not in questionOrder: ${missingFromOrder.join(", ")}`
-        );
-      }
-
-      // Validate that all questions exist in questions.questions
-      if (questionOrder.length > 0) {
-        // Check if all questions exist
-        const existingQuestions = await tx
-          .select()
-          .from(questions)
-          .where(
-            inArray(
-              questions.varName,
-              questionOrder.map((q) => q.varName)
-            )
-          );
-
-        // Validate each question exists with exact match
-        const missingQuestions = questionOrder.filter((q) => {
-          return !existingQuestions.some(
-            (eq) =>
-              eq.varName === q.varName &&
-              eq.batteryName === q.batteryName &&
-              eq.subBattery === q.subBattery
-          );
-        });
-
-        if (missingQuestions.length > 0) {
-          throw new BadRequestException(
-            `The following questions do not exist in the question bank: ${missingQuestions
-              .map(
-                (q) =>
-                  `(varName: ${q.varName}, battery: ${q.batteryName
-                  }, subBattery: ${q.subBattery || "(none)"})`
-              )
-              .join(", ")}`
-          );
-        }
-      }
 
       // Insert the session with generated slug and updated config with visualization IDs
       const [session] = await tx
@@ -227,6 +147,7 @@ export class SessionsService {
 
         // Build pre-computed lookup maps for efficient response transformation
         const lookupMaps = this.buildLookupMaps(vizConfig, splits, basisSplitIndices);
+
 
         // Store the initialized visualization with lookup maps and view maps
         await tx.insert(sessionVisualizations).values({
@@ -304,14 +225,6 @@ export class SessionsService {
         .where(eq(respondents.sessionId, id));
 
       const respondentIds = sessionRespondents.map((r) => r.id);
-
-      // Also capture question count for reporting in the outbox payload
-      const sessionQuestions = await tx
-        .select({ id: pollQuestions.id })
-        .from(pollQuestions)
-        .where(eq(pollQuestions.sessionId, id));
-
-      const questionCount = sessionQuestions.length;
 
       // 3. Delete responses (references respondents.id)
       if (respondentIds.length > 0) {

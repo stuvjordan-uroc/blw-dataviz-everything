@@ -4,6 +4,14 @@ import { Group, GroupingQuestion, ViewMaps } from "../statistics/types";
 import { computeSegmentGroupBounds, getWidthHeight } from "./geometry";
 import { setBasisSplitIndices } from "../statistics/setBasisSplitIndices";
 import { buildSegmentVizViewId } from "./buildSegmentVizViewId";
+import { Question } from "shared-schemas";
+import { pointImageForResponseGroup } from "../imageGeneration";
+import { GroupColorOverride } from "shared-types";
+
+//helper to create a string key for a question, for quick matching
+function getQuestionKey(q: Question): string {
+  return Object.values(q).join("")
+}
 
 export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig): { basisSplitIndices: number[], splits: SplitWithSegmentGroup[], viewMaps: ViewMaps, vizWidth: number, vizHeight: number } {
 
@@ -97,6 +105,43 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
       //This ensures viewMap keys match what clients will generate
       const viewId = buildSegmentVizViewId(activeXIndices, activeYIndices, numXQuestions);
 
+      //determine whether this view uses a color range override and if so which one
+      //Store which axis and index it came from for easy lookup later
+      let colorRangeOverride: {
+        override: GroupColorOverride;
+        axis: 'x' | 'y';
+        questionIndex: number;
+      } | null = null;
+      OverrideLoop: for (const override of segmentVizConfig.images.groupColorOverrides) {
+        const overrideQuestionKey = getQuestionKey(override.question.question);
+        for (const xGroupingQuestionIndex of activeXIndices) {
+          if (getQuestionKey(segmentVizConfig.groupingQuestions.x[xGroupingQuestionIndex].question) === overrideQuestionKey) {
+            colorRangeOverride = {
+              override,
+              axis: 'x',
+              questionIndex: xGroupingQuestionIndex
+            };
+            break OverrideLoop;
+          }
+        }
+        for (const yGroupingQuestionIndex of activeYIndices) {
+          if (getQuestionKey(segmentVizConfig.groupingQuestions.y[yGroupingQuestionIndex].question) === overrideQuestionKey) {
+            colorRangeOverride = {
+              override,
+              axis: 'y',
+              questionIndex: yGroupingQuestionIndex
+            };
+            break OverrideLoop;
+          }
+        }
+      }
+      //colorRangeOverrides is now null if no override applies.
+      //Otherwise it is {
+      //  override: GroupColorOverride;
+      //  axis: 'x' | 'y';
+      //  questionIndex: number;
+      //}
+
       //initialize array to track splits for this view
       const viewSplitIndices: number[] = [];
       viewMaps[viewId] = viewSplitIndices;
@@ -189,26 +234,64 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
           //empty for now, because we are initializing without data.
           const points: Point[][] = segmentVizConfig.responseQuestion.responseGroups.expanded.map((_) => ([]));
 
+          //determine the color range for this split (defaults to base range)
+          let colorRangeForSplit: [string, string] = segmentVizConfig.images.baseColorRange;
+          if (colorRangeOverride !== null) {
+            //The groups array has x-questions first, then y-questions
+            //So we can calculate the index: for x-axis use questionIndex directly,
+            //for y-axis add numXQuestions to the questionIndex
+            const groupIndexInGroups = colorRangeOverride.axis === 'x'
+              ? colorRangeOverride.questionIndex
+              : numXQuestions + colorRangeOverride.questionIndex;
+
+            const relevantGroup = groups[groupIndexInGroups];
+
+            //relevantGroup.responseGroup should match one in override.question.responseGroups
+            if (relevantGroup.responseGroup !== null) {
+              //Find which index this responseGroup is in the grouping question's responseGroups
+              const responseGroupIndex = colorRangeOverride.override.question.responseGroups.findIndex(
+                rg => rg.label === relevantGroup.responseGroup!.label
+              );
+
+              if (responseGroupIndex !== -1) {
+                //Use the corresponding color range from the override
+                colorRangeForSplit = colorRangeOverride.override.colorRanges[responseGroupIndex];
+              }
+            }
+          }
+
           //set the response-groups-with-stats-and-segments
           const responseGroups: {
             collapsed: ResponseGroupWithStatsAndSegment[],
             expanded: ResponseGroupWithStatsAndSegment[]
           } = {
-            collapsed: segmentVizConfig.responseQuestion.responseGroups.collapsed.map((rg) => ({
+            collapsed: segmentVizConfig.responseQuestion.responseGroups.collapsed.map((rg, rgIdx) => ({
               ...rg,
               totalCount: 0,
               totalWeight: 0,
               proportion: 0,
               bounds: { x: 0, y: 0, width: 0, height: 0 },
-              pointPositions: [] //empty for now, because we are initializing without data
+              pointPositions: [], //empty for now, because we are initializing without data
+              pointImage: pointImageForResponseGroup({
+                colorRange: colorRangeForSplit,
+                responseGroupIndex: rgIdx,
+                numResponseGroups: segmentVizConfig.responseQuestion.responseGroups.collapsed.length,
+                circleRadius: segmentVizConfig.images.circleRadius
+              })
             })),
-            expanded: segmentVizConfig.responseQuestion.responseGroups.expanded.map((rg) => ({
+            expanded: segmentVizConfig.responseQuestion.responseGroups.expanded.map((rg, rgIdx) => ({
               ...rg,
               totalCount: 0,
               totalWeight: 0,
               proportion: 0,  //proportions initialized to zero
               bounds: { x: 0, y: 0, width: 0, height: 0 },  //bound initialized to 0.
-              pointPositions: [] //empty for now, because we are initializing without data
+              pointPositions: [], //empty for now, because we are initializing without data
+              pointImage: pointImageForResponseGroup({
+                colorRange: colorRangeForSplit,
+                responseGroupIndex: rgIdx,
+                numResponseGroups: segmentVizConfig.responseQuestion.responseGroups.expanded.length,
+                circleRadius: segmentVizConfig.images.circleRadius
+              })
             }))
           }
 

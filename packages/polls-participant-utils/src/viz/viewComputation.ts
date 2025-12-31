@@ -299,7 +299,7 @@ export function updatePositionsForViewChange(
  * @param serverState - Updated server state
  * @param viewState - Current view state
  * @param viewMaps - View to splits mapping
- * @returns Array of points that moved with their old and new positions
+ * @returns Array of position changes (images don't change for server updates with stable view)
  */
 export function updatePositionsForServerChange(
   map: ParticipantPointPositions,
@@ -307,9 +307,9 @@ export function updatePositionsForServerChange(
   serverState: ServerState,
   viewState: ViewState,
   viewMaps: ViewMaps
-): PointPositionChange[] {
+): { point: Point; fromX: number; fromY: number; toX: number; toY: number; dx: number; dy: number }[] {
   const viewSplitIndices = viewMaps[viewState.viewId];
-  const moved: PointPositionChange[] = [];
+  const moved: { point: Point; fromX: number; fromY: number; toX: number; toY: number; dx: number; dy: number }[] = [];
 
   // For each split in current view, check if it has position changes
   for (const viewSplitIdx of viewSplitIndices) {
