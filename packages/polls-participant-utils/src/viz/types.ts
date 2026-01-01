@@ -32,6 +32,9 @@ export interface ServerState {
 
 /**
  * A single point with its final rendered position for a participant's specific view.
+ * 
+ * @deprecated This type will be removed once migration to server-sent images is complete.
+ * Use ParticipantPointData instead, which includes image and offset data.
  */
 export interface ParticipantPointPosition {
   point: Point;
@@ -53,6 +56,9 @@ export interface ParticipantPointData {
 
 /**
  * A point that has moved from one position to another (for animation).
+ * 
+ * @deprecated This type will be removed once migration to server-sent images is complete.
+ * Use ParticipantPointDataChange instead, which includes image transition data.
  */
 export interface PointPositionChange {
   point: Point;
@@ -86,6 +92,9 @@ export interface ParticipantPointDataChange {
  * The complete set of point positions for rendering in the participant's current view.
  * Stored as a Map keyed by point identifier for O(1) lookups during diff computation.
  * UI code can iterate with positions.values() or convert to array with Array.from(positions.values()).
+ * 
+ * @deprecated This type will be removed once migration to server-sent images is complete.
+ * Use ParticipantPointDataMap instead, which includes image and offset data for each point.
  */
 export type ParticipantPointPositions = Map<string, ParticipantPointPosition>;
 
@@ -98,6 +107,9 @@ export type ParticipantPointDataMap = Map<string, ParticipantPointData>;
 
 /**
  * Describes what changed between two participant point position states (for animation).
+ * 
+ * @deprecated This type will be removed once migration to server-sent images is complete.
+ * Use ParticipantPointDataDiff instead, which includes image changes and uses 'persisted' instead of 'moved'.
  */
 export interface ParticipantPointPositionsDiff {
   /** Points that were added (didn't exist before) */

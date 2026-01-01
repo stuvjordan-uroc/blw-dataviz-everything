@@ -36,6 +36,8 @@ import type {
   ParticipantPointPositionsDiff,
   ParticipantPointPosition,
   PointPositionChange,
+  ParticipantPointDataMap,
+  ParticipantPointData,
   Point,
   ServerState,
   ViewState,
@@ -140,29 +142,118 @@ export function initializePointPositions(
 }
 
 /**
+ * Initialize a new ParticipantPointDataMap from scratch.
+ * 
+ * Creates a new map with:
+ * - Keys: All points from basis splits (canonical point set)
+ * - Values: Position, image, and offset data for those points in the current view
+ * 
+ * This should only be called once during VizStateManager construction.
+ * 
+ * @param serverState - Server-side canonical state (splits, basisSplitIndices)
+ * @param viewState - Participant's view preferences (viewId, displayMode)
+ * @param viewMaps - Lookup maps for O(1) view-to-splits mapping
+ * @param imageMap - Session-wide image cache with offsets
+ * @returns New map with point identities, positions, and images
+ */
+export function initializePointData(
+  serverState: ServerState,
+  viewState: ViewState,
+  viewMaps: ViewMaps,
+  imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }>
+): ParticipantPointDataMap {
+  // Validate viewId
+  const viewSplitIndices = viewMaps[viewState.viewId];
+  if (viewSplitIndices === undefined) {
+    const availableViewIds = Object.keys(viewMaps).sort();
+    throw new Error(
+      `Invalid viewId "${viewState.viewId}" not found in ViewMaps. ` +
+      `UI code passed out-of-range or incorrectly ordered question indices to buildSegmentVizViewId(). ` +
+      `Available viewIds: ${availableViewIds.length > 0 ? availableViewIds.join(', ') : '(none)'}`
+    );
+  }
+
+  // Step 1: Build set of all point identities from basis splits
+  const pointIdentities = new Set<string>();
+  for (const basisSplitIdx of serverState.basisSplitIndices) {
+    const basisSplit = serverState.splits[basisSplitIdx];
+    for (const pointSet of basisSplit.points) {
+      for (const point of pointSet) {
+        pointIdentities.add(getPointKey(point));
+      }
+    }
+  }
+
+  // Step 2: Collect positions, images, and offsets from view splits and transform to canvas coordinates
+  const pointDataMap = new Map<string, ParticipantPointData>();
+  for (const viewSplitIdx of viewSplitIndices) {
+    const viewSplit = serverState.splits[viewSplitIdx];
+    const responseGroups = viewSplit.responseGroups[viewState.displayMode];
+    const segmentGroupBounds = viewSplit.segmentGroupBounds;
+
+    for (const responseGroup of responseGroups) {
+      const segmentBounds = responseGroup.bounds;
+      const imageKey = responseGroup.pointImage.svgDataURL;
+      const imageData = imageMap.get(imageKey);
+
+      if (!imageData) {
+        throw new Error(
+          `Image not found in imageMap for svgDataURL: ${imageKey.substring(0, 50)}...`
+        );
+      }
+
+      for (const pointPosition of responseGroup.pointPositions) {
+        const key = getPointKey(pointPosition.point);
+        if (pointIdentities.has(key)) {
+          // Transform from segment-relative to canvas-relative coordinates
+          const canvasPosition = transformPointToCanvas(
+            pointPosition,
+            segmentBounds,
+            segmentGroupBounds
+          );
+
+          pointDataMap.set(key, {
+            point: canvasPosition.point,
+            x: canvasPosition.x,
+            y: canvasPosition.y,
+            image: imageData.image,
+            offsetToCenter: imageData.offsetToCenter,
+          });
+        }
+      }
+    }
+  }
+
+  return pointDataMap;
+}
+
+/**
  * Update point identities (map keys) when server state changes.
  * 
  * Mutates the passed map by:
  * - Adding new points from serverDiff
  * - Removing deleted points from serverDiff
- * - Setting initial positions for new points based on current view
+ * - Setting initial positions and images for new points based on current view
  * 
  * @param map - Map to mutate
  * @param serverDiff - Array of diffs for all splits
  * @param serverState - Updated server state (for positioning new points)
  * @param viewState - Current view state (for positioning new points)
  * @param viewMaps - View to splits mapping
+ * @param imageMap - Session-wide image cache with offsets
  * @returns Object with arrays of added and removed points
  */
 export function updatePointIdentities(
-  map: ParticipantPointPositions,
+  map: ParticipantPointDataMap,
   serverDiff: SplitWithSegmentGroupDiff[],
   serverState: ServerState,
   viewState: ViewState,
-  viewMaps: ViewMaps
-): { added: ParticipantPointPosition[], removed: ParticipantPointPosition[] } {
-  const added: ParticipantPointPosition[] = [];
-  const removed: ParticipantPointPosition[] = [];
+  viewMaps: ViewMaps,
+  imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }>
+): { added: ParticipantPointData[], removed: ParticipantPointData[] } {
+  const added: ParticipantPointData[] = [];
+  const removed: ParticipantPointData[] = [];
+  const viewSplitIndices = viewMaps[viewState.viewId];
 
   // Process each basis split's diff
   for (let i = 0; i < serverState.basisSplitIndices.length; i++) {
@@ -182,15 +273,76 @@ export function updatePointIdentities(
       }
     }
 
-    // Add new points with positions from current view
+    // Add new points with positions and images from current view
+    // Find which view split contains points from this basis split
+    let viewSplit = null;
+    for (const vIdx of viewSplitIndices) {
+      const split = serverState.splits[vIdx];
+      if (split.basisSplitIndices.includes(basisSplitIdx)) {
+        viewSplit = split;
+        break;
+      }
+    }
+
+    const responseGroups = viewSplit!.responseGroups[viewState.displayMode];
+    const segmentGroupBounds = viewSplit!.segmentGroupBounds;
+
+    // Group added points by expandedResponseGroupIdx
+    const pointsByResponseGroup = new Map<number, Point[]>();
     for (const pointSet of diff.points.added) {
       for (const point of pointSet) {
+        const rgIdx = point.expandedResponseGroupIdx;
+        if (!pointsByResponseGroup.has(rgIdx)) {
+          pointsByResponseGroup.set(rgIdx, []);
+        }
+        pointsByResponseGroup.get(rgIdx)!.push(point);
+      }
+    }
+
+    // Process each response group once
+    for (const [rgIdx, points] of pointsByResponseGroup) {
+      const responseGroup = responseGroups[rgIdx];
+      if (!responseGroup) continue;
+
+      const segmentBounds = responseGroup.bounds;
+
+      // Get image for this response group (same for all points)
+      const imageKey = responseGroup.pointImage.svgDataURL;
+      const imageData = imageMap.get(imageKey);
+
+      if (!imageData) {
+        throw new Error(
+          `Image not found in imageMap for svgDataURL: ${imageKey.substring(0, 50)}...`
+        );
+      }
+
+      // Process all points in this response group
+      for (const point of points) {
         const key = getPointKey(point);
-        // Find position for this point in current view
-        const position = findPointPositionInView(point, serverState, viewState, viewMaps);
-        if (position) {
-          map.set(key, position);
-          added.push(position);
+
+        // Find this point's position in the response group
+        const pointPosition = responseGroup.pointPositions.find(
+          pp => getPointKey(pp.point) === key
+        );
+
+        if (pointPosition) {
+          // Transform from segment-relative to canvas-relative coordinates
+          const canvasPosition = transformPointToCanvas(
+            pointPosition,
+            segmentBounds,
+            segmentGroupBounds
+          );
+
+          const pointData: ParticipantPointData = {
+            point: canvasPosition.point,
+            x: canvasPosition.x,
+            y: canvasPosition.y,
+            image: imageData.image,
+            offsetToCenter: imageData.offsetToCenter,
+          };
+
+          map.set(key, pointData);
+          added.push(pointData);
         }
       }
     }
@@ -414,48 +566,6 @@ export function computePointPositionsDiff(
   }
 
   return { added, removed, moved };
-}
-
-/**
- * Helper: Find the position of a specific point in the current view.
- * Used when adding new points to get their initial position.
- * 
- * @param point - Point to find position for
- * @param serverState - Current server state
- * @param viewState - Current view state
- * @param viewMaps - View to splits mapping
- * @returns Point position if found, undefined otherwise
- */
-function findPointPositionInView(
-  point: Point,
-  serverState: ServerState,
-  viewState: ViewState,
-  viewMaps: ViewMaps
-): ParticipantPointPosition | undefined {
-  const viewSplitIndices = viewMaps[viewState.viewId];
-  const key = getPointKey(point);
-
-  for (const viewSplitIdx of viewSplitIndices) {
-    const viewSplit = serverState.splits[viewSplitIdx];
-    const responseGroups = viewSplit.responseGroups[viewState.displayMode];
-    const segmentGroupBounds = viewSplit.segmentGroupBounds;
-
-    for (const responseGroup of responseGroups) {
-      const segmentBounds = responseGroup.bounds;
-      for (const pointPosition of responseGroup.pointPositions) {
-        if (getPointKey(pointPosition.point) === key) {
-          // Transform from segment-relative to canvas-relative coordinates
-          return transformPointToCanvas(
-            pointPosition,
-            segmentBounds,
-            segmentGroupBounds
-          );
-        }
-      }
-    }
-  }
-
-  return undefined;
 }
 
 /**

@@ -64,6 +64,7 @@ export class VizStateManager {
       viewId: initialViewState?.viewId ?? '', // Default to base view (no active questions)
       displayMode: initialViewState?.displayMode ?? 'expanded',
     };
+    // TODO: Replace with initializePointData(serverState, viewState, viewMaps, imageMap)
     this.currentPositions = initializePointPositions(
       this.serverState,
       this.viewState,
@@ -141,6 +142,7 @@ export class VizStateManager {
     } else {
       // Full recomputation path: snapshot or sequence gap
       // Need full rebuild because we don't have a valid diff or sequential update
+      // TODO: Replace with initializePointData(serverState, viewState, viewMaps, imageMap)
       const newPositions = initializePointPositions(
         this.serverState,
         this.viewState,
