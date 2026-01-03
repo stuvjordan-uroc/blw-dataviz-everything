@@ -5,7 +5,7 @@ import type {
   SessionStatusChangedEvent,
   RespondentAnswer,
   SubmitResponsesResponse,
-} from "./types";
+} from "shared-types";
 
 /**
  * Client library for communicating with polling APIs

@@ -38,6 +38,8 @@ import type {
   PointPositionChange,
   ParticipantPointDataMap,
   ParticipantPointData,
+  ParticipantPointDataDiff,
+  ParticipantPointDataChange,
   Point,
   ServerState,
   ViewState,
@@ -70,6 +72,31 @@ function transformPointToCanvas(
     point: point.point,
     x: segmentGroupBounds.x + segmentBounds.x + point.x,
     y: segmentGroupBounds.y + segmentBounds.y + point.y
+  };
+}
+
+/**
+ * Transform point data from segment-group-relative to canvas-relative coordinates.
+ * 
+ * Same coordinate transformation as transformPointToCanvas, but for ParticipantPointData.
+ * Image and offsetToCenter fields are passed through unchanged.
+ * 
+ * @param pointData - Point data with position relative to segment bounds
+ * @param segmentBounds - Bounds of the segment (relative to segment group)
+ * @param segmentGroupBounds - Bounds of the segment group (relative to canvas)
+ * @returns Point data with canvas-relative coordinates
+ */
+function transformPointDataToCanvas(
+  pointData: ParticipantPointData,
+  segmentBounds: { x: number; y: number; width: number; height: number },
+  segmentGroupBounds: { x: number; y: number; width: number; height: number }
+): ParticipantPointData {
+  return {
+    point: pointData.point,
+    x: segmentGroupBounds.x + segmentBounds.x + pointData.x,
+    y: segmentGroupBounds.y + segmentBounds.y + pointData.y,
+    image: pointData.image,
+    offsetToCenter: pointData.offsetToCenter,
   };
 }
 
@@ -241,6 +268,7 @@ export function initializePointData(
  * @param viewState - Current view state (for positioning new points)
  * @param viewMaps - View to splits mapping
  * @param imageMap - Session-wide image cache with offsets
+ * @param expandedToCollapsedMap - Map from expanded response group index to collapsed index
  * @returns Object with arrays of added and removed points
  */
 export function updatePointIdentities(
@@ -249,7 +277,8 @@ export function updatePointIdentities(
   serverState: ServerState,
   viewState: ViewState,
   viewMaps: ViewMaps,
-  imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }>
+  imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }>,
+  expandedToCollapsedMap: number[]
 ): { added: ParticipantPointData[], removed: ParticipantPointData[] } {
   const added: ParticipantPointData[] = [];
   const removed: ParticipantPointData[] = [];
@@ -301,7 +330,10 @@ export function updatePointIdentities(
 
     // Process each response group once
     for (const [rgIdx, points] of pointsByResponseGroup) {
-      const responseGroup = responseGroups[rgIdx];
+      // Map expanded index to correct response group based on display mode
+      const actualRgIdx = viewState.displayMode === 'expanded' ? rgIdx : expandedToCollapsedMap[rgIdx];
+      const responseGroup = responseGroups[actualRgIdx];
+
       if (!responseGroup) continue;
 
       const segmentBounds = responseGroup.bounds;
@@ -352,10 +384,128 @@ export function updatePointIdentities(
 }
 
 /**
+ * Update all point data in map when view state changes.
+ * 
+ * Mutates the passed map by updating the position (x, y) and image for each point
+ * based on the new view. Keys (point identities) remain unchanged.
+ * 
+ * Unlike updatePositionsForViewChange, this returns ALL points in the persisted array,
+ * not just the ones that changed, because images may change even when positions don't.
+ * 
+ * @param map - Map to mutate
+ * @param serverState - Current server state
+ * @param newViewState - New view state to use for positioning and images
+ * @param viewMaps - View to splits mapping
+ * @param imageMap - Session-wide image cache with offsets
+ * @param expandedToCollapsedMap - Map from expanded response group index to collapsed index
+ * @returns Diff with all points in persisted array
+ */
+export function updatePointDataForViewChange(
+  map: ParticipantPointDataMap,
+  serverState: ServerState,
+  newViewState: ViewState,
+  viewMaps: ViewMaps,
+  imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }>,
+  expandedToCollapsedMap: number[]
+): ParticipantPointDataDiff {
+  const viewSplitIndices = viewMaps[newViewState.viewId];
+  if (viewSplitIndices === undefined) {
+    const availableViewIds = Object.keys(viewMaps).sort();
+    throw new Error(
+      `Invalid viewId "${newViewState.viewId}" not found in ViewMaps. ` +
+      `Available viewIds: ${availableViewIds.length > 0 ? availableViewIds.join(',') : '(none)'}`
+    );
+  }
+
+  // Build lookup of new positions and images, transform to canvas coordinates
+  const newPointData = new Map<string, ParticipantPointData>();
+
+  for (const viewSplitIdx of viewSplitIndices) {
+    const viewSplit = serverState.splits[viewSplitIdx];
+    const responseGroups = viewSplit.responseGroups[newViewState.displayMode];
+    const segmentGroupBounds = viewSplit.segmentGroupBounds;
+
+    for (let rgIdx = 0; rgIdx < responseGroups.length; rgIdx++) {
+      const responseGroup = responseGroups[rgIdx];
+      const segmentBounds = responseGroup.bounds;
+
+      // Get image for this response group (same for all points)
+      const imageKey = responseGroup.pointImage.svgDataURL;
+      const imageData = imageMap.get(imageKey);
+
+      if (!imageData) {
+        throw new Error(
+          `Image not found in imageMap for svgDataURL: ${imageKey.substring(0, 50)}...`
+        );
+      }
+
+      for (const pointPosition of responseGroup.pointPositions) {
+        const key = getPointKey(pointPosition.point);
+
+        // Create ParticipantPointData with transformed coordinates
+        const pointData: ParticipantPointData = {
+          point: pointPosition.point,
+          x: pointPosition.x,
+          y: pointPosition.y,
+          image: imageData.image,
+          offsetToCenter: imageData.offsetToCenter,
+        };
+
+        // Transform from segment-relative to canvas-relative coordinates
+        const canvasPointData = transformPointDataToCanvas(
+          pointData,
+          segmentBounds,
+          segmentGroupBounds
+        );
+
+        newPointData.set(key, canvasPointData);
+      }
+    }
+  }
+
+  // Track points that changed (position OR image)
+  const persisted: ParticipantPointDataChange[] = [];
+
+  for (const [key, oldData] of map) {
+    const newData = newPointData.get(key);
+    if (newData) {
+      // Check if position or image changed
+      const positionChanged = oldData.x !== newData.x || oldData.y !== newData.y;
+      const imageChanged = oldData.image !== newData.image;
+
+      if (positionChanged || imageChanged) {
+        // Add to persisted array with from/to data
+        persisted.push({
+          point: newData.point,
+          fromX: oldData.x,
+          fromY: oldData.y,
+          toX: newData.x,
+          toY: newData.y,
+          dx: newData.x - oldData.x,
+          dy: newData.y - oldData.y,
+          fromImage: oldData.image,
+          fromOffsetToCenter: oldData.offsetToCenter,
+          toImage: newData.image,
+          toOffsetToCenter: newData.offsetToCenter,
+        });
+      }
+
+      // Update map with new data (even if nothing changed, to ensure fresh reference)
+      map.set(key, newData);
+    }
+  }
+
+  return { added: [], removed: [], persisted };
+}
+
+/**
  * Update all positions in map when view state changes.
  * 
  * Mutates the passed map by updating the position (x, y) for each point
  * based on the new view. Keys (point identities) remain unchanged.
+ * 
+ * @deprecated This function will be removed once migration to server-sent images is complete.
+ * Use updatePointDataForViewChange instead.
  * 
  * @param map - Map to mutate
  * @param serverState - Current server state

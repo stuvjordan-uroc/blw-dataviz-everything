@@ -12,34 +12,14 @@ import {
   real,
 } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
-import type { Question, SegmentVizConfig, SplitWithSegmentGroup, ViewMaps } from "shared-types";
-
-/**
- * Session configuration for a polling session.
- * Defines which questions are presented to respondents and how responses are visualized.
- */
-export interface SessionConfig {
-  // Questions in the order they will be presented to respondents
-  questionOrder: Question[];
-
-  // One visualization per response question, with unique ID for reference
-  visualizations: (SegmentVizConfig & { id: string })[];
-}
-
-/**
- * Pre-computed lookup maps for efficient response transformation.
- * Built at session creation to minimize response processing latency.
- */
-export interface VisualizationLookupMaps {
-  // Maps response index to expanded response group index (O(1) lookup)
-  // Example: {0: 0, 1: 0, 2: 1, 3: 1, 4: 2}
-  responseIndexToGroupIndex: Record<number, number>;
-
-  // Maps group profile signature to basis split index (O(1) lookup)
-  // Key format: serialized profile like "0:1:null:2" where each position
-  // corresponds to a grouping question's response group index (or null)
-  profileToSplitIndex: Record<string, number>;
-}
+import type {
+  Question,
+  SegmentVizConfig,
+  SplitWithSegmentGroup,
+  ViewMaps,
+  SessionConfig,
+  VisualizationLookupMaps
+} from "shared-types";
 
 /* CREATE POLLS SCHEMA AND ITS TABLES */
 

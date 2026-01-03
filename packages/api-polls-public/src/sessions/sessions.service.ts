@@ -3,6 +3,7 @@ import { DATABASE_CONNECTION } from "../database/database.providers";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { sessions } from "shared-schemas";
+import type { SessionResponse } from "shared-types";
 import { ResponsesService } from "../responses/responses.service";
 
 /**
@@ -29,7 +30,7 @@ export class SessionsService {
    * @returns Complete session info
    * @throws NotFoundException if session doesn't exist
    */
-  async getSessionBySlug(slug: string) {
+  async getSessionBySlug(slug: string): Promise<SessionResponse> {
     // Get session by slug
     const [session] = await this.db
       .select()

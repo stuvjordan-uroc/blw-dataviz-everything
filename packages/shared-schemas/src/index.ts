@@ -8,7 +8,6 @@ export {
   sessionVisualizations
 } from "./schemas/polls";
 export type { Question } from "./schemas/questions";
-export type { SessionConfig, VisualizationLookupMaps } from "./schemas/polls";
 export * from "./schemas/admin";
 
 // Re-export Zod validation schemas

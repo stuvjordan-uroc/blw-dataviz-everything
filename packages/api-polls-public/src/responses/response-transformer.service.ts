@@ -1,16 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
-import type { Question, SegmentVizConfig, SplitWithSegmentGroup } from "shared-types";
+import type {
+  Question,
+  SegmentVizConfig,
+  SplitWithSegmentGroup,
+  RespondentAnswer,
+} from "shared-types";
 import type { VisualizationLookupMaps } from "shared-schemas";
-
-/**
- * A respondent's answer to a single question
- */
-export interface RespondentAnswer {
-  varName: string;
-  batteryName: string;
-  subBattery: string;
-  responseIndex: number; // Index into the responses array from questions.questions
-}
 
 /**
  * All answers from a single respondent

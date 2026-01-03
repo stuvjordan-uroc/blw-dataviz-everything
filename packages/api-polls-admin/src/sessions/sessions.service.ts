@@ -2,37 +2,36 @@ import {
   Injectable,
   Inject,
   NotFoundException,
-  BadRequestException,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { DATABASE_CONNECTION } from "../database/database.providers";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq, inArray, and, or } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   sessions,
   pollQuestions,
   respondents,
   responses,
   sessionVisualizations,
-  questions,
-  sessionConfigSchema,
   VisualizationLookupMaps,
 } from "shared-schemas";
-import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import type { InferSelectModel } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 import { initializeSplitsWithSegments } from "shared-computation";
 import type {
   SegmentVizConfig,
   SplitWithSegmentGroup,
+  CreateSessionDto,
+  Session,
+  GetAllSessionsResponse,
 } from "shared-types";
 import { validateSessionConfig } from "./validate-session-config";
 
 /**
- * Type definitions for session operations
+ * Type definitions for database operations
  * These are automatically inferred from the Drizzle schema
  */
-type Session = InferSelectModel<typeof sessions>;
-type NewSession = InferInsertModel<typeof sessions>;
+type DbSession = InferSelectModel<typeof sessions>;
 
 /**
  * SessionsService handles all business logic for poll sessions
@@ -88,17 +87,17 @@ export class SessionsService {
   /**
    * Create a new poll session
    *
-   * @param sessionData - The session configuration and metadata
+   * @param dto - The session configuration and metadata
    * @returns The newly created session with its ID and generated slug
    */
-  async create(sessionData: NewSession): Promise<Session> {
+  async create(dto: CreateSessionDto): Promise<Session> {
     return await this.db.transaction(async (tx) => {
       // Generate a unique slug if not provided
-      const slug = sessionData.slug || this.generateSlug();
+      const slug = dto.slug || this.generateSlug();
 
       // Extract configuration
-      const questionOrder = sessionData.sessionConfig?.questionOrder || [];
-      const visualizationsInput = sessionData.sessionConfig?.visualizations || [];
+      const questionOrder = dto.sessionConfig.questionOrder;
+      const visualizationsInput = dto.sessionConfig.visualizations;
 
       // Generate IDs for visualizations
       const visualizations = visualizationsInput.map((viz) => ({
@@ -113,22 +112,23 @@ export class SessionsService {
       );
 
       // Insert the session with generated slug and updated config with visualization IDs
-      const [session] = await tx
+      const [dbSession] = await tx
         .insert(sessions)
         .values({
-          ...sessionData,
+          description: dto.description,
           slug,
           sessionConfig: {
             questionOrder,
             visualizations,
-          }
+          },
+          isOpen: true, // New sessions start as open by default
         })
         .returning();
 
       // Populate polls.questions with all questions for this session
       if (questionOrder.length > 0) {
         const pollQuestionsData = questionOrder.map((q, index) => ({
-          sessionId: session.id,
+          sessionId: dbSession.id,
           varName: q.varName,
           batteryName: q.batteryName,
           subBattery: q.subBattery,
@@ -151,7 +151,7 @@ export class SessionsService {
 
         // Store the initialized visualization with lookup maps and view maps
         await tx.insert(sessionVisualizations).values({
-          sessionId: session.id,
+          sessionId: dbSession.id,
           visualizationId: id,
           basisSplitIndices,
           splits,
@@ -162,17 +162,21 @@ export class SessionsService {
         });
       }
 
-      return session;
+      // Map database session to API contract Session type
+      return this.mapDbSessionToSession(dbSession);
     });
   }
 
   /**
    * Get all sessions
    *
-   * @returns Array of all sessions in the database
+   * @returns All sessions response with array of sessions
    */
-  async findAll(): Promise<Session[]> {
-    return await this.db.select().from(sessions);
+  async findAll(): Promise<GetAllSessionsResponse> {
+    const dbSessions = await this.db.select().from(sessions);
+    return {
+      sessions: dbSessions.map(s => this.mapDbSessionToSession(s)),
+    };
   }
 
   /**
@@ -183,16 +187,16 @@ export class SessionsService {
    * @throws NotFoundException if session doesn't exist
    */
   async findOne(id: number): Promise<Session> {
-    const [session] = await this.db
+    const [dbSession] = await this.db
       .select()
       .from(sessions)
       .where(eq(sessions.id, id));
 
-    if (!session) {
+    if (!dbSession) {
       throw new NotFoundException(`Session with ID ${id} not found`);
     }
 
-    return session;
+    return this.mapDbSessionToSession(dbSession);
   }
 
   /**
@@ -260,7 +264,7 @@ export class SessionsService {
     const statusChanged = existingSession.isOpen !== isOpen;
 
     // Update session status
-    const [updatedSession] = await this.db
+    const [dbUpdatedSession] = await this.db
       .update(sessions)
       .set({ isOpen })
       .where(eq(sessions.id, id))
@@ -275,7 +279,7 @@ export class SessionsService {
       });
     }
 
-    return updatedSession;
+    return this.mapDbSessionToSession(dbUpdatedSession);
   }
 
   /**
@@ -381,5 +385,25 @@ export class SessionsService {
     }
 
     return map;
+  }
+
+  /**
+   * Map database session to API contract Session type.
+   * 
+   * This provides a clean separation between database representation
+   * and API contract, allowing us to evolve either independently.
+   * 
+   * @param dbSession - Session from database
+   * @returns Session in API contract format
+   */
+  private mapDbSessionToSession(dbSession: DbSession): Session {
+    return {
+      id: dbSession.id,
+      slug: dbSession.slug,
+      isOpen: dbSession.isOpen,
+      description: dbSession.description,
+      createdAt: dbSession.createdAt!,
+      sessionConfig: dbSession.sessionConfig,
+    };
   }
 }

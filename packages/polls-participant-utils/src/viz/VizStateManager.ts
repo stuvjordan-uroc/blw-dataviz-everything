@@ -43,6 +43,7 @@ export class VizStateManager {
   private viewState: ViewState;
   private viewMaps: ViewMaps;
   private imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }>;
+  private expandedToCollapsedMap: number[];
   private currentPositions: ParticipantPointPositions | null = null;
 
   constructor(
@@ -51,6 +52,7 @@ export class VizStateManager {
     initialSequenceNumber: number,
     viewMaps: ViewMaps,
     imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }>,
+    expandedToCollapsedMap: number[],
     initialViewState?: Partial<ViewState>
   ) {
     this.serverState = {
@@ -60,6 +62,7 @@ export class VizStateManager {
     };
     this.viewMaps = viewMaps;
     this.imageMap = imageMap;
+    this.expandedToCollapsedMap = expandedToCollapsedMap;
     this.viewState = {
       viewId: initialViewState?.viewId ?? '', // Default to base view (no active questions)
       displayMode: initialViewState?.displayMode ?? 'expanded',
@@ -80,7 +83,7 @@ export class VizStateManager {
    * @param toSequence - Ending sequence number (new sequence after update)
    * @param newSplits - Complete updated splits array
    * @param serverDiff - Optional diff from server (for future animation optimizations)
-   * @returns End state and diff for visible points only
+   * @returns End state and diff of points
    */
   applyServerUpdate(
     fromSequence: number,
@@ -116,7 +119,9 @@ export class VizStateManager {
         serverDiff,
         this.serverState,
         this.viewState,
-        this.viewMaps
+        this.viewMaps,
+        this.imageMap,
+        this.expandedToCollapsedMap
       );
 
       // Step 2: Update positions for existing points that moved (mutates positions)

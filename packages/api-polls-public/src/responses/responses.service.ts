@@ -14,18 +14,16 @@ import {
   responses,
   pollQuestions,
 } from "shared-schemas";
-import type { Question } from "shared-types";
+import type {
+  Question,
+  SubmitResponsesDto,
+  SubmitResponsesResponse,
+  RespondentAnswer,
+  VisualizationData,
+} from "shared-types";
 import { BatchUpdateScheduler } from "./batch-update-scheduler.service";
-import { RespondentResponses, RespondentAnswer } from "./response-transformer.service";
+import { RespondentResponses } from "./response-transformer.service";
 import { VisualizationCacheService } from "./visualization-cache.service";
-
-/**
- * DTO for submitting responses
- */
-export interface SubmitResponsesDto {
-  sessionId: number;
-  answers: RespondentAnswer[];
-}
 
 /**
  * ResponsesService handles the submission and retrieval of poll responses.
@@ -55,7 +53,7 @@ export class ResponsesService {
    * @param dto - The submission data
    * @returns The created respondent ID
    */
-  async submitResponses(dto: SubmitResponsesDto): Promise<{ respondentId: number }> {
+  async submitResponses(dto: SubmitResponsesDto): Promise<SubmitResponsesResponse> {
     // 1. Validate session
     const [session] = await this.db
       .select()
@@ -348,10 +346,10 @@ export class ResponsesService {
       sessionId
     );
 
-    const result = [];
+    const result: VisualizationData[] = [];
 
     for (const [vizId, vizState] of visualizations) {
-      const vizData: any = {
+      const vizData: Partial<VisualizationData> = {
         visualizationId: vizId,
         config: vizState.config,
         sequenceNumber: vizState.sequenceNumber,
@@ -367,7 +365,7 @@ export class ResponsesService {
         vizData.viewMaps = vizState.viewMaps;
       }
 
-      result.push(vizData);
+      result.push(vizData as VisualizationData);
     }
 
     return result;

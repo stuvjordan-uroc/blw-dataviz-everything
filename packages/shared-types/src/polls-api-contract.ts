@@ -1,38 +1,114 @@
 /**
  * API contract types for the polling system.
  * These types define the structure of data exchanged between clients and servers.
+ * 
+ * NOTE:  For types sent TO an api endpoint, use the 'Dto' suffix.
+ * For types returned FROM an api endpoint, omit the 'Dto' suffix.
  */
 
 import type { ViewMaps, SplitWithSegmentGroup, SplitWithSegmentGroupDiff, SegmentVizConfig } from './visualization';
+import type { Question } from './index';
 
 /**
- * Session response from GET /sessions/:slug
- * 
- * Contains all information needed to interact with a polling session.
+ * ===============================
+ * SHARED SESSION TYPES
+ * ===============================
  */
-export interface SessionResponse {
-  // Session metadata
+
+/**
+ * Session configuration for a polling session.
+ * Defines which questions are presented to respondents and how responses are visualized.
+ */
+export interface SessionConfig {
+  // Questions in the order they will be presented to respondents
+  questionOrder: Question[];
+
+  // One visualization per response question, with unique ID for reference
+  visualizations: (SegmentVizConfig & { id: string })[];
+}
+
+/**
+ * Pre-computed lookup maps for efficient response transformation.
+ * Built at session creation to minimize response processing latency.
+ * 
+ * These maps are included in visualization data sent to clients and stored
+ * in the database for efficient response processing.
+ */
+export interface VisualizationLookupMaps {
+  // Maps response index to expanded response group index (O(1) lookup)
+  // Example: {0: 0, 1: 0, 2: 1, 3: 1, 4: 2}
+  responseIndexToGroupIndex: Record<number, number>;
+
+  // Maps group profile signature to basis split index (O(1) lookup)
+  // Key format: serialized profile like "0:1:null:2" where each position
+  // corresponds to a grouping question's response group index (or null)
+  profileToSplitIndex: Record<string, number>;
+}
+
+/**
+ * Base session type returned from API endpoints.
+ * Contains all session metadata and configuration.
+ */
+export interface Session {
   id: number;
   slug: string;
   isOpen: boolean;
   description: string | null;
   createdAt: Date | string;
-
-  // Session configuration
-  config: any; // TODO: Type this properly after prototyping
-
-  // Current visualization state
-  visualizations: VisualizationData[];
-
-  // API endpoints
-  endpoints: {
-    submitResponse: string;
-    visualizationStream: string;
-  };
+  sessionConfig: SessionConfig | null;
 }
 
 /**
- * Visualization data from GET /sessions/:slug
+ * ===============================
+ * ADMIN SESSION ENDPOINTS
+ * ===============================
+ */
+
+/**
+ * POST /sessions - Create a new session
+ */
+export interface CreateSessionDto {
+  description: string | null;
+  sessionConfig: {
+    questionOrder: Question[];
+    visualizations: Omit<SegmentVizConfig, 'id'>[]; // IDs are generated server-side
+  };
+  slug?: string; // Optional - will be generated if not provided
+}
+
+/**
+ * GET /sessions - Get all sessions
+ */
+export interface GetAllSessionsResponse {
+  sessions: Session[];
+}
+
+/**
+ * GET /sessions/:id - Get session by ID
+ * Returns: Session
+ */
+
+/**
+ * DELETE /sessions/:id - Delete a session
+ * Returns: void
+ */
+
+/**
+ * PATCH /sessions/:id/toggle - Toggle session status
+ */
+export interface ToggleSessionStatusDto {
+  isOpen: boolean;
+}
+
+
+/**
+ * ========================================
+ * PUBLIC SESSIONS ENDPOINTS
+ * ========================================
+ */
+
+/**
+ * Visualization data included in session responses
  * Includes viewMaps for O(1) view switching
  */
 export interface VisualizationData {
@@ -46,6 +122,87 @@ export interface VisualizationData {
   vizWidth: number; // Canvas width in abstract units
   vizHeight: number; // Canvas height in abstract units
 }
+
+/**
+ * GET /sessions/:slug - Get session by slug
+ * 
+ * Contains all information needed to interact with a polling session:
+ * - Session metadata and configuration
+ * - Current visualization state with viewMaps
+ * - API endpoints for submitting responses and streaming updates
+ */
+export interface SessionResponse {
+  // Session metadata
+  id: number;
+  slug: string;
+  isOpen: boolean;
+  description: string | null;
+  createdAt: Date | string;
+
+  // Session configuration
+  config: SessionConfig;
+
+  // Current visualization state
+  visualizations: VisualizationData[];
+
+  // API endpoints
+  endpoints: {
+    submitResponse: string;
+    visualizationStream: string;
+  };
+}
+
+/**
+ * =============================================
+ * PUBLIC RESPONSES ENDPOINTS
+ * =============================================
+ */
+
+/**
+ * A respondent's answer to a single question
+ * 
+ * Used in response submission payloads.
+ */
+export interface RespondentAnswer {
+  varName: string;
+  batteryName: string;
+  subBattery: string;
+  responseIndex: number; // Index into the responses array from questions.questions
+}
+
+/**
+ * POST /sessions/:slug/responses - Submit responses
+ */
+export interface SubmitResponsesDto {
+  sessionId: number;
+  answers: RespondentAnswer[];
+}
+
+/**
+ * Response from submitting responses
+ */
+export interface SubmitResponsesResponse {
+  respondentId: number;
+}
+
+/**
+ * GET SESSION RESPONSES ENDPOINT
+ */
+
+//TODO
+
+/**
+ * GET SESSION STATS ENDPOINT
+ */
+
+//TODO
+
+
+/**
+ * ======================================
+ * VISUALIZATION STREAM SERVICE
+ * ======================================
+ */
 
 /**
  * Visualization snapshot event data
@@ -79,31 +236,4 @@ export interface VisualizationUpdateEvent {
 export interface SessionStatusChangedEvent {
   isOpen: boolean;
   timestamp: string | Date;
-}
-
-/**
- * A respondent's answer to a single question
- * 
- * Used in response submission payloads.
- */
-export interface RespondentAnswer {
-  varName: string;
-  batteryName: string;
-  subBattery: string;
-  responseIndex: number; // Index into the responses array from questions.questions
-}
-
-/**
- * Payload for submitting responses to a session
- */
-export interface SubmitResponsesDto {
-  sessionId: number;
-  answers: RespondentAnswer[];
-}
-
-/**
- * Response from submitting answers
- */
-export interface SubmitResponsesResponse {
-  respondentId: number;
 }

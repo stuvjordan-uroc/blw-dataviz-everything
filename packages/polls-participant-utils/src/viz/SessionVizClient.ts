@@ -32,6 +32,7 @@ import type {
   VisualizationUpdateEvent,
   VisualizationSnapshotEvent,
   SessionStatusChangedEvent,
+  VisualizationData,
 } from 'shared-types';
 import {
   VisualizationUpdateEventSchema,
@@ -61,6 +62,7 @@ export class SessionVizClient {
   private connectionStatusListeners: Set<ConnectionStatusCallback> = new Set();
   private sessionData: SessionResponse | null = null;
   private connectionStatus: ConnectionStatus = 'disconnected';
+  private imageMap: Map<string, { image: HTMLImageElement; offsetToCenter: { x: number; y: number } }> | null = null;
 
   constructor(apiClient: PollsApiClient) {
     this.apiClient = apiClient;
@@ -86,16 +88,21 @@ export class SessionVizClient {
 
     //load and rasterize all images
     const sessionImages = await loadAllSessionImages(this.sessionData.visualizations);
+    this.imageMap = sessionImages;
 
     //loop through the sessionData.visualization array.
     //for each visualization, create a VizStateManager
     for (const viz of this.sessionData.visualizations) {
+      // Build expandedToCollapsedMap for this visualization
+      const expandedToCollapsedMap = this.buildExpandedToCollapsedMap(viz);
+
       const vizState = new VizStateManager(
         viz.splits,
         viz.basisSplitIndices,
         viz.sequenceNumber,
         viz.viewMaps,
-        sessionImages
+        sessionImages,
+        expandedToCollapsedMap
       )
       this.vizManagers.set(viz.visualizationId, vizState)
     }
@@ -363,11 +370,16 @@ export class SessionVizClient {
 
       if (!vizManager) {
         // Create new VizStateManager if it doesn't exist
+        const expandedToCollapsedMap = this.buildExpandedToCollapsedMap(viz);
         vizManager = new VizStateManager(
           viz.splits,
           viz.basisSplitIndices,
           viz.sequenceNumber,
-          viz.viewMaps
+          viz.viewMaps,
+          // imageMap is guaranteed non-null: connect() awaits loadAllSessionImages() 
+          // before attachEventHandlers(), so no events can fire until images are loaded
+          this.imageMap!,
+          expandedToCollapsedMap
         );
         this.vizManagers.set(viz.visualizationId, vizManager);
 
@@ -444,6 +456,32 @@ export class SessionVizClient {
     result: StateChangeResult
   ): void {
     this.vizStateListeners.forEach(callback => callback(visualizationId, result));
+  }
+
+  /**
+   * Internal: Build mapping from expanded response group index to collapsed response group index.
+   * 
+   * For each expanded response group, finds which collapsed response group contains it
+   * by checking if the collapsed group's values array includes the first value from
+   * the expanded group's values array.
+   */
+  private buildExpandedToCollapsedMap(viz: VisualizationData): number[] {
+    const expandedGroups = viz.config.responseQuestion.responseGroups.expanded;
+    const collapsedGroups = viz.config.responseQuestion.responseGroups.collapsed;
+
+    return expandedGroups.map((expandedGroup) => {
+      const collapsedIdx = collapsedGroups.findIndex((collapsedGroup) =>
+        collapsedGroup.values.includes(expandedGroup.values[0])
+      );
+
+      if (collapsedIdx === -1) {
+        throw new Error(
+          `Expanded response group "${expandedGroup.label}" not found in any collapsed group`
+        );
+      }
+
+      return collapsedIdx;
+    });
   }
 
   /**

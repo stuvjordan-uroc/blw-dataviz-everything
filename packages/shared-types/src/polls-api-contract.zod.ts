@@ -2,22 +2,93 @@
  * Zod schemas for API contract validation
  * 
  * These schemas provide runtime validation for data exchanged between
- * clients and servers, particularly for SSE events and HTTP responses.
+ * clients and servers. Organized to match the structure of polls-api-contract.ts.
  */
 
 import { z } from 'zod';
 import {
-  PointSchema,
-  RectBoundsSchema,
-  PointPositionSchema,
-  ResponseGroupSchema,
-  ResponseGroupWithStatsAndSegmentSchema,
   SplitWithSegmentGroupSchema,
   SplitWithSegmentGroupDiffSchema,
   ViewMapsSchema,
   SegmentVizConfigSchema,
   QuestionSchema,
 } from './visualization.zod';
+
+/**
+ * ===============================
+ * SHARED SESSION TYPES
+ * ===============================
+ */
+
+/**
+ * Schema for SessionConfig
+ */
+export const SessionConfigSchema = z.object({
+  questionOrder: z.array(QuestionSchema),
+  visualizations: z.array(
+    SegmentVizConfigSchema.extend({
+      id: z.string(),
+    })
+  ),
+});
+
+/**
+ * Schema for VisualizationLookupMaps
+ */
+export const VisualizationLookupMapsSchema = z.object({
+  responseIndexToGroupIndex: z.record(z.number()),
+  profileToSplitIndex: z.record(z.number()),
+});
+
+/**
+ * Schema for Session
+ */
+export const SessionSchema = z.object({
+  id: z.number(),
+  slug: z.string(),
+  isOpen: z.boolean(),
+  description: z.string().nullable(),
+  createdAt: z.union([z.string(), z.date()]),
+  sessionConfig: SessionConfigSchema.nullable(),
+});
+
+/**
+ * ===============================
+ * ADMIN SESSION ENDPOINTS
+ * ===============================
+ */
+
+/**
+ * Schema for CreateSessionDto (POST /sessions)
+ */
+export const CreateSessionDtoSchema = z.object({
+  description: z.string().nullable(),
+  sessionConfig: z.object({
+    questionOrder: z.array(QuestionSchema),
+    visualizations: z.array(SegmentVizConfigSchema),
+  }),
+  slug: z.string().optional(),
+});
+
+/**
+ * Schema for GetAllSessionsResponse (GET /sessions)
+ */
+export const GetAllSessionsResponseSchema = z.object({
+  sessions: z.array(SessionSchema),
+});
+
+/**
+ * Schema for ToggleSessionStatusDto (PATCH /sessions/:id/toggle)
+ */
+export const ToggleSessionStatusDtoSchema = z.object({
+  isOpen: z.boolean(),
+});
+
+/**
+ * ========================================
+ * PUBLIC SESSION ENDPOINTS
+ * ========================================
+ */
 
 /**
  * Schema for VisualizationData
@@ -35,7 +106,7 @@ export const VisualizationDataSchema = z.object({
 });
 
 /**
- * Schema for SessionResponse (from GET /sessions/:slug)
+ * Schema for SessionResponse (GET /sessions/:slug)
  */
 export const SessionResponseSchema = z.object({
   id: z.number(),
@@ -43,13 +114,19 @@ export const SessionResponseSchema = z.object({
   isOpen: z.boolean(),
   description: z.string().nullable(),
   createdAt: z.union([z.string(), z.date()]),
-  config: z.any(), // TODO: Type this properly after prototyping
+  config: SessionConfigSchema,
   visualizations: z.array(VisualizationDataSchema),
   endpoints: z.object({
     submitResponse: z.string(),
     visualizationStream: z.string(),
   }),
 });
+
+/**
+ * ======================================
+ * VISUALIZATION STREAM SERVICE
+ * ======================================
+ */
 
 /**
  * Schema for VisualizationSnapshotEvent (SSE event)
@@ -83,6 +160,12 @@ export const SessionStatusChangedEventSchema = z.object({
 });
 
 /**
+ * =============================================
+ * PUBLIC RESPONSES ENDPOINTS
+ * =============================================
+ */
+
+/**
  * Schema for RespondentAnswer
  */
 export const RespondentAnswerSchema = z.object({
@@ -93,7 +176,7 @@ export const RespondentAnswerSchema = z.object({
 });
 
 /**
- * Schema for SubmitResponsesDto
+ * Schema for SubmitResponsesDto (POST /sessions/:slug/responses)
  */
 export const SubmitResponsesDtoSchema = z.object({
   sessionId: z.number(),
