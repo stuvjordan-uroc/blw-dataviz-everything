@@ -1,16 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { Response } from "express";
+import type {
+  VisualizationSnapshotEvent,
+  VisualizationUpdateEvent,
+  SessionStatusChangedEvent,
+} from "shared-types";
 import { VisualizationUpdatedEvent } from "./batch-update-scheduler.service";
-
-/**
- * Event emitted when a session's open/closed status changes
- */
-export interface SessionStatusChangedEvent {
-  sessionId: number;
-  isOpen: boolean;
-  timestamp: Date;
-}
 
 /**
  * Represents a connected SSE client
@@ -111,9 +107,9 @@ export class VisualizationStreamService {
    * Send initial visualization snapshot to a client
    * 
    * @param clientId - The client ID
-   * @param data - Visualization data to send
+   * @param data - Visualization snapshot data to send
    */
-  sendSnapshot(clientId: string, data: unknown): void {
+  sendSnapshot(clientId: string, data: VisualizationSnapshotEvent): void {
     const client = this.findClient(clientId);
     if (!client) {
       this.logger.warn(`Cannot send snapshot: client ${clientId} not found`);
@@ -142,26 +138,28 @@ export class VisualizationStreamService {
     );
 
     // Broadcast to all clients for this session
+    const updateData: VisualizationUpdateEvent = {
+      visualizationId: event.visualizationId,
+      fromSequence: event.fromSequence,
+      toSequence: event.toSequence,
+      splits: event.splits,
+      splitDiffs: event.splitDiffs,
+      basisSplitIndices: event.basisSplitIndices,
+      timestamp: event.timestamp,
+    };
+
     for (const client of sessionClients) {
-      this.sendEvent(client.response, "visualization.updated", {
-        visualizationId: event.visualizationId,
-        fromSequence: event.fromSequence,
-        toSequence: event.toSequence,
-        splits: event.splits,
-        splitDiffs: event.splitDiffs,
-        basisSplitIndices: event.basisSplitIndices,
-        timestamp: event.timestamp,
-      });
+      this.sendEvent(client.response, "visualization.updated", updateData);
     }
   }
 
   /**
    * Listen for session.statusChanged events and broadcast to subscribed clients
    * 
-   * @param event - The session status change event
+   * @param event - The session status change event (includes sessionId from emitter)
    */
   @OnEvent("session.statusChanged")
-  handleSessionStatusChange(event: SessionStatusChangedEvent): void {
+  handleSessionStatusChange(event: SessionStatusChangedEvent & { sessionId: number }): void {
     const sessionClients = this.clients.get(event.sessionId);
     if (!sessionClients || sessionClients.size === 0) {
       return; // No clients subscribed to this session
@@ -173,11 +171,13 @@ export class VisualizationStreamService {
     );
 
     // Broadcast to all clients for this session
+    const statusChangeData: SessionStatusChangedEvent = {
+      isOpen: event.isOpen,
+      timestamp: event.timestamp,
+    };
+
     for (const client of sessionClients) {
-      this.sendEvent(client.response, "session.statusChanged", {
-        isOpen: event.isOpen,
-        timestamp: event.timestamp,
-      });
+      this.sendEvent(client.response, "session.statusChanged", statusChangeData);
 
       // If session was closed, close the client connection
       if (!event.isOpen) {
