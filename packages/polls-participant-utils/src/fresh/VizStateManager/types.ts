@@ -1,25 +1,21 @@
-import { Point, SplitWithSegmentGroup, VisualizationData } from "shared-types";
-import { PointLoadedImage } from "../types";
+import { SplitWithSegmentGroup, VisualizationData } from "shared-types";
+import { PointLoadedImage, PointDisplay } from "../types";
 
-
-export interface PointDisplay {
-  point: Point;
-  position: {
-    x: number,
-    y: number
-  };
-  image: PointLoadedImage;
-}
 
 export interface VizLogicalState {
   serverState: SplitWithSegmentGroup[];
   displayMode: "expanded" | "collapsed";
   viewId: string;
-  canvasWidth: number;
-  canvasHeight: number;
-  targetVisibleState: PointDisplay[];
+  targetVisibleState: Map<string, PointDisplay>;
 }
 
 export interface VizData extends VisualizationData {
   loadedImages: Map<string, PointLoadedImage>
+}
+
+export interface CanvasData {
+  element: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+  pixelWidth: number;
+  pixelHeight: number;
 }

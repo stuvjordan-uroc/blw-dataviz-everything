@@ -43,8 +43,9 @@ import { SessionVizClient } from "../SessionVizClient";
 import { VizStateManager } from "../VizStateManager";
 import { VisualizationData } from "shared-types";
 import { loadVizImages } from "../loadVizImages";
+import { VizRenderConfig } from "../types";
 
-export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string) {
+export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string, vizRenderConfig: VizRenderConfig) {
 
   //connection and session statuses
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected')
@@ -102,8 +103,8 @@ export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string) {
           //Create an array of promises for parallel processing
           const vizPromises = sessionData.visualizations.map(async (viz) => {
             try {
-              //note ... loadVizImages can throw errors that need to be
-              //typed in the catch block below.
+              //note ... loadVizImages can throw errors that will be caught in the
+              //catch block below
               const vizImages = await loadVizImages(viz.splits)
 
               //create the canvas
@@ -111,7 +112,7 @@ export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string) {
 
               //create a viz state manager, which wires visualization state to canvas
               //VizStateManager is TODO!!!
-              const vizManager = new VizStateManager(viz, canvas, vizImages)
+              const vizManager = new VizStateManager(viz, canvas, vizImages, vizRenderConfig)
 
               //Subscribe to visualization updates
               //The callback is immediately invoked with the current buffered state,
