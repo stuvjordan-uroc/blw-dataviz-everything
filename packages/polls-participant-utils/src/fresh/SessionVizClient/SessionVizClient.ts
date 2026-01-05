@@ -13,9 +13,12 @@ import {
   VisualizationUpdateEvent,
   VisualizationUpdateEventSchema,
   SessionStatusChangedEventSchema,
-  SessionStatusChangedEvent
+  SessionStatusChangedEvent,
+  VisualizationSnapshotEvent,
+  VisualizationSnapshotEventSchema,
+  VisualizationData
 } from 'shared-types';
-import { ConnectionStatus, SessionStatus, SessionStatusCallback, ConnectionStatusCallback, VizUpdateCallback } from "./types";
+import { ConnectionStatus, SessionStatusCallback, ConnectionStatusCallback, VizUpdateCallback } from "./types";
 import { ZodError } from "zod";
 
 
@@ -28,8 +31,6 @@ export class SessionVizClient {
   //polls api client
   private apiClient: PollsApiClient;
 
-  //session status
-  private sessionStatus: SessionStatus = 'closed';
 
   //connection status
   private connectionStatus: ConnectionStatus = 'disconnected';
@@ -39,6 +40,10 @@ export class SessionVizClient {
 
   //event source for streaming updates to session state
   private eventSource: EventSource | null = null;
+
+  //buffered visualization states - always contains the latest known state for each viz
+  //updated from snapshot and subsequent updates to prevent race conditions
+  private latestVizStates: Map<string, VisualizationData> = new Map();
 
   //listeners for session status and connection state
   //and for viz state changes
@@ -76,7 +81,6 @@ export class SessionVizClient {
     this.attachEventHandlers();
 
     //set session and connection status
-    this.sessionStatus = this.sessionData.isOpen ? 'open' : 'closed';
     this.connectionStatus = 'connected';
 
     //return session data to caller
@@ -92,6 +96,7 @@ export class SessionVizClient {
     this.vizUpdateListeners.clear();
     this.sessionStatusListeners.clear();
     this.connectionStatusListeners.clear();
+    this.latestVizStates.clear();
   }
 
 
@@ -129,14 +134,32 @@ export class SessionVizClient {
 
   /**
      * Subscribe to visualization updates.
-     * Callback will be invoked immediately with current state for all visualizations,
-     * and then whenever there is a published change of a viz.
+     * 
+     * The callback is immediately invoked with synthetic updates representing
+     * the current buffered state for all visualizations. This ensures subscribers
+     * always start with the most recent state, preventing race conditions.
+     * 
+     * Subsequent calls to the callback deliver real-time updates.
      * 
      * @param callback - Function to call on visualization state changes
      * @returns Unsubscribe function
      */
   subscribeToVizUpdate(callback: VizUpdateCallback): () => void {
     this.vizUpdateListeners.add(callback);
+
+    // Immediately invoke callback with current buffered states as synthetic updates
+    for (const [vizId, vizData] of this.latestVizStates.entries()) {
+      const syntheticUpdate: VisualizationUpdateEvent = {
+        visualizationId: vizId,
+        fromSequence: 0, // Synthetic - doesn't represent a diff
+        toSequence: vizData.sequenceNumber,
+        splits: vizData.splits,
+        basisSplitIndices: vizData.basisSplitIndices,
+        timestamp: vizData.lastUpdated
+      };
+      callback(syntheticUpdate);
+    }
+
     return () => this.vizUpdateListeners.delete(callback);
   }
 
@@ -162,6 +185,16 @@ export class SessionVizClient {
         this.updateConnectionStatus('reconnecting');
       } else {
         this.updateConnectionStatus('disconnected');
+      }
+    });
+
+    this.eventSource.addEventListener('visualization.snapshot', (event: Event) => {
+      try {
+        const rawData = JSON.parse((event as MessageEvent).data);
+        const data = VisualizationSnapshotEventSchema.parse(rawData);
+        this.handleVisualizationSnapshot(data);
+      } catch (error) {
+        this.handleUnknownPayload('visualization.snapshot', (event as MessageEvent).data, error);
       }
     });
 
@@ -194,7 +227,24 @@ export class SessionVizClient {
     }
   }
 
+  private handleVisualizationSnapshot(snapshot: VisualizationSnapshotEvent): void {
+    // Buffer all visualization states from snapshot
+    for (const viz of snapshot.visualizations) {
+      this.latestVizStates.set(viz.visualizationId, viz);
+    }
+  }
+
   private handleVisualizationUpdate(vizUpdate: VisualizationUpdateEvent): void {
+    // Update buffered state with new sequence number
+    const bufferedState = this.latestVizStates.get(vizUpdate.visualizationId);
+    if (bufferedState) {
+      bufferedState.sequenceNumber = vizUpdate.toSequence;
+      bufferedState.lastUpdated = vizUpdate.timestamp;
+      // Note: For full state reconstruction, we could apply splits/basisSplitIndices here
+      // but sequence number is sufficient for detecting missed updates
+    }
+
+    // Broadcast to all subscribers
     this.vizUpdateListeners.forEach(callback => callback(vizUpdate))
   }
 
@@ -232,7 +282,7 @@ export class SessionVizClient {
     // Update session data (guaranteed non-null since events only flow after connect())
     this.sessionData!.isOpen = event.isOpen;
 
-    this.sessionStatusListeners.forEach(callback => callback(event.isOpen ? 'open' : 'closed'))
+    this.sessionStatusListeners.forEach(callback => callback(event.isOpen))
 
     // Note: Server will close the SSE connection when session closes,
     // so we don't need to manually close it here

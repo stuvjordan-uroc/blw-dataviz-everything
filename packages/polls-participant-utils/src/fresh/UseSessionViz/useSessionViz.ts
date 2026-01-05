@@ -11,7 +11,7 @@
  * emits an update.
  * 
  * The state manager exposes methods that can be called to update the canvas to match
- * a client-side state.
+ * client-side state.
  * 
  * 
  * Note, the drawing on the canvas should reflect a merging of a client-side and server-side state.
@@ -21,86 +21,167 @@
  * Client-side-state, on the other hand, must be updated manually by the caller.  When the client uses the 
  * canvas state manager to update the client-side state, the visualization state manager computes the new coordinates
  * to be rendered to reflect the change, and automatically re-draws the canvas.
+ * 
+ * 
+ * RE-RENDER PATTERN:
+ * The hook returns vizStatuses (state) and vizRefs (ref).
+ * 
+ * - First render: connectionStatus = 'disconnected', vizStatuses = empty Map
+ * - After connection: ALL visualization IDs are added to vizStatuses with 'loading' status in ONE render
+ * - Subsequent renders: Individual visualizations transition from 'loading' to 'ready' or 'error'
+ * 
+ * This pattern ensures callers can distinguish between:
+ * 1. Initial population (vizStatuses goes from empty to containing all viz IDs)
+ * 2. Status transitions (viz IDs already present, only status values change)
+ * 
+ * The vizRefs map is populated asynchronously as each visualization completes loading.
+ * It never triggers re-renders, so callers should check vizStatuses to know when to access vizRefs.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { SessionVizClient } from "../SessionVizClient";
 import { VizStateManager } from "../VizStateManager";
 import { VisualizationData } from "shared-types";
+import { loadVizImages } from "../loadVizImages";
 
 export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string) {
 
-  const [connectionStatus, setConnectionStatus] = useState({
-    status: 'disconnected',
-    info: ''
-  })
+  //connection and session statuses
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected')
+  const [sessionStatus, setSessionStatus] = useState<{ isOpen: boolean }>({ isOpen: false })
 
-  //TODO:  Should this be a ref?  state?  Or just a plain variable?
-  const vizCanvases = new Map<string, {
-    canvas: HTMLCanvasElement; //TODO: do we want to return the actual HTMLCanvasElement?  Or should we return a ref to it?
+  // Visualization statuses - triggers re-renders when status changes
+  const [vizStatuses, setVizStatuses] = useState(new Map<string, 'loading' | 'ready' | 'error'>())
+
+  // Visualization references - holds stable references, never triggers re-renders
+  const vizRefs = useRef(new Map<string, {
+    canvas: HTMLCanvasElement;
     vizManager: VizStateManager;
     vizData: VisualizationData;
-  }>()
+  }>())
 
   useEffect(
     () => {
+      // Track cleanup functions from subscriptions
+      let unsubscribeConnectionStatus: (() => void) | null = null;
+      let unsubscribeSessionStatus: (() => void) | null = null;
+      const unsubscribeVizUpdates: Array<() => void> = [];
+      let sessionVizClient: SessionVizClient | null = null;
 
-      //create the SessionVizClient
-      const sessionVizClient = new SessionVizClient(pollsApiUrl)
+      const initializeSession = async () => {
+        try {
+          //create the SessionVizClient
+          sessionVizClient = new SessionVizClient(pollsApiUrl)
 
-      //connect the client to the session and get the session data
-      sessionVizClient.connect(pollsSessionSlug)
-        .then((sessionData) => {
+          //connect the client to the session and get the session data
+          const sessionData = await sessionVizClient.connect(pollsSessionSlug)
 
           //set the connection status
-          setConnectionStatus({
-            status: 'connected',
-            info: ''
+          setConnectionStatus('connected')
+
+          //wire the session to update the connectionStatus in response
+          //to connection changes
+          unsubscribeConnectionStatus = sessionVizClient.subscribeToConnectionStatus((status) => {
+            setConnectionStatus(status)
           })
 
-          //TODO 
-          // wire the session to update the connectionStatus in response
-          //to connection changes
+          //wire the session to update the sessionStatus in response to
+          //session status changes
+          unsubscribeSessionStatus = sessionVizClient.subscribeToSessionStatus((isOpen) => {
+            setSessionStatus({ isOpen: isOpen })
+          })
+
+          //Initialize all visualization statuses to 'loading' in a single batch
+          //This ensures all viz IDs appear in one render, making it clear to callers
+          //that subsequent renders are only status transitions, not new entries
+          setVizStatuses(new Map(
+            sessionData.visualizations.map(viz => [viz.visualizationId, 'loading' as const])
+          ))
 
           //loop through the visualizations, creating the canvas and state manager for each one
-          for (const viz of sessionData.visualizations) {
+          //Create an array of promises for parallel processing
+          const vizPromises = sessionData.visualizations.map(async (viz) => {
+            try {
+              //note ... loadVizImages can throw errors that need to be
+              //typed in the catch block below.
+              const vizImages = await loadVizImages(viz.splits)
 
-            //create the canvas
-            const canvas = document.createElement('canvas');
+              //create the canvas
+              const canvas = document.createElement('canvas');
 
-            //create a viz state manager, which wires visualization state to canvas
-            //VizStateManager is TODO!!!
-            const vizManager = new VizStateManager(viz, canvas)
+              //create a viz state manager, which wires visualization state to canvas
+              //VizStateManager is TODO!!!
+              const vizManager = new VizStateManager(viz, canvas, vizImages)
 
-            //subscribe the viz state manager to the visualization update events
-            sessionVizClient.subscribeToVizUpdate((vizUpdate) => {
-              if (vizUpdate.visualizationId === viz.visualizationId) {
-                vizManager.updateServerState(vizUpdate);
-              }
-            })
+              //Subscribe to visualization updates
+              //The callback is immediately invoked with the current buffered state,
+              //then receives real-time updates. This prevents any race conditions.
+              const unsubscribe = sessionVizClient!.subscribeToVizUpdate((vizUpdate) => {
+                if (vizUpdate.visualizationId === viz.visualizationId) {
+                  vizManager.setServerState(vizUpdate);
+                }
+              })
 
-            //add the wired-up objects to the map
-            vizCanvases.set(viz.visualizationId, {
-              canvas: canvas,
-              vizManager: vizManager,
-              vizData: viz
-            })
-          }
+              //collect unsubscribe function for cleanup
+              unsubscribeVizUpdates.push(unsubscribe)
 
-        })
-        .catch((error: any) => { //TODO...how do I type the error parameter?
-          setConnectionStatus({
-            status: 'error',
-            info: error
-          })
-        })
+              //add the wired-up objects to the ref map
+              vizRefs.current.set(viz.visualizationId, {
+                canvas: canvas,
+                vizManager: vizManager,
+                vizData: viz
+              })
 
-      //TODO:  What cleanup do we need to do on unmount?
-      return () => { }
+              //viz is ready.  set the status accordingly
+              setVizStatuses(prev => new Map(prev).set(viz.visualizationId, 'ready'))
+
+
+            } catch (error: unknown) {
+              //error loading images or setting up VizStateManager.  
+              // set vizStatus accordingly
+              console.error(
+                `[useSessionViz] Failed to initialize visualization ${viz.visualizationId}:`,
+                error instanceof Error ? error.message : String(error)
+              );
+              setVizStatuses(prev => new Map(prev).set(viz.visualizationId, 'error'))
+            }
+          });
+
+          //Wait for all visualizations to complete processing (in parallel)
+          await Promise.allSettled(vizPromises);
+
+        } catch (error: unknown) {
+          console.error(
+            '[useSessionViz] Failed to connect to session:',
+            error instanceof Error ? error.message : String(error)
+          );
+          setConnectionStatus('disconnected')
+        }
+      };
+
+      initializeSession();
+
+      //Cleanup function - called when component unmounts
+      return () => {
+        // Unsubscribe from all callbacks to prevent memory leaks
+        // and setState calls on unmounted components
+        unsubscribeConnectionStatus?.();
+        unsubscribeSessionStatus?.();
+        unsubscribeVizUpdates.forEach(unsubscribe => unsubscribe());
+
+        // Disconnect and close the EventSource connection
+        sessionVizClient?.disconnect();
+      }
     },
-    []//TODO:  I think we want the dependency array empty.  But do we?
+    //reload everything if the pollsAPIUrl or pollsSessionSlug changes!
+    [pollsApiUrl, pollsSessionSlug]
   )
 
-  return [connectionStatus, vizCanvases]
+  return {
+    connectionStatus,
+    sessionStatus,
+    vizStatuses,
+    vizRefs: vizRefs.current
+  }
 
 }
