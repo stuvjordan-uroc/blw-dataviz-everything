@@ -10,14 +10,12 @@ interface AnimationPlan {
   appearing: Array<{
     key: string;
     point: PointDisplay;
-    duration: number;
   }>;
 
   // Points that need to disappear (fade out or similar)
   disappearing: Array<{
     key: string;
     point: PointDisplay;
-    duration: number;
   }>;
 
   // Points that need to move to new positions
@@ -26,15 +24,14 @@ interface AnimationPlan {
     point: PointDisplay;
     fromPosition: { x: number; y: number };
     toPosition: { x: number; y: number };
-    duration: number;
   }>;
 
   // Points that need to change images
   imageChanging: Array<{
     key: string;
     point: PointDisplay;
-    // TODO: Add fields for old/new image when implementing
-    duration: number;
+    fromImage: PointLoadedImage | undefined;
+    toImage: PointLoadedImage | undefined;
   }>;
 
   // Total animation duration (max of all individual durations)
@@ -153,8 +150,7 @@ export class VizAnimationController {
         // Point exists in target but not in current → appearing
         appearing.push({
           key,
-          point: targetPoint,
-          duration: this.config.appearDuration
+          point: targetPoint
         });
       } else {
         // Point exists in both → check for position or image changes
@@ -166,8 +162,7 @@ export class VizAnimationController {
             key,
             point: targetPoint,
             fromPosition: { x: currentPoint.position.x, y: currentPoint.position.y },
-            toPosition: { x: targetPoint.position.x, y: targetPoint.position.y },
-            duration: this.config.moveDuration
+            toPosition: { x: targetPoint.position.x, y: targetPoint.position.y }
           });
         }
 
@@ -176,7 +171,8 @@ export class VizAnimationController {
           imageChanging.push({
             key,
             point: targetPoint,
-            duration: this.config.imageChangeDuration
+            fromImage: currentPoint.image,
+            toImage: targetPoint.image
           });
         }
       }
@@ -188,20 +184,18 @@ export class VizAnimationController {
         // Point exists in current but not in target → disappearing
         disappearing.push({
           key,
-          point: currentPoint,
-          duration: this.config.disappearDuration
+          point: currentPoint
         });
       }
     });
 
-    // Calculate total duration as max of all individual durations
-    const durations = [
-      ...appearing.map(a => a.duration),
-      ...disappearing.map(d => d.duration),
-      ...moving.map(m => m.duration),
-      ...imageChanging.map(i => i.duration)
-    ];
-    const totalDuration = durations.length > 0 ? Math.max(...durations) : 0;
+    // Calculate total duration as max of all animation type durations (only if that type has animations)
+    const totalDuration = Math.max(
+      appearing.length > 0 ? this.config.appearDuration : 0,
+      disappearing.length > 0 ? this.config.disappearDuration : 0,
+      moving.length > 0 ? this.config.moveDuration : 0,
+      imageChanging.length > 0 ? this.config.imageChangeDuration : 0
+    );
 
     return {
       appearing,
@@ -268,11 +262,11 @@ export class VizAnimationController {
   /**
    * Interpolate between current and target states based on progress.
    * 
-   * TODO: Implement interpolation logic based on animation plan.
-   * Should handle:
-   * - Fading in/out (opacity changes)
-   * - Position changes (lerp between coordinates)
-   * - Image transitions
+   * Handles:
+   * - Appearing points (fade in via opacity)
+   * - Disappearing points (fade out via opacity)
+   * - Moving points (lerp position)
+   * - Image changing points (cross-fade via transitioningFromImage and imageOpacity)
    * 
    * @param currentState - Starting state (as Map)
    * @param targetState - Ending state (as Map)
@@ -286,9 +280,77 @@ export class VizAnimationController {
     plan: AnimationPlan,
     progress: number
   ): Map<string, PointDisplay> {
-    // TODO: Implement interpolation
-    // Placeholder: return target state (instant transition)
-    return targetState;
+    // Compute per-animation-type progress based on individual durations
+    const appearProgress = plan.totalDuration > 0
+      ? this.applyEasing(Math.min(progress * plan.totalDuration / this.config.appearDuration, 1))
+      : 1;
+    const disappearProgress = plan.totalDuration > 0
+      ? this.applyEasing(Math.min(progress * plan.totalDuration / this.config.disappearDuration, 1))
+      : 1;
+    const moveProgress = plan.totalDuration > 0
+      ? this.applyEasing(Math.min(progress * plan.totalDuration / this.config.moveDuration, 1))
+      : 1;
+    const imageChangeProgress = plan.totalDuration > 0
+      ? this.applyEasing(Math.min(progress * plan.totalDuration / this.config.imageChangeDuration, 1))
+      : 1;
+
+    // Start with a copy of target state (all points that should ultimately be visible)
+    const result = new Map<string, PointDisplay>();
+
+    // Add all points from target state
+    for (const [key, targetPoint] of targetState) {
+      result.set(key, { ...targetPoint });
+    }
+
+    // Handle appearing points (fade in)
+    for (const item of plan.appearing) {
+      const point = result.get(item.key);
+      if (point) {
+        point.opacity = appearProgress;
+      }
+    }
+
+    // Handle disappearing points (fade out, must be added to result)
+    // Skip if fully disappeared (opacity would be 0)
+    if (disappearProgress < 1) {
+      for (const item of plan.disappearing) {
+        const currentPoint = currentState.get(item.key);
+        if (currentPoint) {
+          result.set(item.key, {
+            ...currentPoint,
+            opacity: 1 - disappearProgress
+          });
+        }
+      }
+    }
+
+    // Handle moving points (interpolate position)
+    // Skip if already at final position
+    if (moveProgress < 1) {
+      for (const item of plan.moving) {
+        const point = result.get(item.key);
+        if (point) {
+          point.position = {
+            x: item.fromPosition.x + (item.toPosition.x - item.fromPosition.x) * moveProgress,
+            y: item.fromPosition.y + (item.toPosition.y - item.fromPosition.y) * moveProgress
+          };
+        }
+      }
+    }
+
+    // Handle image changing points (cross-fade)
+    // Skip if cross-fade is complete
+    if (imageChangeProgress < 1) {
+      for (const item of plan.imageChanging) {
+        const point = result.get(item.key);
+        if (point) {
+          point.transitioningFromImage = item.fromImage;
+          point.crossFadeProgress = imageChangeProgress;
+        }
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -311,17 +373,5 @@ export class VizAnimationController {
       default:
         return t;
     }
-  }
-
-  /**
-   * Linear interpolation between two values.
-   * 
-   * @param start - Starting value
-   * @param end - Ending value
-   * @param progress - Progress (0 to 1)
-   * @returns Interpolated value
-   */
-  private lerp(start: number, end: number, progress: number): number {
-    return start + (end - start) * progress;
   }
 }

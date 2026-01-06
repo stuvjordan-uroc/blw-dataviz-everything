@@ -16,6 +16,13 @@ export interface PointDisplay {
     y: number
   };
   image: PointLoadedImage | undefined;
+
+  // For appearing/disappearing animations:
+  opacity?: number; // 0-1, overall opacity of the point
+
+  // For cross-fade animations only:
+  transitioningFromImage?: PointLoadedImage;
+  crossFadeProgress?: number; // 0-1, progress of cross-fade (0 = showing fromImage, 1 = showing toImage)
 }
 
 export interface VizRenderConfig {
