@@ -235,13 +235,33 @@ export class SessionVizClient {
   }
 
   private handleVisualizationUpdate(vizUpdate: VisualizationUpdateEvent): void {
-    // Update buffered state with new sequence number
-    const bufferedState = this.latestVizStates.get(vizUpdate.visualizationId);
+    // Update buffered state with new data
+    let bufferedState = this.latestVizStates.get(vizUpdate.visualizationId);
+
     if (bufferedState) {
+      // Update existing buffered state
       bufferedState.sequenceNumber = vizUpdate.toSequence;
       bufferedState.lastUpdated = vizUpdate.timestamp;
-      // Note: For full state reconstruction, we could apply splits/basisSplitIndices here
-      // but sequence number is sufficient for detecting missed updates
+      bufferedState.splits = vizUpdate.splits;
+    } else {
+      // Not in latestVizStates yet - check if it's in session data
+      // This handles race condition where update arrives before snapshot
+      const vizMetadata = this.sessionData?.visualizations.find(
+        v => v.visualizationId === vizUpdate.visualizationId
+      );
+
+      if (vizMetadata) {
+        // Create entry by combining metadata from session data with update
+        bufferedState = {
+          ...vizMetadata,
+          sequenceNumber: vizUpdate.toSequence,
+          lastUpdated: vizUpdate.timestamp,
+          splits: vizUpdate.splits
+        };
+        this.latestVizStates.set(vizUpdate.visualizationId, bufferedState);
+      } else {
+        console.warn(`Received update for unknown visualization ${vizUpdate.visualizationId}`);
+      }
     }
 
     // Broadcast to all subscribers

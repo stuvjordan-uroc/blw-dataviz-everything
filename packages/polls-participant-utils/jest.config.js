@@ -13,6 +13,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/src/$1',
+    '^api-polls-client$': '<rootDir>/test/__mocks__/api-polls-client.ts',
   },
 
   // Coverage configuration
@@ -39,5 +40,10 @@ module.exports = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/dist/',
+  ],
+
+  // Allow transformation of api-polls-client package
+  transformIgnorePatterns: [
+    'node_modules/(?!(api-polls-client)/)',
   ],
 };
