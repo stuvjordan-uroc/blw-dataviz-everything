@@ -101,3 +101,30 @@ export function computeTargetVisibleState(
   // Convert array to Map using key field
   return new Map(pointDisplays.map(pd => [pd.key, pd]));
 }
+
+export function rescaleVisibleState(
+  oldVisibleState: Map<string, PointDisplay>,
+  oldCanvasDimensions: { pixelWidth: number, pixelHeight: number },
+  newCanvasDimensions: { pixelWidth: number, pixelHeight: number },
+): Map<string, PointDisplay> {
+  const result = new Map<string, PointDisplay>();
+
+  for (const [pointKey, oldPointDisplay] of oldVisibleState) {
+    result.set(pointKey, {
+      ...oldPointDisplay,
+      position: {
+        x: newCanvasDimensions.pixelWidth * oldPointDisplay.position.x / oldCanvasDimensions.pixelWidth,
+        y: newCanvasDimensions.pixelHeight * oldPointDisplay.position.y / oldCanvasDimensions.pixelHeight
+      }, //rescale coordinates 
+      image: (oldPointDisplay.image) ? {
+        image: oldPointDisplay.image.image,
+        offsetToCenter: {
+          x: newCanvasDimensions.pixelWidth * oldPointDisplay.image.offsetToCenter.x / oldCanvasDimensions.pixelWidth,
+          y: newCanvasDimensions.pixelWidth * oldPointDisplay.image.offsetToCenter.y / oldCanvasDimensions.pixelHeight
+        }
+      } : undefined, //rescale offsets
+    });
+  }
+
+  return result;
+}

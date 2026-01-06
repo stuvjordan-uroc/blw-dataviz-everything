@@ -4,6 +4,7 @@ import { PointLoadedImage, PointDisplay } from "../types";
 
 export interface VizLogicalState {
   serverState: SplitWithSegmentGroup[];
+  serverSequenceNumber: number;
   displayMode: "expanded" | "collapsed";
   viewId: string;
   targetVisibleState: Map<string, PointDisplay>;
