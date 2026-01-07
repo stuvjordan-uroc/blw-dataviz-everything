@@ -98,7 +98,7 @@ export class VizStateManager {
       };
     }
 
-    // Always instantiate animation controller
+    // instantiate animation controller
     this.animationController = new VizAnimationController(this.animation);
   }
 
@@ -199,6 +199,7 @@ export class VizStateManager {
 
     // Draw each point at its position
     for (const [pointKey, pointDisplay] of this.currentVisibleState.entries()) {
+
       // Skip points with opacity 0 (fully transparent)
       if (pointDisplay.opacity !== undefined && pointDisplay.opacity <= 0) {
         continue;
@@ -277,9 +278,11 @@ export class VizStateManager {
   //handle for client to set client-side view id
   setClientViewId(viewId: string) {
     //no-op if the target state already has the same viewId
-    if (!(this.logicalState.viewId === viewId)) {
+    //or if passed viewId is not in the lookup map
+    if (this.logicalState.viewId !== viewId && this.vizData.viewMaps[viewId] !== undefined) {
+
       //Step 1: update logicalState
-      //NOTE: We are no bothering on incrementally compute
+      //NOTE: We are not bothering on incrementally compute
       //We can refine later if performance is bad.
       this.logicalState.viewId = viewId;
       this.logicalState.targetVisibleState = computeTargetVisibleState(
@@ -301,6 +304,7 @@ export class VizStateManager {
         },
         () => { }
       )
+
     }
   }
 
@@ -404,6 +408,8 @@ export class VizStateManager {
       //Step 4: reset canvas dimensions (clears canvas automatically)
       this.canvas.pixelWidth = shimmedPixelWidth;
       this.canvas.pixelHeight = shimmedPixelHeight;
+      this.canvas.element.width = shimmedPixelWidth;
+      this.canvas.element.height = shimmedPixelHeight;
 
       //Step 5: call this.syncToLogicalState() to set visible state to new logical state and redraw canvas
       this.syncToLogicalState()

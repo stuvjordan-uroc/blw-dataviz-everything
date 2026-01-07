@@ -1,4 +1,4 @@
-import { PointDisplay } from "../types";
+import { PointDisplay, PointLoadedImage } from "../types";
 import { AnimationConfig } from "../types";
 
 /**
