@@ -2,6 +2,7 @@ import { VisualizationData, VisualizationUpdateEvent } from "shared-types";
 import { VizLogicalState, VizData } from "./types";
 import { PointLoadedImage, VizRenderConfig, AnimationConfig, PointDisplay } from '../types';
 import { computeTargetVisibleState, rescaleVisibleState } from "./pointDisplayComputation";
+import { computeCanvasPixelDimensions } from "./canvasComputation";
 import { VizAnimationController } from '../VizAnimationController';
 
 export class VizStateManager {
@@ -52,7 +53,11 @@ export class VizStateManager {
     }
 
     //compute canvas pixel width and height from requested initial canvas width
-    const { shimmedPixelWidth, shimmedPixelHeight } = this.computeCanvasPixelDimensions(vizRenderConfig.initialCanvasWidth)
+    const aspectRatio = viz.vizHeight / viz.vizWidth;
+    const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(
+      vizRenderConfig.initialCanvasWidth,
+      aspectRatio
+    );
     this.canvas = {
       element: canvas,
       context: ctx,
@@ -130,64 +135,6 @@ export class VizStateManager {
 
     //draw the currentVisibleState
     this.drawVisibleState()
-  }
-
-  /**
-   * Takes a requested width for the canvas.  Computes pixel width and pixel height
-   * to match aspect ratio of viz, given by vizData.vizWidth:vizData.vizHeight.
-   * 
-   * Shims the requested with to guarantee that computed pixel width and height are 
-   * each greater than or equal to 1.
-   * 
-   * Returned width and height are in whole numbers.
-   * 
-   * @param width 
-   * @returns shimmed width
-   */
-  private computeCanvasPixelDimensions(requestedWidth: number): { shimmedPixelWidth: number, shimmedPixelHeight: number } {
-    /**
-     * Given the input width, we would compute pixelWidth
-     * and pixelHeight with no shim as follows:
-     * 
-     * pixelWidth = Math.round(width)
-     * pixelHeight = Math.round(Math.round(width) * this.vizData.vizHeight / this.vizData.vizWidth)
-     * 
-     * But this could result in a pixelHeight or pixelWidth less than 1!
-     * 
-     * So we shim as follows...
-     */
-
-    //first compute the aspect ratio
-
-    const aspectRatio = this.vizData.vizHeight / this.vizData.vizWidth
-
-    /**
-     * Find the minimum value of RPW such that
-     * 
-     * Math.round( RPW * aspectRatio) >= 1
-     * 
-     * A sufficient condition is RPW * aspectRatio >= 1
-     * 
-     * Thus RPW >= 1/aspectRatio
-     */
-
-    const minRPW = 1 / aspectRatio
-
-    /**
-     * If pixelWidth >= minRPW, then computed pixelHeight is 
-     * guaranteed to be at least 1.
-     * 
-     * So we just need to set pixelWidth to a whole number
-     * greater than or equal to the larger of minRPW and 1 
-     */
-
-    const pixelWidth = Math.round(requestedWidth) >= Math.max(minRPW, 1) ? Math.round(requestedWidth) : Math.ceil(Math.max(minRPW, 1))
-    const pixelHeight = Math.round(pixelWidth * aspectRatio)
-
-    if (pixelWidth > Math.round(requestedWidth)) {
-      console.warn(`Canvas width requested ${requestedWidth} for viz with id ${this.vizData.visualizationId} too narrow.  Padded to ${pixelWidth} pixels.`)
-    }
-    return { shimmedPixelWidth: pixelWidth, shimmedPixelHeight: pixelHeight };
   }
 
   /**
@@ -382,7 +329,11 @@ export class VizStateManager {
   setCanvasWidth(requestedWidth: number) {
 
     //Step 1: compute shimmed dimensions from requestedWidth
-    const { shimmedPixelWidth, shimmedPixelHeight } = this.computeCanvasPixelDimensions(requestedWidth);
+    const aspectRatio = this.vizData.vizHeight / this.vizData.vizWidth;
+    const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(
+      requestedWidth,
+      aspectRatio
+    );
 
     //no-op if we're already set
     if (this.canvas.pixelWidth !== shimmedPixelWidth) {

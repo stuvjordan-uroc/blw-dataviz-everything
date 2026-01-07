@@ -24,6 +24,7 @@ jest.mock('../../src/VizStateManager/pointDisplayComputation', () => ({
 
 import { createVizStateManager, clearAllMocks } from './helpers';
 import { createMockVisualizationUpdateEvent, createMockSplit } from './fixtures';
+import { computeCanvasPixelDimensions } from '../../src/VizStateManager/canvasComputation';
 
 describe('VizStateManager - setClientViewId', () => {
   beforeEach(() => {
@@ -463,7 +464,8 @@ describe('VizStateManager - setCanvasWidth', () => {
     const {
       vizStateManager,
       mockRescaleVisibleState,
-      mockCanvas
+      mockCanvas,
+      testData
     } = createVizStateManager();
 
     // Capture initial dimensions
@@ -481,8 +483,9 @@ describe('VizStateManager - setCanvasWidth', () => {
 
     // Compute what the new dimensions will be for requested width
     const requestedWidth = 8000;
+    const aspectRatio = testData.visualizationData.vizHeight / testData.visualizationData.vizWidth;
     const { shimmedPixelWidth: newWidth, shimmedPixelHeight: newHeight } =
-      vizStateManager['computeCanvasPixelDimensions'](requestedWidth);
+      computeCanvasPixelDimensions(requestedWidth, aspectRatio);
 
     // Act: Set canvas width
     vizStateManager.setCanvasWidth(requestedWidth);
@@ -505,7 +508,8 @@ describe('VizStateManager - setCanvasWidth', () => {
   it('should update canvas dimensions and element dimensions', () => {
     const {
       vizStateManager,
-      mockCanvas
+      mockCanvas,
+      testData
     } = createVizStateManager();
 
     // Capture initial dimensions
@@ -514,8 +518,9 @@ describe('VizStateManager - setCanvasWidth', () => {
 
     // Compute what the new dimensions will be
     const requestedWidth = 8000;
+    const aspectRatio = testData.visualizationData.vizHeight / testData.visualizationData.vizWidth;
     const { shimmedPixelWidth: expectedWidth, shimmedPixelHeight: expectedHeight } =
-      vizStateManager['computeCanvasPixelDimensions'](requestedWidth);
+      computeCanvasPixelDimensions(requestedWidth, aspectRatio);
 
     // Act: Set canvas width
     vizStateManager.setCanvasWidth(requestedWidth);
