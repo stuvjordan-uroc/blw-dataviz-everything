@@ -136,7 +136,8 @@ export function createMockVizRenderConfig(overrides?: Partial<VizRenderConfig>):
 /**
  * Create a mock Map of loaded images
  * 
- * Includes images for all splits (0, 1, 2) in both expanded and collapsed modes
+ * Includes images for all splits (0, 1, 2) in both expanded and collapsed modes,
+ * plus common point keys used in tests
  */
 export function createMockLoadedImages(): Map<string, PointLoadedImage> {
   const map = new Map<string, PointLoadedImage>();
@@ -151,6 +152,24 @@ export function createMockLoadedImages(): Map<string, PointLoadedImage> {
     map.set(`data:image/svg+xml;base64,SPLIT${i}COLLAPSED`, {
       image: new MockImage() as any as HTMLImageElement,
       offsetToCenter: { x: 7, y: 7 }
+    });
+  }
+
+  // Add images for common point keys used in mocked tests
+  // These match the point keys returned by mocked computeTargetVisibleState in setMethods tests
+  const commonPointKeys = [
+    'point-1',
+    'rescaled-point',
+    // Add point keys in format splitIdx-expandedResponseGroupIdx-id used in other tests
+    '0-0-1', '0-0-2', '0-0-3',
+    '1-0-1', '1-0-2', '1-0-3',
+    '2-0-1', '2-0-2', '2-0-3'
+  ];
+
+  for (const pointKey of commonPointKeys) {
+    map.set(pointKey, {
+      image: new MockImage() as any as HTMLImageElement,
+      offsetToCenter: { x: 5, y: 5 }
     });
   }
 

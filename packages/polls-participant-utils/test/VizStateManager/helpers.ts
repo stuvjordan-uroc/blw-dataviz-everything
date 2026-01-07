@@ -9,7 +9,37 @@ import { VizStateManager } from '../../src/VizStateManager/VizStateManager';
 import { MockHTMLCanvasElement, MockCanvasRenderingContext2D } from './mocks';
 import { defaultFixtures, createMockVisualizationData, createMockVizRenderConfig, createMockLoadedImages } from './fixtures';
 import type { VisualizationData } from 'shared-types';
-import type { VizRenderConfig, PointLoadedImage } from '../../src/types';
+import type { VizRenderConfig, PointLoadedImage, PointDisplay } from '../../src/types';
+
+/**
+ * Create a mock PointDisplay object for testing
+ * 
+ * This helper ensures all PointDisplay objects in tests have proper image references
+ * from the loadedImages map, preventing console warnings.
+ * 
+ * @param key - The point key
+ * @param position - The position {x, y}
+ * @param loadedImages - The loadedImages map to look up images from
+ * @param overrides - Optional property overrides
+ */
+export function createMockPointDisplay(
+  key: string,
+  position: { x: number; y: number },
+  loadedImages: Map<string, PointLoadedImage>,
+  overrides?: Partial<PointDisplay>
+): PointDisplay {
+  // Try to find an image for this point key
+  const imageData = loadedImages.get(key);
+
+  return {
+    key,
+    point: { splitIdx: 0, expandedResponseGroupIdx: 0, id: 1 }, // Mock point data
+    position,
+    image: imageData, // This is the full PointLoadedImage object
+    opacity: 1.0,
+    ...overrides
+  };
+}
 
 /**
  * Test context returned by setup helpers

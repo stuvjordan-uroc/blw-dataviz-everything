@@ -22,7 +22,7 @@ jest.mock('../../src/VizStateManager/pointDisplayComputation', () => ({
   rescaleVisibleState: jest.fn(state => state)
 }));
 
-import { createVizStateManager, clearAllMocks } from './helpers';
+import { createVizStateManager, clearAllMocks, createMockPointDisplay } from './helpers';
 import { createMockVisualizationUpdateEvent, createMockSplit } from './fixtures';
 import { computeCanvasPixelDimensions } from '../../src/VizStateManager/canvasComputation';
 
@@ -66,12 +66,13 @@ describe('VizStateManager - setClientViewId', () => {
     const {
       vizStateManager,
       mockAnimationController,
-      mockComputeTargetVisibleState
+      mockComputeTargetVisibleState,
+      testData
     } = createVizStateManager();
 
-    // Set up mock to return a new target state
+    // Set up mock to return a new target state with proper image
     const newTargetState = new Map([
-      ['point-1', { key: 'point-1', position: { x: 100, y: 100 } } as any]
+      ['point-1', createMockPointDisplay('point-1', { x: 100, y: 100 }, testData.loadedImages)]
     ]);
     mockComputeTargetVisibleState.mockReturnValue(newTargetState);
 
@@ -477,7 +478,7 @@ describe('VizStateManager - setCanvasWidth', () => {
 
     // Set up rescaleVisibleState to return a mock state
     const rescaledState = new Map([
-      ['point-1', { key: 'point-1', position: { x: 50, y: 50 } } as any]
+      ['point-1', createMockPointDisplay('point-1', { x: 50, y: 50 }, testData.loadedImages)]
     ]);
     mockRescaleVisibleState.mockReturnValue(rescaledState);
 
@@ -551,12 +552,13 @@ describe('VizStateManager - setCanvasWidth', () => {
     const {
       vizStateManager,
       mockRescaleVisibleState,
-      mockComputeTargetVisibleState
+      mockComputeTargetVisibleState,
+      testData
     } = createVizStateManager();
 
     // Create a distinct rescaled state to verify it's being used
     const rescaledState = new Map([
-      ['rescaled-point', { key: 'rescaled-point', position: { x: 100, y: 100 } } as any]
+      ['rescaled-point', createMockPointDisplay('rescaled-point', { x: 100, y: 100 }, testData.loadedImages)]
     ]);
     mockRescaleVisibleState.mockReturnValue(rescaledState);
     mockComputeTargetVisibleState.mockClear();

@@ -158,7 +158,7 @@ export class VizStateManager {
       }
 
       // Handle cross-fade animation if transitioning between images
-      if (pointDisplay.transitioningFromImage && pointDisplay.crossFadeProgress !== undefined) {
+      if (pointDisplay.transitioningFromImage && pointDisplay.crossFadeProgress !== undefined && pointDisplay.crossFadeProgress < 1) {
         // Draw the "from" image at fading-out opacity
         const fromDrawX = pointDisplay.position.x - pointDisplay.transitioningFromImage.offsetToCenter.x;
         const fromDrawY = pointDisplay.position.y - pointDisplay.transitioningFromImage.offsetToCenter.y;
