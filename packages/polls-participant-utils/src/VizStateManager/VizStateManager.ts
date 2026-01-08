@@ -1,114 +1,127 @@
-import { VisualizationData, VisualizationUpdateEvent } from "shared-types";
-import { VizLogicalState, VizData, StateChangeOrigin } from "./types";
-import { PointLoadedImage, VizRenderConfig, AnimationConfig, PointDisplay } from '../types';
-import { computeTargetVisibleState, rescaleVisibleState } from "./pointDisplayComputation";
+import { VizData, VizLogicalState, StateChangeOrigin } from "./types";
+import { PointDisplay, AnimationConfig, PointLoadedImage, VizRenderConfig } from "../types";
+import { SplitWithSegmentGroup, VisualizationData } from "shared-types";
+import { VizAnimationController } from "../VizAnimationController";
 import { computeCanvasPixelDimensions } from "./canvasComputation";
-import { VizAnimationController } from '../VizAnimationController';
 import { computeSegmentDisplay, rescaleSegmentDisplay } from "./segmentDisplayComputation";
-
+import { computeTargetVisibleState, rescaleVisibleState } from "./pointDisplayComputation";
+import { VisualizationUpdateEvent } from "shared-types";
 
 export class VizStateManager {
 
-  //viz data, fixed throughout the lifetime of the session
+  //viz data, fixed through the life of the session
   private vizData: VizData;
 
-  //canvas to draw on
-  private canvas: {
-    element: HTMLCanvasElement;
-    context: CanvasRenderingContext2D;
-    pixelWidth: number;
-    pixelHeight: number;
-  };
+  //server-side visualization state as sent by server in snapshots and update, lengths and positions are in abstract units
+  private serverState: SplitWithSegmentGroup[];
+  //latest sequence number sent by server 
+  private serverSequenceNumber: number;
 
-  //state change subscribers
-  private stateSubscribers: Map<number, (state: VizLogicalState, origin: StateChangeOrigin) => void> = new Map();
-  private nextSubscriberId: number = 0;
+  //canvases for which state is maintained and rendered:
+  private canvases: Map<number, {
+    canvas: {
+      element: HTMLCanvasElement;
+      context: CanvasRenderingContext2D;
+      pixelWidth: number;
+      pixelHeight: number;
+    };
+    stateSubscribers: Map<number, (state: VizLogicalState, origin: StateChangeOrigin) => void>;
+    nextSubscriberId: number;
+    logicalState: VizLogicalState;
+    currentVisibleState: Map<string, PointDisplay>;
+    animation: Required<AnimationConfig>;
+    animationController: VizAnimationController;
+  }> = new Map()
+  private nextCanvasId: number = 0;
 
-  //complete representation of the current logical state of the viz,
-  //driven by public setXXX methods,
-  //includes logicalState.targetVisibleState towards which animations
-  //converge
-  private logicalState: VizLogicalState;
 
-  //current visible state
-  //equal to logicalState.targetVisibleState when animation completes
-  private currentVisibleState: Map<string, PointDisplay> = new Map();
-
-  private animation: Required<AnimationConfig>;
-
-  private animationController: VizAnimationController;
 
 
   constructor(
     viz: VisualizationData,
-    canvas: HTMLCanvasElement,
-    vizImages: Map<string, PointLoadedImage>,
-    vizRenderConfig: VizRenderConfig
+    vizImages: Map<string, PointLoadedImage>
   ) {
-
     //populate the viz data
     this.vizData = {
       ...viz,
       loadedImages: vizImages
     }
+    //initialize the server state
+    this.serverState = viz.splits
+    this.serverSequenceNumber = viz.sequenceNumber
+  }
 
+  /**
+   * Attaches canvas to the VizStateManager this:
+   * 
+   * + clears the canvas
+   * + creates an logical state for the viz attached to the canvas and draw that state on the canvas.
+   * + immediately re-sizes and draws the canvas in response to setXXX(canvasId, newState) methods.
+   * + If VizStateManger is subscribed to a SessionVizClient, canvas will re-draw whenever server emits an update.
+   * + caller can cause-redraws from client side with VSM methods setClientViewId, setClientDisplayMode, setCanvasWidth.
+   * + once a canvas is attached, caller should never set width or height on the canvas directly.
+   * + Instead, call VSM.setCanvasWidth.
+   * 
+   * 
+   * @param canvas 
+   * @param vizRenderConfig 
+   * @returns canvasId for referencing canvas in setXXX calls, cleanup callback to detach
+   */
+  attachCanvas(
+    canvas: HTMLCanvasElement,
+    vizRenderConfig: VizRenderConfig
+  ): { canvasId: number, detachCanvas: () => void } {
     // Initialize canvas state
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       throw new Error('Failed to get 2D rendering context from canvas');
     }
-
     //compute canvas pixel width and height from requested initial canvas width
-    const aspectRatio = viz.vizHeight / viz.vizWidth;
+    const aspectRatio = this.vizData.vizHeight / this.vizData.vizWidth;
     const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(
       vizRenderConfig.initialCanvasWidth,
       aspectRatio
     );
-    this.canvas = {
+    //setting canvas width and height auto-clears canvas.
+    canvas.width = shimmedPixelWidth
+    canvas.height = shimmedPixelHeight
+    const canvasState = {
       element: canvas,
       context: ctx,
       pixelWidth: shimmedPixelWidth,
-      pixelHeight: shimmedPixelHeight,
-    };
-    //setting canvas width and height auto-clears canvas.
-    this.canvas.element.width = this.canvas.pixelWidth;
-    this.canvas.element.height = this.canvas.pixelHeight;
-
-    //initialize logical state
-    this.logicalState = {
-      serverState: viz.splits,
-      serverSequenceNumber: viz.sequenceNumber,
+      pixelHeight: shimmedPixelHeight
+    }
+    //initialize canvas's logical state
+    const logicalState = {
       displayMode: vizRenderConfig.initialDisplayMode,
       viewId: "", //hardcoded default: the view in which no questions are active.
       segmentDisplay: computeSegmentDisplay(
-        viz.splits,
+        this.serverState,
         vizRenderConfig.initialDisplayMode,
         "", //hardcoded default
         this.vizData,
-        this.canvas
+        canvasState
       ),
       targetVisibleState: computeTargetVisibleState(
-        viz.splits,
+        this.serverState,
         vizRenderConfig.initialDisplayMode,
         "", //hardcoded default
         this.vizData,
-        this.canvas
+        canvasState
       )
     }
-
-    //draw target state and sync currentVisibleState to target.
-    this.syncToLogicalState()
+    //initialize canvas's visible state to logical state
+    const visibleState = logicalState.targetVisibleState;
 
     // Resolve animation config: use defaults, user config, or all 0s if disabled
-    if (vizRenderConfig.animation === false) {
-      this.animation = {
-        appearDuration: 0,
-        disappearDuration: 0,
-        moveDuration: 0,
-        imageChangeDuration: 0
-      };
-    } else {
-      this.animation = {
+    let animation = {
+      appearDuration: 0,
+      disappearDuration: 0,
+      moveDuration: 0,
+      imageChangeDuration: 0
+    };
+    if (vizRenderConfig.animation !== false) {
+      animation = {
         appearDuration: vizRenderConfig.animation?.appearDuration ?? 200,
         disappearDuration: vizRenderConfig.animation?.disappearDuration ?? 150,
         moveDuration: vizRenderConfig.animation?.moveDuration ?? 400,
@@ -117,348 +130,382 @@ export class VizStateManager {
     }
 
     // instantiate animation controller
-    this.animationController = new VizAnimationController(this.animation);
+    const animationController = new VizAnimationController(animation);
+
+    //add the canvas to the canvases
+    this.canvases.set(this.nextCanvasId, {
+      canvas: canvasState,
+      animation: animation,
+      animationController: animationController,
+      currentVisibleState: visibleState,
+      logicalState: logicalState,
+      nextSubscriberId: 0,
+      stateSubscribers: new Map()
+    })
+
+    //draw visible state on canvas
+    this.drawVisibleState(this.nextCanvasId)
+
+    //increment the nextCanvasId
+    this.nextCanvasId++;
+    //return the assigned canvas id
+    return ({
+      canvasId: this.nextCanvasId - 1,
+      detachCanvas: () => { this.detachCanvas(this.nextCanvasId - 1) }
+    })
   }
 
-  /**
-   * PRIVATE METHODS
-   */
-
-  /**
-   * set visible state to target state and
-   * draw target state immediately, with no animation.
-   */
-  private syncToLogicalState() {
-
-    //set the currentVisibleState to the target, clearing any transition fields
-    this.currentVisibleState = new Map(
-      [...this.logicalState.targetVisibleState.entries()].map(([key, pd]) => [
-        key,
-        {
-          key: pd.key,
-          point: pd.point,
-          position: pd.position,
-          image: pd.image,
-          opacity: undefined,
-          transitioningFromImage: undefined,
-          crossFadeProgress: undefined
-        }
-      ])
-    );
-
-    //draw the currentVisibleState
-    this.drawVisibleState()
+  private detachCanvas(canvasId: number) {
+    this.canvases.delete(canvasId);
   }
 
-  /**
-   * Draw visible state immediately
-   */
-  private drawVisibleState() {
-    // Clear the entire canvas
-    this.canvas.context.clearRect(0, 0, this.canvas.pixelWidth, this.canvas.pixelHeight);
+  private drawVisibleState(canvasId: number) {
+    const canvasData = this.canvases.get(canvasId);
+    if (canvasData) {
+      // Clear the entire canvas
+      canvasData.canvas.context.clearRect(0, 0, canvasData.canvas.pixelWidth, canvasData.canvas.pixelHeight);
 
-    // Draw each point at its position
-    for (const [pointKey, pointDisplay] of this.currentVisibleState.entries()) {
+      // Draw each point at its position
+      for (const [pointKey, pointDisplay] of canvasData.currentVisibleState.entries()) {
 
-      // Skip points with opacity 0 (fully transparent)
-      if (pointDisplay.opacity !== undefined && pointDisplay.opacity <= 0) {
-        continue;
-      }
-
-      // Set overall point opacity if specified
-      if (pointDisplay.opacity !== undefined && pointDisplay.opacity < 1) {
-        this.canvas.context.globalAlpha = pointDisplay.opacity;
-      }
-
-      // Handle cross-fade animation if transitioning between images
-      if (pointDisplay.transitioningFromImage && pointDisplay.crossFadeProgress !== undefined && pointDisplay.crossFadeProgress < 1) {
-        // Draw the "from" image at fading-out opacity
-        const fromDrawX = pointDisplay.position.x - pointDisplay.transitioningFromImage.offsetToCenter.x;
-        const fromDrawY = pointDisplay.position.y - pointDisplay.transitioningFromImage.offsetToCenter.y;
-
-        this.canvas.context.globalAlpha = (pointDisplay.opacity ?? 1) * (1 - pointDisplay.crossFadeProgress);
-        this.canvas.context.drawImage(
-          pointDisplay.transitioningFromImage.image,
-          fromDrawX,
-          fromDrawY
-        );
-
-        // Draw the "to" image at fading-in opacity (if it exists)
-        if (pointDisplay.image) {
-          const toDrawX = pointDisplay.position.x - pointDisplay.image.offsetToCenter.x;
-          const toDrawY = pointDisplay.position.y - pointDisplay.image.offsetToCenter.y;
-
-          this.canvas.context.globalAlpha = (pointDisplay.opacity ?? 1) * pointDisplay.crossFadeProgress;
-          this.canvas.context.drawImage(
-            pointDisplay.image.image,
-            toDrawX,
-            toDrawY
-          );
-        } else {
-          console.warn(`no image found for point ${pointKey} in visualization with id ${this.vizData.visualizationId}.`)
+        // Skip points with opacity 0 (fully transparent)
+        if (pointDisplay.opacity !== undefined && pointDisplay.opacity <= 0) {
+          continue;
         }
 
-        // Reset alpha
-        this.canvas.context.globalAlpha = 1.0;
-      } else {
-        // Normal rendering (no cross-fade)
-        if (!pointDisplay.image) {
-          console.warn(`no image found for point ${pointKey} in visualization with id ${this.vizData.visualizationId}.`)
-          continue; // Skip points without images
-        }
-
-        // Calculate the top-left corner position by subtracting the offset to center
-        const drawX = pointDisplay.position.x - pointDisplay.image.offsetToCenter.x;
-        const drawY = pointDisplay.position.y - pointDisplay.image.offsetToCenter.y;
-
-        // Draw the image at the calculated position
-        this.canvas.context.drawImage(
-          pointDisplay.image.image,
-          drawX,
-          drawY
-        );
-
-        // Reset alpha if it was set
+        // Set overall point opacity if specified
         if (pointDisplay.opacity !== undefined && pointDisplay.opacity < 1) {
-          this.canvas.context.globalAlpha = 1.0;
+          canvasData.canvas.context.globalAlpha = pointDisplay.opacity;
+        }
+
+        // Handle cross-fade animation if transitioning between images
+        if (pointDisplay.transitioningFromImage && pointDisplay.crossFadeProgress !== undefined && pointDisplay.crossFadeProgress < 1) {
+          // Draw the "from" image at fading-out opacity
+          const fromDrawX = pointDisplay.position.x - pointDisplay.transitioningFromImage.offsetToCenter.x;
+          const fromDrawY = pointDisplay.position.y - pointDisplay.transitioningFromImage.offsetToCenter.y;
+
+          canvasData.canvas.context.globalAlpha = (pointDisplay.opacity ?? 1) * (1 - pointDisplay.crossFadeProgress);
+          canvasData.canvas.context.drawImage(
+            pointDisplay.transitioningFromImage.image,
+            fromDrawX,
+            fromDrawY
+          );
+
+          // Draw the "to" image at fading-in opacity (if it exists)
+          if (pointDisplay.image) {
+            const toDrawX = pointDisplay.position.x - pointDisplay.image.offsetToCenter.x;
+            const toDrawY = pointDisplay.position.y - pointDisplay.image.offsetToCenter.y;
+
+            canvasData.canvas.context.globalAlpha = (pointDisplay.opacity ?? 1) * pointDisplay.crossFadeProgress;
+            canvasData.canvas.context.drawImage(
+              pointDisplay.image.image,
+              toDrawX,
+              toDrawY
+            );
+          } else {
+            console.warn(`no image found for point ${pointKey} in visualization with id ${this.vizData.visualizationId}.`)
+          }
+
+          // Reset alpha
+          canvasData.canvas.context.globalAlpha = 1.0;
+        } else {
+          // Normal rendering (no cross-fade)
+          if (!pointDisplay.image) {
+            console.warn(`no image found for point ${pointKey} in visualization with id ${this.vizData.visualizationId}.`)
+            continue; // Skip points without images
+          }
+
+          // Calculate the top-left corner position by subtracting the offset to center
+          const drawX = pointDisplay.position.x - pointDisplay.image.offsetToCenter.x;
+          const drawY = pointDisplay.position.y - pointDisplay.image.offsetToCenter.y;
+
+          // Draw the image at the calculated position
+          canvasData.canvas.context.drawImage(
+            pointDisplay.image.image,
+            drawX,
+            drawY
+          );
+
+          // Reset alpha if it was set
+          if (pointDisplay.opacity !== undefined && pointDisplay.opacity < 1) {
+            canvasData.canvas.context.globalAlpha = 1.0;
+          }
         }
       }
+    }
+  }
 
+  private syncToLogicalState(canvasId: number) {
+    const canvasData = this.canvases.get(canvasId);
+    if (canvasData) {
+      //set the currentVisibleState to the target, clearing any transition fields
+      canvasData.currentVisibleState = new Map(
+        [...canvasData.logicalState.targetVisibleState.entries()].map(([key, pd]) => [
+          key,
+          {
+            key: pd.key,
+            point: pd.point,
+            position: pd.position,
+            image: pd.image,
+            opacity: undefined,
+            transitioningFromImage: undefined,
+            crossFadeProgress: undefined
+          }
+        ])
+      );
 
+      //draw the currentVisibleState
+      this.drawVisibleState(canvasId)
     }
   }
 
   /**
-   * Notify all subscribers of a state change by sending them a copy of the logical state
-   */
-  private notifySubscribers(origin: StateChangeOrigin) {
-    // Create a deep copy of the logical state
-    const stateCopy = structuredClone(this.logicalState);
+  * Notify all subscribers of a state change by sending them a copy of the logical state
+  */
+  private notifySubscribers(canvasId: number, origin: StateChangeOrigin) {
+    const canvasData = this.canvases.get(canvasId);
+    if (canvasData) {
+      // Create a deep copy of the logical state
+      const stateCopy = structuredClone(canvasData.logicalState);
 
-    // Invoke all subscriber callbacks with the state copy and origin
-    for (const callback of this.stateSubscribers.values()) {
-      callback(stateCopy, origin);
+      // Invoke all subscriber callbacks with the state copy and origin
+      for (const callback of canvasData.stateSubscribers.values()) {
+        callback(stateCopy, origin);
+      }
     }
   }
 
-
-
   /**
-   * PUBLIC METHODS
-   */
+     * PUBLIC METHODS
+     */
 
   //handle for client to set client-side view id
-  setClientViewId(viewId: string) {
-    //no-op if the target state already has the same viewId
-    //or if passed viewId is not in the lookup map
-    if (this.logicalState.viewId !== viewId && this.vizData.viewMaps[viewId] !== undefined) {
+  setClientViewId(canvasId: number, viewId: string) {
+    const canvasData = this.canvases.get(canvasId);
+    if (canvasData) {
+      //no-op if the target state already has the same viewId
+      //or if passed viewId is not in the lookup map
+      if (canvasData.logicalState.viewId !== viewId && this.vizData.viewMaps[viewId] !== undefined) {
 
-      //Step 1: update logicalState
-      //NOTE: We are not bothering on incrementally compute
-      //We can refine later if performance is bad.
-      this.logicalState.viewId = viewId;
-      this.logicalState.segmentDisplay = computeSegmentDisplay(
-        this.logicalState.serverState,
-        this.logicalState.displayMode,
-        this.logicalState.viewId,
-        this.vizData,
-        this.canvas
-      )
-      this.logicalState.targetVisibleState = computeTargetVisibleState(
-        this.logicalState.serverState,
-        this.logicalState.displayMode,
-        this.logicalState.viewId,
-        this.vizData,
-        this.canvas
-      )
+        //Step 1: update logicalState
+        //NOTE: We are not bothering on incrementally compute
+        //We can refine later if performance is bad.
+        canvasData.logicalState.viewId = viewId;
+        canvasData.logicalState.segmentDisplay = computeSegmentDisplay(
+          this.serverState,
+          canvasData.logicalState.displayMode,
+          canvasData.logicalState.viewId,
+          this.vizData,
+          canvasData.canvas
+        )
+        canvasData.logicalState.targetVisibleState = computeTargetVisibleState(
+          this.serverState,
+          canvasData.logicalState.displayMode,
+          canvasData.logicalState.viewId,
+          this.vizData,
+          canvasData.canvas
+        )
 
-      //Step 2: start animation to new targetVisibleState
-      this.animationController.startAnimation(
-        this.currentVisibleState,
-        this.logicalState.targetVisibleState,
-        this.animation,
-        (newVisibleState: Map<string, PointDisplay>) => {
-          this.currentVisibleState = newVisibleState;
-          this.drawVisibleState();
-        },
-        () => { }
-      )
+        //Step 2: start animation to new targetVisibleState
+        canvasData.animationController.startAnimation(
+          canvasData.currentVisibleState,
+          canvasData.logicalState.targetVisibleState,
+          canvasData.animation,
+          (newVisibleState: Map<string, PointDisplay>) => {
+            canvasData.currentVisibleState = newVisibleState;
+            this.drawVisibleState(canvasId);
+          },
+          () => { }
+        )
 
-      //Step 3: notify subscribers of state change
-      this.notifySubscribers("viewId");
+        //Step 3: notify subscribers of state change
+        this.notifySubscribers(canvasId, "viewId");
+      }
     }
   }
 
   //handle for client to set client-side display mode
-  setClientDisplayMode(displayMode: "expanded" | "collapsed") {
+  setClientDisplayMode(canvasId: number, displayMode: "expanded" | "collapsed") {
 
-    //no-op if the logical state display mode already matches
-    if (!(this.logicalState.displayMode === displayMode)) {
-      //Step 1: update logicalState
-      //NOTE: We are no bothering on incrementally compute
-      //We can refine later if performance is bad.
-      this.logicalState.displayMode = displayMode;
-      this.logicalState.segmentDisplay = computeSegmentDisplay(
-        this.logicalState.serverState,
-        this.logicalState.displayMode,
-        this.logicalState.viewId,
-        this.vizData,
-        this.canvas
-      )
-      this.logicalState.targetVisibleState = computeTargetVisibleState(
-        this.logicalState.serverState,
-        this.logicalState.displayMode,
-        this.logicalState.viewId,
-        this.vizData,
-        this.canvas
-      )
+    const canvasData = this.canvases.get(canvasId);
+    if (canvasData) {
+      //no-op if the logical state display mode already matches
+      if (canvasData.logicalState.displayMode !== displayMode) {
+        //Step 1: update logicalState
+        //NOTE: We are not bothering on incrementally compute
+        //We can refine later if performance is bad.
+        canvasData.logicalState.displayMode = displayMode;
+        canvasData.logicalState.segmentDisplay = computeSegmentDisplay(
+          this.serverState,
+          canvasData.logicalState.displayMode,
+          canvasData.logicalState.viewId,
+          this.vizData,
+          canvasData.canvas
+        )
+        canvasData.logicalState.targetVisibleState = computeTargetVisibleState(
+          this.serverState,
+          canvasData.logicalState.displayMode,
+          canvasData.logicalState.viewId,
+          this.vizData,
+          canvasData.canvas
+        )
 
-      //Step 2: start animation to new targetVisibleState
-      this.animationController.startAnimation(
-        this.currentVisibleState,
-        this.logicalState.targetVisibleState,
-        this.animation,
-        (newVisibleState: Map<string, PointDisplay>) => {
-          this.currentVisibleState = newVisibleState;
-          this.drawVisibleState();
-        },
-        () => { }
-      )
+        //Step 2: start animation to new targetVisibleState
+        canvasData.animationController.startAnimation(
+          canvasData.currentVisibleState,
+          canvasData.logicalState.targetVisibleState,
+          canvasData.animation,
+          (newVisibleState: Map<string, PointDisplay>) => {
+            canvasData.currentVisibleState = newVisibleState;
+            this.drawVisibleState(canvasId);
+          },
+          () => { }
+        )
 
-      //Step 3: notify subscribers of state change
-      this.notifySubscribers("displayMode");
+        //Step 3: notify subscribers of state change
+        this.notifySubscribers(canvasId, "displayMode");
+      }
     }
-
-
-
   }
 
   //handle for hooking into visualization.update events
   setServerState(vizUpdate: VisualizationUpdateEvent) {
 
     //no-op if we're already ahead of this update
-    if (vizUpdate.toSequence > this.logicalState.serverSequenceNumber) {
-      //Step 1: update logicalState
+    if (vizUpdate.toSequence > this.serverSequenceNumber) {
+
       //NOTE: WE ARE NOT USING DIFFS SENT BY SERVER
       //We can refine this code to use diffs if we find performance is too slow.
-      this.logicalState.serverSequenceNumber = vizUpdate.toSequence;
-      this.logicalState.serverState = vizUpdate.splits;
-      //viewId and displayMode stay the same!
-      this.logicalState.targetVisibleState = computeTargetVisibleState(
-        this.logicalState.serverState,
-        this.logicalState.displayMode,
-        this.logicalState.viewId,
-        this.vizData,
-        this.canvas
-      )
+      this.serverSequenceNumber = vizUpdate.toSequence;
+      this.serverState = vizUpdate.splits;
 
 
-      //Step 2: start animation to new targetVisibleState
-      this.animationController.startAnimation(
-        this.currentVisibleState,
-        this.logicalState.targetVisibleState,
-        this.animation,
-        (newVisibleState: Map<string, PointDisplay>) => {
-          this.currentVisibleState = newVisibleState;
-          this.drawVisibleState();
-        },
-        () => { }
-      )
+      //update ALL attached canvases
+      this.canvases.forEach((canvasData, canvasId) => {
 
-      //Step 3: notify subscribers of state change
-      this.notifySubscribers("server");
+        //Step 1: update logicalState
+        //viewId and displayMode stay the same!
+        canvasData.logicalState.targetVisibleState = computeTargetVisibleState(
+          this.serverState,
+          canvasData.logicalState.displayMode,
+          canvasData.logicalState.viewId,
+          this.vizData,
+          canvasData.canvas
+        )
+
+
+        //Step 2: start animation to new targetVisibleState
+        canvasData.animationController.startAnimation(
+          canvasData.currentVisibleState,
+          canvasData.logicalState.targetVisibleState,
+          canvasData.animation,
+          (newVisibleState: Map<string, PointDisplay>) => {
+            canvasData.currentVisibleState = newVisibleState;
+            this.drawVisibleState(canvasId);
+          },
+          () => { }
+        )
+
+        //Step 3: notify subscribers of state change
+        this.notifySubscribers(canvasId, "server");
+      })
     }
-
-
   }
 
   //handle for client to set canvas width
-  setCanvasWidth(requestedWidth: number) {
+  setCanvasWidth(canvasId: number, requestedWidth: number) {
 
-    //Step 1: compute shimmed dimensions from requestedWidth
-    const aspectRatio = this.vizData.vizHeight / this.vizData.vizWidth;
-    const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(
-      requestedWidth,
-      aspectRatio
-    );
+    const canvasData = this.canvases.get(canvasId)
+    if (canvasData) {
 
-    //no-op if we're already set
-    if (this.canvas.pixelWidth !== shimmedPixelWidth) {
+      //Step 1: compute shimmed dimensions from requestedWidth
+      const aspectRatio = this.vizData.vizHeight / this.vizData.vizWidth;
+      const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(
+        requestedWidth,
+        aspectRatio
+      );
 
-      //Step 2: cancel any ongoing animations
-      this.animationController.cancel();
+      //no-op if we're already set
+      if (canvasData.canvas.pixelWidth !== shimmedPixelWidth) {
 
-      //Step 3: rescale the logicalState.targetVisibleState lengths and coordinates to
-      //the new canvas dimensions
-      //note -- constructor guarantees that this.canvas.pixelWidth and this.canvas.pixelHeight are positive and finite.
-      this.logicalState.targetVisibleState = rescaleVisibleState(
-        this.logicalState.targetVisibleState,
-        {
-          pixelWidth: this.canvas.pixelWidth,
-          pixelHeight: this.canvas.pixelHeight
-        },
-        {
-          pixelWidth: shimmedPixelWidth,
-          pixelHeight: shimmedPixelHeight
-        }
-      )
+        //Step 2: cancel any ongoing animations
+        canvasData.animationController.cancel();
 
-      //Step 4: rescale segmentDisplay lengths and coordinates to
-      //the new canvas dimensions
-      this.logicalState.segmentDisplay = rescaleSegmentDisplay(
-        this.logicalState.segmentDisplay,
-        {
-          pixelWidth: this.canvas.pixelWidth,
-          pixelHeight: this.canvas.pixelHeight
-        },
-        {
-          pixelWidth: shimmedPixelWidth,
-          pixelHeight: shimmedPixelHeight
-        }
-      )
+        //Step 3: rescale the logicalState.targetVisibleState lengths and coordinates to
+        //the new canvas dimensions
+        //note -- constructor guarantees that this.canvas.pixelWidth and this.canvas.pixelHeight are positive and finite.
+        canvasData.logicalState.targetVisibleState = rescaleVisibleState(
+          canvasData.logicalState.targetVisibleState,
+          {
+            pixelWidth: canvasData.canvas.pixelWidth,
+            pixelHeight: canvasData.canvas.pixelHeight
+          },
+          {
+            pixelWidth: shimmedPixelWidth,
+            pixelHeight: shimmedPixelHeight
+          }
+        )
 
-      //Step 5: reset canvas dimensions (clears canvas automatically)
-      this.canvas.pixelWidth = shimmedPixelWidth;
-      this.canvas.pixelHeight = shimmedPixelHeight;
-      this.canvas.element.width = shimmedPixelWidth;
-      this.canvas.element.height = shimmedPixelHeight;
+        //Step 4: rescale segmentDisplay lengths and coordinates to
+        //the new canvas dimensions
+        canvasData.logicalState.segmentDisplay = rescaleSegmentDisplay(
+          canvasData.logicalState.segmentDisplay,
+          {
+            pixelWidth: canvasData.canvas.pixelWidth,
+            pixelHeight: canvasData.canvas.pixelHeight
+          },
+          {
+            pixelWidth: shimmedPixelWidth,
+            pixelHeight: shimmedPixelHeight
+          }
+        )
 
-      //Step 5: call this.syncToLogicalState() to set visible state to new logical state and redraw canvas
-      this.syncToLogicalState()
+        //Step 5: reset canvas dimensions (clears canvas automatically)
+        canvasData.canvas.pixelWidth = shimmedPixelWidth;
+        canvasData.canvas.pixelHeight = shimmedPixelHeight;
+        canvasData.canvas.element.width = shimmedPixelWidth;
+        canvasData.canvas.element.height = shimmedPixelHeight;
 
-      //Step 6: notify subscribers of state change
-      this.notifySubscribers("canvas");
+        //Step 5: call this.syncToLogicalState() to set visible state to new logical state and redraw canvas
+        this.syncToLogicalState(canvasId)
+
+        //Step 6: notify subscribers of state change
+        this.notifySubscribers(canvasId, "canvas");
+      }
     }
-
-
-
-
   }
 
   /**
-   * Subscribe to state updates.
-   * The callback will be invoked immediately with the current state,
-   * and then again whenever the logical state changes.
-   * 
-   * @param callback - Function to call with state updates and change origin
-   * @returns Unsubscribe function that removes the subscription
-   */
-  subscribeToStateUpdate(callback: (state: VizLogicalState, origin: StateChangeOrigin) => void): () => void {
+     * Subscribe to state updates.
+     * The callback will be invoked immediately with the current state,
+     * and then again whenever the logical state changes.
+     * 
+     * @param canvasId - id of canvas on which to subscribe to updates
+     * @param callback - Function to call with state updates and change origin
+     * @returns Unsubscribe function that removes the subscription
+     */
+  subscribeToStateUpdate(
+    canvasId: number,
+    callback: (state: VizLogicalState, origin: StateChangeOrigin) => void
+  ): (() => void) | undefined {
+    const canvasData = this.canvases.get(canvasId)
+    if (!canvasData) {
+      return undefined;
+    }
+
     // Generate a unique ID for this subscriber
-    const subscriberId = this.nextSubscriberId++;
+    const subscriberId = canvasData.nextSubscriberId++;
 
     // Add the callback to the subscribers map
-    this.stateSubscribers.set(subscriberId, callback);
+    canvasData.stateSubscribers.set(subscriberId, callback);
 
     // Immediately invoke the callback with current state
-    const stateCopy = structuredClone(this.logicalState);
+    const stateCopy = structuredClone(canvasData.logicalState);
     callback(stateCopy, "subscription");
 
     // Return unsubscribe function
     return () => {
-      this.stateSubscribers.delete(subscriberId);
+      canvasData.stateSubscribers.delete(subscriberId);
     };
   }
-
-
 }

@@ -13,10 +13,6 @@ export type SegmentGroupDisplay = Omit<SplitWithSegmentGroup, "points" | "respon
 
 
 export interface VizLogicalState {
-  //server-side visualization state as sent by server in snapshots and update, lengths and positions are in abstract units
-  serverState: SplitWithSegmentGroup[];
-  //latest sequence number sent by server 
-  serverSequenceNumber: number;
   //client-selected displayMode
   displayMode: "expanded" | "collapsed";
   //client-selected viewId
@@ -27,6 +23,8 @@ export interface VizLogicalState {
   //tracked separately as a "target" to allow animated transitions of point images and positions when state mutates. 
   targetVisibleState: Map<string, PointDisplay>;
 }
+
+
 
 export interface VizData extends VisualizationData {
   loadedImages: Map<string, PointLoadedImage>

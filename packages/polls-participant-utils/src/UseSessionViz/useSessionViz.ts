@@ -2,25 +2,22 @@
  * React hook that connects to a polling session,
  * and returns, for each visualization in the session...
  * 
- * + a canvas
- * + a visualization state manager for the canvas
+ * 
+ * + a visualization state manager
  * + visualization metadata (does not change during the life of the visualization)
  * 
- * The canvas returned is wired to the stream of visualization updates from the server,
- * so that the points drawn on the canvas update automatically when the server
- * emits an update.
+ * The visualization manager returned is wired
+ * to the stream of visualization updates from the server, so that 
+ * the manager's internal representation of the server state  updates
+ * automatically when the server emits an update.
  * 
- * The state manager exposes methods that can be called to update the canvas to match
- * client-side state.
+ * Caller can attach a canvas to the vizStateManager via
  * 
+ * vizStateManager.attachCanvas(canvas, vizRenderConfig)
  * 
- * Note, the drawing on the canvas should reflect a merging of a client-side and server-side state.
- * This hook hides the details connecting server-side state and canvas drawing.  The canvas comes
- * pre-wired so that it automatically updates whenever the server-side state updates.
+ * This causes the canvas to be wired to (i.e. to redraw in response to) server updates on the viz
  * 
- * Client-side-state, on the other hand, must be updated manually by the caller.  When the client uses the 
- * canvas state manager to update the client-side state, the visualization state manager computes the new coordinates
- * to be rendered to reflect the change, and automatically re-draws the canvas.
+ * Also, caller can do VSM.setClientViewId(), VSM.setClientDisplayMode, VSM.setCanvasWidth, VSM.subscribeToStateUpdate
  * 
  * 
  * RE-RENDER PATTERN:
@@ -45,7 +42,7 @@ import { VisualizationData } from "shared-types";
 import { loadVizImages } from "../loadVizImages";
 import { VizRenderConfig } from "../types";
 
-export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string, vizRenderConfig: VizRenderConfig) {
+export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string) {
 
   //connection and session statuses
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected')
@@ -56,7 +53,6 @@ export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string, viz
 
   // Visualization references - holds stable references, never triggers re-renders
   const vizRefs = useRef(new Map<string, {
-    canvas: HTMLCanvasElement;
     vizManager: VizStateManager;
     vizData: VisualizationData;
   }>())
@@ -99,7 +95,7 @@ export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string, viz
             sessionData.visualizations.map(viz => [viz.visualizationId, 'loading' as const])
           ))
 
-          //loop through the visualizations, creating the canvas and state manager for each one
+          //loop through the visualizations, creating the state manager for each one
           //Create an array of promises for parallel processing
           const vizPromises = sessionData.visualizations.map(async (viz) => {
             try {
@@ -107,12 +103,10 @@ export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string, viz
               //catch block below
               const vizImages = await loadVizImages(viz.splits)
 
-              //create the canvas
-              const canvas = document.createElement('canvas');
 
               //create a viz state manager, which wires visualization state to canvas
               //VizStateManager is TODO!!!
-              const vizManager = new VizStateManager(viz, canvas, vizImages, vizRenderConfig)
+              const vizManager = new VizStateManager(viz, vizImages)
 
               //Subscribe to visualization updates
               //The callback is immediately invoked with the current buffered state,
@@ -128,7 +122,6 @@ export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string, viz
 
               //add the wired-up objects to the ref map
               vizRefs.current.set(viz.visualizationId, {
-                canvas: canvas,
                 vizManager: vizManager,
                 vizData: viz
               })

@@ -1,3 +1,7 @@
+# Multiple canvases
+
+**DONE**
+
 # New segmentDisplay property
 
 1.  **DONE** Add segmentDisplay property to logical state, which holds bounds and top-left coordinates for segment groups and segments in the current view+displaymode+serverstate (scaled to the canvas).
@@ -21,14 +25,6 @@
 4.  Update computeTargetVisible to take filter as a parameter.
 5.  Update computeSegmentDisplay to take filter as a parameter.
 6.  Add public setClientFilter method. recomputes logical state, clears canvas, re-computes and resets canvas dimensions, redraws canvas using syncToLogicalState.
-
-# copyViz method
-
-(tentative...not sure how best to implement, or whether VizStateManger is the right object to provide this functionality.)
-
-Returns a new VizStateManager with it's own wired-up canvas (do we need a react hook for UI code to handle state-setting use the new canvas?)
-
-Allows UI to render multiple copies of a visualization that all have the same server state, but have independent client states.
 
 # Caches
 
