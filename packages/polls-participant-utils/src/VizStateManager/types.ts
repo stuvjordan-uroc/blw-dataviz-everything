@@ -1,12 +1,30 @@
-import { SplitWithSegmentGroup, VisualizationData } from "shared-types";
+import { ResponseGroupWithStatsAndSegment, SplitWithSegmentGroup, VisualizationData } from "shared-types";
 import { PointLoadedImage, PointDisplay } from "../types";
+
+/**
+ * Type of state change that triggered a subscriber notification
+ */
+export type StateChangeOrigin = "viewId" | "displayMode" | "server" | "canvas" | "subscription";
+
+
+export type SegmentGroupDisplay = Omit<SplitWithSegmentGroup, "points" | "responseGroups"> & {
+  responseGroups: (Omit<ResponseGroupWithStatsAndSegment, "pointPositions" | "pointImage">)[]
+}
 
 
 export interface VizLogicalState {
+  //server-side visualization state as sent by server in snapshots and update, lengths and positions are in abstract units
   serverState: SplitWithSegmentGroup[];
+  //latest sequence number sent by server 
   serverSequenceNumber: number;
+  //client-selected displayMode
   displayMode: "expanded" | "collapsed";
+  //client-selected viewId
   viewId: string;
+  //boundaries and positions of segment groups and segments in the current state, coordinates and length scaled to canvas dimensions
+  segmentDisplay: SegmentGroupDisplay[];
+  //images and positions for points displayed at the current state, with point coordinates and image offsets scaled to canvas dimensions
+  //tracked separately as a "target" to allow animated transitions of point images and positions when state mutates. 
   targetVisibleState: Map<string, PointDisplay>;
 }
 

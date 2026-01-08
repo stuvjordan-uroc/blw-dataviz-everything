@@ -113,14 +113,14 @@ export function rescaleVisibleState(
     result.set(pointKey, {
       ...oldPointDisplay,
       position: {
-        x: newCanvasDimensions.pixelWidth * oldPointDisplay.position.x / oldCanvasDimensions.pixelWidth,
-        y: newCanvasDimensions.pixelHeight * oldPointDisplay.position.y / oldCanvasDimensions.pixelHeight
+        x: Math.round(newCanvasDimensions.pixelWidth * oldPointDisplay.position.x / oldCanvasDimensions.pixelWidth),
+        y: Math.round(newCanvasDimensions.pixelHeight * oldPointDisplay.position.y / oldCanvasDimensions.pixelHeight)
       }, //rescale coordinates 
       image: (oldPointDisplay.image) ? {
         image: oldPointDisplay.image.image,
         offsetToCenter: {
-          x: newCanvasDimensions.pixelWidth * oldPointDisplay.image.offsetToCenter.x / oldCanvasDimensions.pixelWidth,
-          y: newCanvasDimensions.pixelWidth * oldPointDisplay.image.offsetToCenter.y / oldCanvasDimensions.pixelHeight
+          x: Math.round(newCanvasDimensions.pixelWidth * oldPointDisplay.image.offsetToCenter.x / oldCanvasDimensions.pixelWidth),
+          y: Math.round(newCanvasDimensions.pixelWidth * oldPointDisplay.image.offsetToCenter.y / oldCanvasDimensions.pixelHeight)
         }
       } : undefined, //rescale offsets
     });

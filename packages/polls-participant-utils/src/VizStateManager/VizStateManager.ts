@@ -1,9 +1,11 @@
 import { VisualizationData, VisualizationUpdateEvent } from "shared-types";
-import { VizLogicalState, VizData } from "./types";
+import { VizLogicalState, VizData, StateChangeOrigin } from "./types";
 import { PointLoadedImage, VizRenderConfig, AnimationConfig, PointDisplay } from '../types';
 import { computeTargetVisibleState, rescaleVisibleState } from "./pointDisplayComputation";
 import { computeCanvasPixelDimensions } from "./canvasComputation";
 import { VizAnimationController } from '../VizAnimationController';
+import { computeSegmentDisplay, rescaleSegmentDisplay } from "./segmentDisplayComputation";
+
 
 export class VizStateManager {
 
@@ -17,6 +19,10 @@ export class VizStateManager {
     pixelWidth: number;
     pixelHeight: number;
   };
+
+  //state change subscribers
+  private stateSubscribers: Map<number, (state: VizLogicalState, origin: StateChangeOrigin) => void> = new Map();
+  private nextSubscriberId: number = 0;
 
   //complete representation of the current logical state of the viz,
   //driven by public setXXX methods,
@@ -74,10 +80,17 @@ export class VizStateManager {
       serverSequenceNumber: viz.sequenceNumber,
       displayMode: vizRenderConfig.initialDisplayMode,
       viewId: "", //hardcoded default: the view in which no questions are active.
+      segmentDisplay: computeSegmentDisplay(
+        viz.splits,
+        vizRenderConfig.initialDisplayMode,
+        "", //hardcoded default
+        this.vizData,
+        this.canvas
+      ),
       targetVisibleState: computeTargetVisibleState(
         viz.splits,
         vizRenderConfig.initialDisplayMode,
-        "",
+        "", //hardcoded default
         this.vizData,
         this.canvas
       )
@@ -215,6 +228,18 @@ export class VizStateManager {
     }
   }
 
+  /**
+   * Notify all subscribers of a state change by sending them a copy of the logical state
+   */
+  private notifySubscribers(origin: StateChangeOrigin) {
+    // Create a deep copy of the logical state
+    const stateCopy = structuredClone(this.logicalState);
+
+    // Invoke all subscriber callbacks with the state copy and origin
+    for (const callback of this.stateSubscribers.values()) {
+      callback(stateCopy, origin);
+    }
+  }
 
 
 
@@ -232,6 +257,13 @@ export class VizStateManager {
       //NOTE: We are not bothering on incrementally compute
       //We can refine later if performance is bad.
       this.logicalState.viewId = viewId;
+      this.logicalState.segmentDisplay = computeSegmentDisplay(
+        this.logicalState.serverState,
+        this.logicalState.displayMode,
+        this.logicalState.viewId,
+        this.vizData,
+        this.canvas
+      )
       this.logicalState.targetVisibleState = computeTargetVisibleState(
         this.logicalState.serverState,
         this.logicalState.displayMode,
@@ -252,6 +284,8 @@ export class VizStateManager {
         () => { }
       )
 
+      //Step 3: notify subscribers of state change
+      this.notifySubscribers("viewId");
     }
   }
 
@@ -264,6 +298,13 @@ export class VizStateManager {
       //NOTE: We are no bothering on incrementally compute
       //We can refine later if performance is bad.
       this.logicalState.displayMode = displayMode;
+      this.logicalState.segmentDisplay = computeSegmentDisplay(
+        this.logicalState.serverState,
+        this.logicalState.displayMode,
+        this.logicalState.viewId,
+        this.vizData,
+        this.canvas
+      )
       this.logicalState.targetVisibleState = computeTargetVisibleState(
         this.logicalState.serverState,
         this.logicalState.displayMode,
@@ -283,6 +324,9 @@ export class VizStateManager {
         },
         () => { }
       )
+
+      //Step 3: notify subscribers of state change
+      this.notifySubscribers("displayMode");
     }
 
 
@@ -320,6 +364,9 @@ export class VizStateManager {
         },
         () => { }
       )
+
+      //Step 3: notify subscribers of state change
+      this.notifySubscribers("server");
     }
 
 
@@ -356,7 +403,21 @@ export class VizStateManager {
         }
       )
 
-      //Step 4: reset canvas dimensions (clears canvas automatically)
+      //Step 4: rescale segmentDisplay lengths and coordinates to
+      //the new canvas dimensions
+      this.logicalState.segmentDisplay = rescaleSegmentDisplay(
+        this.logicalState.segmentDisplay,
+        {
+          pixelWidth: this.canvas.pixelWidth,
+          pixelHeight: this.canvas.pixelHeight
+        },
+        {
+          pixelWidth: shimmedPixelWidth,
+          pixelHeight: shimmedPixelHeight
+        }
+      )
+
+      //Step 5: reset canvas dimensions (clears canvas automatically)
       this.canvas.pixelWidth = shimmedPixelWidth;
       this.canvas.pixelHeight = shimmedPixelHeight;
       this.canvas.element.width = shimmedPixelWidth;
@@ -365,11 +426,38 @@ export class VizStateManager {
       //Step 5: call this.syncToLogicalState() to set visible state to new logical state and redraw canvas
       this.syncToLogicalState()
 
+      //Step 6: notify subscribers of state change
+      this.notifySubscribers("canvas");
     }
 
 
 
 
+  }
+
+  /**
+   * Subscribe to state updates.
+   * The callback will be invoked immediately with the current state,
+   * and then again whenever the logical state changes.
+   * 
+   * @param callback - Function to call with state updates and change origin
+   * @returns Unsubscribe function that removes the subscription
+   */
+  subscribeToStateUpdate(callback: (state: VizLogicalState, origin: StateChangeOrigin) => void): () => void {
+    // Generate a unique ID for this subscriber
+    const subscriberId = this.nextSubscriberId++;
+
+    // Add the callback to the subscribers map
+    this.stateSubscribers.set(subscriberId, callback);
+
+    // Immediately invoke the callback with current state
+    const stateCopy = structuredClone(this.logicalState);
+    callback(stateCopy, "subscription");
+
+    // Return unsubscribe function
+    return () => {
+      this.stateSubscribers.delete(subscriberId);
+    };
   }
 
 
