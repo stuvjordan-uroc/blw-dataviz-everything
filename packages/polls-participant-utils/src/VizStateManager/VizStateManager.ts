@@ -94,7 +94,12 @@ export class VizStateManager {
     //initialize canvas's logical state
     const logicalState = {
       displayMode: vizRenderConfig.initialDisplayMode,
-      viewId: "", //hardcoded default: the view in which no questions are active.
+      viewId: vizRenderConfig.initialViewId,
+      filter: vizRenderConfig.initialFilter,
+      filteredSplits: filterSplits(
+        this.vizData.viewMaps[vizRenderConfig.initialViewId].map((index) => this.serverState[index]),
+        vizRenderConfig.initialFilter
+      ),
       segmentDisplay: computeSegmentDisplay(
         this.serverState,
         vizRenderConfig.initialDisplayMode,

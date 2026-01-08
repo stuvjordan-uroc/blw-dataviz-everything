@@ -19,12 +19,16 @@
 
 # filtered views
 
-1.  Add a filter property to VizLogicalState which is an array of (Question & {includedResponseGroups: ResponseGroup[]}),
-2.  Update constructor to initialize filter property to [].
-3.  Update computeCanvasPixelDimensions to take filter as a parameter (active filters change the vizWidth and vizHeight!!!!)
-4.  Update computeTargetVisible to take filter as a parameter.
-5.  Update computeSegmentDisplay to take filter as a parameter.
-6.  Add public setClientFilter method. recomputes logical state, clears canvas, re-computes and resets canvas dimensions, redraws canvas using syncToLogicalState.
+1.  **DONE** Add a filter property to VizLogicalState which is an array of (Question & {includedResponseGroups: ResponseGroup[]}),
+2.  **DONE** Update VizRenderConfig to have an initial filter.
+3.  **DONE** Update attachCanvas to initialize filter property.
+4.  Add filteredSplits property to VizLogicalState...keep in sync with filter and viewId via...
+5.  Write function to compute filtered splits. Use it
+6.  Update setCanvasWidth to use filter in computing aspect ratio.
+7.  Update computeTargetVisible to take filter as a parameter.
+8.  Update computeSegmentDisplay to take filter as a parameter.
+9.  Update setClientViewId, setClientDisplayMode, and setServerState to use new computeTargetVisible and computSegmentDisplay signatures.
+10. Add public setClientFilter method. recomputes logical state, clears canvas, re-computes and resets canvas dimensions, redraws canvas using syncToLogicalState.
 
 # Caches
 
