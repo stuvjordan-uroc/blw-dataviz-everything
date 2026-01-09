@@ -2,8 +2,6 @@
  * Canvas dimension computation utilities for VizStateManager
  */
 
-import { SplitWithSegmentGroup } from "shared-types";
-import { Filter, VizData, VizLogicalState } from "./types";
 
 
 

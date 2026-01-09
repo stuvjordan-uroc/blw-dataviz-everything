@@ -1,16 +1,20 @@
+import { PointLoadedImage, PointDisplay, AnimationConfig, VizRenderConfig } from "../../types";
 import { SplitWithSegmentGroup } from "shared-types";
-import { VizRenderConfig, PointDisplay, AnimationConfig, PointLoadedImage } from '../types';
-import { computeCanvasPixelDimensions } from "./canvasComputation";
-import { SegmentGroupDisplay, VizLogicalState, StateChangeOrigin } from "./types";
-import { VizAnimationController } from "../VizAnimationController";
-import { scaleRectToCanvas, rescaleSegmentDisplay } from "./segmentDisplayComputation";
-import { scaleLengthToCanvasX, scaleLengthToCanvasY, scalePositionToCanvas, rescaleVisibleState } from "./pointDisplayComputation";
-import { pointKey } from "../utils";
+import { VizLogicalState, SegmentGroupDisplay, StateChangeOrigin } from "../types";
+import { VizAnimationController } from "../../VizAnimationController";
+import { computeCanvasPixelDimensions } from "../canvasComputation";
+import { computeSingleSplitSegmentDisplay } from './computeSegmentDisplay';
+import { computeSingleSplitTVS } from "./computeTargetVisibleState";
+import { rescaleVisibleState } from "../pointDisplayComputation";
 
-export class FocusedCanvas {
+
+export class SingleSplitCanvas {
+
+  //===============================
+  // FIELDS
+  //===============================
 
   //canvas details
-  private aspectRatio: number;
   private canvas: {
     element: HTMLCanvasElement;
     context: CanvasRenderingContext2D;
@@ -40,6 +44,9 @@ export class FocusedCanvas {
   private animation: Required<AnimationConfig>;
   private animationController: VizAnimationController;
 
+  //===============================
+  // CONSTRUCTOR
+  //===============================
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -50,11 +57,9 @@ export class FocusedCanvas {
     splitIndex: number
   ) {
 
-
-
     //set up canvas dimensions and resize canvas
-    this.aspectRatio = split.segmentGroupBounds.width / split.segmentGroupBounds.height
-    const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(vizRenderConfig.initialCanvasWidth, this.aspectRatio)
+    const aspectRatio = split.segmentGroupBounds.width / split.segmentGroupBounds.height
+    const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(vizRenderConfig.initialCanvasWidth, aspectRatio)
     canvas.width = shimmedPixelWidth;
     canvas.height = shimmedPixelHeight;
     //canvas now cleared!
@@ -72,37 +77,19 @@ export class FocusedCanvas {
     this.serverState = split;
     this.splitIndex = splitIndex;
 
-    //set up and calculate logical state
+    //set logical state
     this.logicalState = {
       displayMode: vizRenderConfig.initialDisplayMode,
-      segmentDisplay: this.computeSegmentDisplay(
+      segmentDisplay: computeSingleSplitSegmentDisplay(
         this.serverState,
         vizRenderConfig.initialDisplayMode,
         this.canvas
       ),
-      targetVisibleState: new Map(
-        split
-          .responseGroups[vizRenderConfig.initialDisplayMode]
-          .flatMap((rg) => {
-            const image = loadedImages.get(rg.pointImage.svgDataURL)
-            if (image) {
-              image.offsetToCenter.x = scaleLengthToCanvasX(image.offsetToCenter.x, split.segmentGroupBounds.width, this.canvas);
-              image.offsetToCenter.y = scaleLengthToCanvasY(image.offsetToCenter.y, split.segmentGroupBounds.height, this.canvas);
-            }
-            return rg.pointPositions
-              .map((pointPosition): [string, PointDisplay] => [pointKey(pointPosition.point), {
-                key: pointKey(pointPosition.point),
-                point: pointPosition.point,
-                position: scalePositionToCanvas(
-                  pointPosition.x + rg.bounds.x,
-                  pointPosition.y + rg.bounds.y,
-                  split.segmentGroupBounds.width,
-                  split.segmentGroupBounds.height,
-                  this.canvas
-                ),
-                image: image
-              }])
-          })
+      targetVisibleState: computeSingleSplitTVS(
+        this.serverState,
+        vizRenderConfig.initialDisplayMode,
+        this.loadedImages,
+        this.canvas
       )
     }
 
@@ -131,50 +118,11 @@ export class FocusedCanvas {
 
     //draw visible state on canvas
     this.drawVisibleState()
-
   }
 
-  getSplitIndex() {
-    return this.splitIndex
-  }
-
-  private computeSegmentDisplay(
-    serverState: SplitWithSegmentGroup,
-    displayMode: "expanded" | "collapsed",
-    canvasData: {
-      element: HTMLCanvasElement,
-      context: CanvasRenderingContext2D,
-      pixelWidth: number,
-      pixelHeight: number
-    }
-  ): SegmentGroupDisplay {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { points, responseGroups, ...split } = serverState;
-    const displayedResponseGroups = responseGroups[displayMode];
-    return ({
-      ...split,
-      segmentGroupBounds: {
-        x: 0,
-        y: 0,
-        width: canvasData.pixelWidth,
-        height: canvasData.pixelHeight
-      },
-      responseGroups: displayedResponseGroups.map((rg) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { pointPositions, pointImage, ...responseGroup } = rg;
-        return ({
-          ...responseGroup,
-          bounds: scaleRectToCanvas(
-            responseGroup.bounds,
-            split.segmentGroupBounds.width,
-            split.segmentGroupBounds.height,
-            canvasData
-          )
-        })
-      })
-    })
-  }
-
+  //======================================
+  // PRIVATE METHODS
+  //=====================================
   private drawVisibleState() {
 
     // Clear the entire canvas
@@ -249,41 +197,40 @@ export class FocusedCanvas {
     }
   }
 
+  private notifySubscribers(origin: StateChangeOrigin) {
+    //deep copy the logical state
+    const stateCopy = structuredClone(this.logicalState);
+
+    //invoke all subscriber callbacks with the state copy and origin
+    for (const callback of this.stateSubscribers.values()) {
+      callback(stateCopy, origin)
+    }
+  }
+
+  //========================================
+  // PUBLIC METHODS
+  //========================================
+
+  getSplitIndex() {
+    return this.splitIndex
+  }
+
   setClientDisplayMode(displayMode: "expanded" | "collapsed") {
-    //no-op if the new displayMode is the same as existing.
+    //no-op if the new displayMode is the same as the old
     if (this.logicalState.displayMode !== displayMode) {
+
       //Step 1: update logicalState
-      //NOTE: We are not bothering on incrementally compute
-      //We can refine later if performance is bad.
       this.logicalState.displayMode = displayMode;
-      this.logicalState.segmentDisplay = this.computeSegmentDisplay(
+      this.logicalState.segmentDisplay = computeSingleSplitSegmentDisplay(
         this.serverState,
         displayMode,
         this.canvas
       )
-      this.logicalState.targetVisibleState = new Map(
-        this.serverState
-          .responseGroups[this.logicalState.displayMode]
-          .flatMap((rg) => {
-            const image = this.loadedImages.get(rg.pointImage.svgDataURL)
-            if (image) {
-              image.offsetToCenter.x = scaleLengthToCanvasX(image.offsetToCenter.x, this.serverState.segmentGroupBounds.width, this.canvas);
-              image.offsetToCenter.y = scaleLengthToCanvasY(image.offsetToCenter.y, this.serverState.segmentGroupBounds.height, this.canvas);
-            }
-            return rg.pointPositions
-              .map((pointPosition): [string, PointDisplay] => [pointKey(pointPosition.point), {
-                key: pointKey(pointPosition.point),
-                point: pointPosition.point,
-                position: scalePositionToCanvas(
-                  pointPosition.x + rg.bounds.x,
-                  pointPosition.y + rg.bounds.y,
-                  this.serverState.segmentGroupBounds.width,
-                  this.serverState.segmentGroupBounds.height,
-                  this.canvas
-                ),
-                image: image
-              }])
-          })
+      this.logicalState.targetVisibleState = computeSingleSplitTVS(
+        this.serverState,
+        displayMode,
+        this.loadedImages,
+        this.canvas
       )
 
       //Step 2: start animation to new targetVisibleState
@@ -299,15 +246,17 @@ export class FocusedCanvas {
       )
 
       //Step 3: notify subscribers of state change
-      this.notifySubscribers("displayMode");
+      this.notifySubscribers("displayMode")
     }
   }
 
   setCanvasWidth(requestedWidth: number) {
+
+
     //Step 1: compute shimmed dimensions from requestedWidth
     const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(
       requestedWidth,
-      this.aspectRatio
+      this.serverState.segmentGroupBounds.width / this.serverState.segmentGroupBounds.height
     );
 
     //no-op if we're already set
@@ -358,14 +307,13 @@ export class FocusedCanvas {
       this.canvas.element.width = shimmedPixelWidth;
       this.canvas.element.height = shimmedPixelHeight;
 
-      //Step 5: call this.syncToLogicalState() to set visible state to new logical state and redraw canvas
+      //Step 5: set visible state to new logical state and redraw canvas
       this.currentVisibleState = this.logicalState.targetVisibleState;
       this.drawVisibleState();
 
       //Step 6: notify subscribers of state change
       this.notifySubscribers("canvas");
     }
-
   }
 
   setServerState(updatedState: SplitWithSegmentGroup) {
@@ -374,35 +322,17 @@ export class FocusedCanvas {
     this.serverState = updatedState;
 
     //Step 2: update the logical state
-    this.logicalState.segmentDisplay = this.computeSegmentDisplay(
+    this.logicalState.segmentDisplay = computeSingleSplitSegmentDisplay(
       this.serverState,
       this.logicalState.displayMode,
       this.canvas
-    );
-    this.logicalState.targetVisibleState = this.logicalState.targetVisibleState = new Map(
-      this.serverState
-        .responseGroups[this.logicalState.displayMode]
-        .flatMap((rg) => {
-          const image = this.loadedImages.get(rg.pointImage.svgDataURL)
-          if (image) {
-            image.offsetToCenter.x = scaleLengthToCanvasX(image.offsetToCenter.x, this.serverState.segmentGroupBounds.width, this.canvas);
-            image.offsetToCenter.y = scaleLengthToCanvasY(image.offsetToCenter.y, this.serverState.segmentGroupBounds.height, this.canvas);
-          }
-          return rg.pointPositions
-            .map((pointPosition): [string, PointDisplay] => [pointKey(pointPosition.point), {
-              key: pointKey(pointPosition.point),
-              point: pointPosition.point,
-              position: scalePositionToCanvas(
-                pointPosition.x + rg.bounds.x,
-                pointPosition.y + rg.bounds.y,
-                this.serverState.segmentGroupBounds.width,
-                this.serverState.segmentGroupBounds.height,
-                this.canvas
-              ),
-              image: image
-            }])
-        })
-    );
+    )
+    this.logicalState.targetVisibleState = computeSingleSplitTVS(
+      this.serverState,
+      this.logicalState.displayMode,
+      this.loadedImages,
+      this.canvas
+    )
 
     //Step 3: start animation to new targetVisibleState
     this.animationController.startAnimation(
@@ -418,7 +348,6 @@ export class FocusedCanvas {
 
     //Step 4: notify subscribers
     this.notifySubscribers("server")
-
   }
   /**
   * Subscribe to state updates.
@@ -449,13 +378,5 @@ export class FocusedCanvas {
     };
   }
 
-  private notifySubscribers(origin: StateChangeOrigin) {
-    //deep copy the logical state
-    const stateCopy = structuredClone(this.logicalState);
 
-    //invoke all subscriber callbacks with the state copy and origin
-    for (const callback of this.stateSubscribers.values()) {
-      callback(stateCopy, origin)
-    }
-  }
 }

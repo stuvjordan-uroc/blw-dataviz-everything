@@ -1,4 +1,4 @@
-import { Question, ResponseGroup, ResponseGroupWithStatsAndSegment, SplitWithSegmentGroup, VisualizationData } from "shared-types";
+import { ResponseGroupWithStatsAndSegment, SplitWithSegmentGroup, VisualizationData } from "shared-types";
 import { PointLoadedImage, PointDisplay } from "../types";
 
 /**

@@ -123,6 +123,7 @@ export function createMockVizRenderConfig(overrides?: Partial<VizRenderConfig>):
   return {
     initialCanvasWidth: 800,
     initialDisplayMode: 'expanded',
+    initialViewId: '',
     animation: {
       appearDuration: 200,
       disappearDuration: 150,

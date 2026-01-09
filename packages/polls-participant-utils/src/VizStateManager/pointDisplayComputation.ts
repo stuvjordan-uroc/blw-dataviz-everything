@@ -80,10 +80,6 @@ export function computeTargetVisibleState(
         .responseGroups[displayMode]
         .flatMap((rg) => {
           const image = vizData.loadedImages.get(rg.pointImage.svgDataURL)
-          if (image) {
-            image.offsetToCenter.x = scaleLengthToCanvasX(image.offsetToCenter.x, vizData.vizWidth, canvasData);
-            image.offsetToCenter.y = scaleLengthToCanvasY(image.offsetToCenter.y, vizData.vizHeight, canvasData)
-          }
           return rg.pointPositions
             .flatMap((pointPosition) => ({
               key: pointKey(pointPosition.point),

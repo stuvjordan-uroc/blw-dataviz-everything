@@ -7,6 +7,7 @@ import { computeSegmentDisplay, rescaleSegmentDisplay } from "./segmentDisplayCo
 import { computeTargetVisibleState, rescaleVisibleState } from "./pointDisplayComputation";
 import { VisualizationUpdateEvent, Question, ResponseGroup } from "shared-types";
 import { FocusedCanvas } from "./FocusedCanvas";
+import { SingleSplitCanvas } from "./SingleSplitCanvas";
 
 export class VizStateManager {
 
@@ -36,8 +37,8 @@ export class VizStateManager {
   private nextCanvasId: number = 0;
 
   //focused canvases
-  private focusedCanvases: Map<number, FocusedCanvas> = new Map();
-  private nextFocusedCanvasId: number = 0;
+  private singleSplitCanvases: Map<number, SingleSplitCanvas> = new Map();
+  private nextSingleSplitCanvasId: number = 0;
 
 
 
@@ -71,14 +72,14 @@ export class VizStateManager {
    * @param splitToFocus 
    * @returns Id for calling methods on focused canvas and cleanup function.
    */
-  attachFocusedCanvas(
+  attachSingleSplitCanvas(
     canvas: HTMLCanvasElement,
     vizRenderConfig: Omit<VizRenderConfig, "initialViewId">,
     splitToFocus: number | Array<{
       question: Question;
       responseGroup: ResponseGroup | null;
     }>
-  ): { focusedCanvasManager: FocusedCanvas, detachFocusedCanvas: () => void } | null {
+  ): { singleSplitCanvasManager: SingleSplitCanvas, detachSingleSplitCanvas: () => void } | null {
     //get canvas context
     const ctx = canvas.getContext('2d');
     if (!ctx) {
@@ -118,20 +119,20 @@ export class VizStateManager {
       return null
     }
     //instantiate the focused canvas
-    const focusedCanvas = new FocusedCanvas(canvas, ctx, this.vizData.loadedImages, vizRenderConfig, split, splitIndex)
+    const focusedCanvas = new SingleSplitCanvas(canvas, ctx, this.vizData.loadedImages, vizRenderConfig, split, splitIndex)
     //add the focused canvas to the map of focused canvases
-    this.focusedCanvases.set(this.nextFocusedCanvasId, focusedCanvas)
-    //increment nextFocusedCanvasId
-    this.nextFocusedCanvasId++
+    this.singeSplitCanvases.set(this.nextSingleSplitCanvasId, focusedCanvas)
+    //increment nextSingleSplitCanvasId
+    this.nextSingleSplitCanvasId++
     //return data to caller
     return ({
-      focusedCanvasManager: focusedCanvas,
-      detachFocusedCanvas: () => { this.detachFocusedCanvas(this.nextFocusedCanvasId - 1) }
+      singleSplitCanvasManager: focusedCanvas,
+      detachSingleSplitCanvas: () => { this.detachSingleSplitCanvas(this.nextSingleSplitCanvasId - 1) }
     })
 
   }
-  private detachFocusedCanvas(focusedCanvasId: number) {
-    this.focusedCanvases.delete(focusedCanvasId)
+  private detachSingleSplitCanvas(singleSplitCanvasId: number) {
+    this.singleSplitCanvases.delete(singleSplitCanvasId)
   }
 
   /**
@@ -501,11 +502,11 @@ export class VizStateManager {
         this.notifySubscribers(canvasId, "server");
       })
 
-      //update all attached focused canvases
-      this.focusedCanvases.forEach((focusedCanvas) => {
-        const updatedSplit = vizUpdate.splits[focusedCanvas.getSplitIndex()]
+      //update all attached single state canvases
+      this.singleSplitCanvases.forEach((singleSplitCanvas) => {
+        const updatedSplit = vizUpdate.splits[singleSplitCanvas.getSplitIndex()]
         if (updatedSplit) {
-          focusedCanvas.setServerState(updatedSplit)
+          singleSplitCanvas.setServerState(updatedSplit)
         }
       })
     }
