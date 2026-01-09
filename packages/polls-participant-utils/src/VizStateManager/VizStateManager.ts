@@ -5,7 +5,8 @@ import { VizAnimationController } from "../VizAnimationController";
 import { computeCanvasPixelDimensions } from "./canvasComputation";
 import { computeSegmentDisplay, rescaleSegmentDisplay } from "./segmentDisplayComputation";
 import { computeTargetVisibleState, rescaleVisibleState } from "./pointDisplayComputation";
-import { VisualizationUpdateEvent } from "shared-types";
+import { VisualizationUpdateEvent, Question, ResponseGroup } from "shared-types";
+import { FocusedCanvas } from "./FocusedCanvas";
 
 export class VizStateManager {
 
@@ -34,6 +35,10 @@ export class VizStateManager {
   }> = new Map()
   private nextCanvasId: number = 0;
 
+  //focused canvases
+  private focusedCanvases: Map<number, FocusedCanvas> = new Map();
+  private nextFocusedCanvasId: number = 0;
+
 
 
 
@@ -49,6 +54,84 @@ export class VizStateManager {
     //initialize the server state
     this.serverState = viz.splits
     this.serverSequenceNumber = viz.sequenceNumber
+  }
+
+  /**
+   * 
+   * + clears the canvas
+   * + If VizStateManger is subscribed to a SessionVizClient, canvas will re-draw whenever server emits an update.
+   * + creates and returns a FocusedCanvas instance
+   * + FocusedCanvas exposes setClientDisplayMode and setCanvasWidth
+   * + FocusedCanvas exposes subscribeToFocusedCanvasState
+   * + once a canvas is attached, caller should never set width or height on the canvas directly.
+   * + Instead, call focusedCanvas.setfocusedCanvasWidth.
+   * 
+   * @param canvas 
+   * @param vizRenderConfig 
+   * @param splitToFocus 
+   * @returns Id for calling methods on focused canvas and cleanup function.
+   */
+  attachFocusedCanvas(
+    canvas: HTMLCanvasElement,
+    vizRenderConfig: Omit<VizRenderConfig, "initialViewId">,
+    splitToFocus: number | Array<{
+      question: Question;
+      responseGroup: ResponseGroup | null;
+    }>
+  ): { focusedCanvasManager: FocusedCanvas, detachFocusedCanvas: () => void } | null {
+    //get canvas context
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Failed to get 2D rendering context from canvas');
+    }
+    //get split to focus
+    let split: SplitWithSegmentGroup | undefined;
+    let splitIndex: number | undefined;
+    if (typeof splitToFocus === "number") {
+      split = this.serverState[splitToFocus];
+      splitIndex = split ? splitToFocus : undefined;
+    } else {
+      split = this.serverState.find((candidateSplit, candidateSplitIndex) => {
+        let isSplitToFocus = true;
+        splitIndex = candidateSplitIndex;
+        for (const group of candidateSplit.groups) {
+          const matchedGroup = splitToFocus.find(({ question, responseGroup }) => (
+            question.batteryName === group.question.batteryName &&
+            question.subBattery === group.question.subBattery &&
+            question.varName === group.question.varName &&
+            (
+              (responseGroup === null && group.responseGroup === null) ||
+              (responseGroup !== null && group.responseGroup !== null && responseGroup.label === group.responseGroup.label)
+            )
+          ))
+          if (!matchedGroup) {
+            isSplitToFocus = false;
+            splitIndex = undefined;
+            break;
+          }
+        }
+        return isSplitToFocus
+      })
+    }
+    //early return if the passed splitToFocus fails to match any splits in this viz
+    if (!split || !splitIndex) {
+      return null
+    }
+    //instantiate the focused canvas
+    const focusedCanvas = new FocusedCanvas(canvas, ctx, this.vizData.loadedImages, vizRenderConfig, split, splitIndex)
+    //add the focused canvas to the map of focused canvases
+    this.focusedCanvases.set(this.nextFocusedCanvasId, focusedCanvas)
+    //increment nextFocusedCanvasId
+    this.nextFocusedCanvasId++
+    //return data to caller
+    return ({
+      focusedCanvasManager: focusedCanvas,
+      detachFocusedCanvas: () => { this.detachFocusedCanvas(this.nextFocusedCanvasId - 1) }
+    })
+
+  }
+  private detachFocusedCanvas(focusedCanvasId: number) {
+    this.focusedCanvases.delete(focusedCanvasId)
   }
 
   /**
@@ -95,11 +178,6 @@ export class VizStateManager {
     const logicalState = {
       displayMode: vizRenderConfig.initialDisplayMode,
       viewId: vizRenderConfig.initialViewId,
-      filter: vizRenderConfig.initialFilter,
-      filteredSplits: filterSplits(
-        this.vizData.viewMaps[vizRenderConfig.initialViewId].map((index) => this.serverState[index]),
-        vizRenderConfig.initialFilter
-      ),
       segmentDisplay: computeSegmentDisplay(
         this.serverState,
         vizRenderConfig.initialDisplayMode,
@@ -163,6 +241,7 @@ export class VizStateManager {
   private detachCanvas(canvasId: number) {
     this.canvases.delete(canvasId);
   }
+
 
   private drawVisibleState(canvasId: number) {
     const canvasData = this.canvases.get(canvasId);
@@ -390,6 +469,13 @@ export class VizStateManager {
 
         //Step 1: update logicalState
         //viewId and displayMode stay the same!
+        canvasData.logicalState.segmentDisplay = computeSegmentDisplay(
+          this.serverState,
+          canvasData.logicalState.displayMode,
+          canvasData.logicalState.viewId,
+          this.vizData,
+          canvasData.canvas
+        )
         canvasData.logicalState.targetVisibleState = computeTargetVisibleState(
           this.serverState,
           canvasData.logicalState.displayMode,
@@ -413,6 +499,14 @@ export class VizStateManager {
 
         //Step 3: notify subscribers of state change
         this.notifySubscribers(canvasId, "server");
+      })
+
+      //update all attached focused canvases
+      this.focusedCanvases.forEach((focusedCanvas) => {
+        const updatedSplit = vizUpdate.splits[focusedCanvas.getSplitIndex()]
+        if (updatedSplit) {
+          focusedCanvas.setServerState(updatedSplit)
+        }
       })
     }
   }

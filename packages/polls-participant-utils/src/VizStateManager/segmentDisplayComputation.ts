@@ -2,13 +2,13 @@ import { RectBounds, SplitWithSegmentGroup } from "shared-types";
 import { CanvasData, SegmentGroupDisplay, VizData } from './types';
 import { scaleLengthToCanvasX, scaleLengthToCanvasY, scalePositionToCanvas } from "./pointDisplayComputation";
 
-export function scaleRectToCanvas(rect: RectBounds, vizData: VizData, canvasData: CanvasData) {
-  const { x, y } = scalePositionToCanvas(rect.x, rect.y, vizData, canvasData);
+export function scaleRectToCanvas(rect: RectBounds, vizWidth: number, vizHeight: number, canvasData: CanvasData) {
+  const { x, y } = scalePositionToCanvas(rect.x, rect.y, vizWidth, vizHeight, canvasData);
   return ({
     x: x,
     y: y,
-    width: scaleLengthToCanvasX(rect.width, vizData, canvasData),
-    height: scaleLengthToCanvasY(rect.height, vizData, canvasData)
+    width: scaleLengthToCanvasX(rect.width, vizWidth, canvasData),
+    height: scaleLengthToCanvasY(rect.height, vizHeight, canvasData)
   })
 }
 
@@ -36,7 +36,7 @@ export function computeSegmentDisplay(
       const displayedResponseGroups = responseGroups[displayMode];
       return ({
         ...split,
-        segmentGroupBounds: scaleRectToCanvas(split.segmentGroupBounds, vizData, canvasData),
+        segmentGroupBounds: scaleRectToCanvas(split.segmentGroupBounds, vizData.vizWidth, vizData.vizHeight, canvasData),
         responseGroups: displayedResponseGroups.map((rg) => {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { pointPositions, pointImage, ...responseGroup } = rg;
@@ -48,7 +48,8 @@ export function computeSegmentDisplay(
                 x: split.segmentGroupBounds.x + responseGroup.bounds.x,
                 y: split.segmentGroupBounds.y + responseGroup.bounds.y
               },
-              vizData,
+              vizData.vizWidth,
+              vizData.vizHeight,
               canvasData
             )
           })

@@ -1,5 +1,4 @@
 import { Point } from "shared-types";
-import { Filter } from "./VizStateManager/types";
 
 export interface PointLoadedImage {
   image: HTMLImageElement;
@@ -29,7 +28,6 @@ export interface PointDisplay {
 export interface VizRenderConfig {
   initialCanvasWidth: number;
   initialDisplayMode: "expanded" | "collapsed";
-  initialFilter: Filter;
   initialViewId: string;
   animation?: AnimationConfig | false
 }

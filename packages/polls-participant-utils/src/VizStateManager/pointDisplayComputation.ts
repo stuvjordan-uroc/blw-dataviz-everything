@@ -29,21 +29,22 @@ import { pointKey } from "../utils";
 export function scalePositionToCanvas(
   abstractX: number,
   abstractY: number,
-  vizData: VizData,
+  vizWidth: number,
+  vizHeight: number,
   canvasData: CanvasData
 ): { x: number, y: number } {
   return {
-    x: Math.round((abstractX / vizData.vizWidth) * canvasData.pixelWidth),
-    y: Math.round((abstractY / vizData.vizHeight) * canvasData.pixelHeight)
+    x: Math.round((abstractX / vizWidth) * canvasData.pixelWidth),
+    y: Math.round((abstractY / vizHeight) * canvasData.pixelHeight)
   }
 }
 
-export function scaleLengthToCanvasX(length: number, vizData: VizData, canvasData: CanvasData) {
-  return Math.round(canvasData.pixelWidth * length / vizData.vizWidth)
+export function scaleLengthToCanvasX(length: number, vizWidth: number, canvasData: CanvasData) {
+  return Math.round(canvasData.pixelWidth * length / vizWidth)
 }
 
-export function scaleLengthToCanvasY(length: number, vizData: VizData, canvasData: CanvasData) {
-  return Math.round(canvasData.pixelHeight * length / vizData.vizHeight)
+export function scaleLengthToCanvasY(length: number, vizHeight: number, canvasData: CanvasData) {
+  return Math.round(canvasData.pixelHeight * length / vizHeight)
 }
 
 /**
@@ -80,8 +81,8 @@ export function computeTargetVisibleState(
         .flatMap((rg) => {
           const image = vizData.loadedImages.get(rg.pointImage.svgDataURL)
           if (image) {
-            image.offsetToCenter.x = scaleLengthToCanvasX(image.offsetToCenter.x, vizData, canvasData);
-            image.offsetToCenter.y = scaleLengthToCanvasY(image.offsetToCenter.y, vizData, canvasData)
+            image.offsetToCenter.x = scaleLengthToCanvasX(image.offsetToCenter.x, vizData.vizWidth, canvasData);
+            image.offsetToCenter.y = scaleLengthToCanvasY(image.offsetToCenter.y, vizData.vizHeight, canvasData)
           }
           return rg.pointPositions
             .flatMap((pointPosition) => ({
@@ -90,7 +91,8 @@ export function computeTargetVisibleState(
               position: scalePositionToCanvas(
                 pointPosition.x + splits[splitIdx].segmentGroupBounds.x + rg.bounds.x,
                 pointPosition.y + splits[splitIdx].segmentGroupBounds.y + rg.bounds.y,
-                vizData,
+                vizData.vizWidth,
+                vizData.vizHeight,
                 canvasData
               ),
               image: image
