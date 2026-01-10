@@ -36,4 +36,8 @@ export interface CanvasData {
   context: CanvasRenderingContext2D;
   pixelWidth: number;
   pixelHeight: number;
+  margin: {
+    x: number;
+    y: number;
+  };
 }

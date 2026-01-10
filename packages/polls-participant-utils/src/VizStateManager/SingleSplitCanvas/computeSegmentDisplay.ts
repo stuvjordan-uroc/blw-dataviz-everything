@@ -10,12 +10,19 @@ export function computeSingleSplitSegmentDisplay(
   //remove the points and response groups from the split
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { points, responseGroups, ...restOfSplit } = split;
+
+  //calculate drawable area (canvas minus margins)
+  const drawableWidth = canvasData.pixelWidth - 2 * canvasData.margin.x;
+  const drawableHeight = canvasData.pixelHeight - 2 * canvasData.margin.y;
+
+  //set the segmentGroup bounds to drawable area
   const scaledSegmentGroupBounds = {
-    x: 0,
-    y: 0,
-    width: canvasData.pixelWidth,
-    height: canvasData.pixelHeight
+    x: canvasData.margin.x,
+    y: canvasData.margin.y,
+    width: drawableWidth,
+    height: drawableHeight
   }
+
   return ({
     ...restOfSplit,
     segmentGroupBounds: scaledSegmentGroupBounds,
@@ -26,10 +33,10 @@ export function computeSingleSplitSegmentDisplay(
       return ({
         ...restOfRg,
         bounds: {
-          x: Math.round(canvasData.pixelWidth * restOfRg.bounds.x / restOfSplit.segmentGroupBounds.width),
-          y: Math.round(canvasData.pixelHeight * restOfRg.bounds.y / restOfSplit.segmentGroupBounds.height),
-          width: Math.round(canvasData.pixelWidth * restOfRg.bounds.width / restOfSplit.segmentGroupBounds.width),
-          height: Math.round(canvasData.pixelHeight * restOfRg.bounds.height / restOfSplit.segmentGroupBounds.height)
+          x: Math.round(drawableWidth * restOfRg.bounds.x / restOfSplit.segmentGroupBounds.width) + canvasData.margin.x,
+          y: Math.round(drawableHeight * restOfRg.bounds.y / restOfSplit.segmentGroupBounds.height) + canvasData.margin.y,
+          width: Math.round(drawableWidth * restOfRg.bounds.width / restOfSplit.segmentGroupBounds.width),
+          height: Math.round(drawableHeight * restOfRg.bounds.height / restOfSplit.segmentGroupBounds.height)
         }
       })
     })

@@ -33,18 +33,22 @@ export function scalePositionToCanvas(
   vizHeight: number,
   canvasData: CanvasData
 ): { x: number, y: number } {
+  const drawableWidth = canvasData.pixelWidth - 2 * canvasData.margin.x;
+  const drawableHeight = canvasData.pixelHeight - 2 * canvasData.margin.y;
   return {
-    x: Math.round((abstractX / vizWidth) * canvasData.pixelWidth),
-    y: Math.round((abstractY / vizHeight) * canvasData.pixelHeight)
+    x: Math.round((abstractX / vizWidth) * drawableWidth + canvasData.margin.x),
+    y: Math.round((abstractY / vizHeight) * drawableHeight + canvasData.margin.y)
   }
 }
 
 export function scaleLengthToCanvasX(length: number, vizWidth: number, canvasData: CanvasData) {
-  return Math.round(canvasData.pixelWidth * length / vizWidth)
+  const drawableWidth = canvasData.pixelWidth - 2 * canvasData.margin.x;
+  return Math.round(drawableWidth * length / vizWidth)
 }
 
 export function scaleLengthToCanvasY(length: number, vizHeight: number, canvasData: CanvasData) {
-  return Math.round(canvasData.pixelHeight * length / vizHeight)
+  const drawableHeight = canvasData.pixelHeight - 2 * canvasData.margin.y;
+  return Math.round(drawableHeight * length / vizHeight)
 }
 
 /**
@@ -102,23 +106,28 @@ export function computeTargetVisibleState(
 
 export function rescaleVisibleState(
   oldVisibleState: Map<string, PointDisplay>,
-  oldCanvasDimensions: { pixelWidth: number, pixelHeight: number },
-  newCanvasDimensions: { pixelWidth: number, pixelHeight: number },
+  oldCanvasDimensions: { pixelWidth: number, pixelHeight: number, margin: { x: number, y: number } },
+  newCanvasDimensions: { pixelWidth: number, pixelHeight: number, margin: { x: number, y: number } },
 ): Map<string, PointDisplay> {
   const result = new Map<string, PointDisplay>();
+
+  const oldDrawableWidth = oldCanvasDimensions.pixelWidth - 2 * oldCanvasDimensions.margin.x;
+  const oldDrawableHeight = oldCanvasDimensions.pixelHeight - 2 * oldCanvasDimensions.margin.y;
+  const newDrawableWidth = newCanvasDimensions.pixelWidth - 2 * newCanvasDimensions.margin.x;
+  const newDrawableHeight = newCanvasDimensions.pixelHeight - 2 * newCanvasDimensions.margin.y;
 
   for (const [pointKey, oldPointDisplay] of oldVisibleState) {
     result.set(pointKey, {
       ...oldPointDisplay,
       position: {
-        x: Math.round(newCanvasDimensions.pixelWidth * oldPointDisplay.position.x / oldCanvasDimensions.pixelWidth),
-        y: Math.round(newCanvasDimensions.pixelHeight * oldPointDisplay.position.y / oldCanvasDimensions.pixelHeight)
+        x: Math.round((oldPointDisplay.position.x - oldCanvasDimensions.margin.x) * newDrawableWidth / oldDrawableWidth + newCanvasDimensions.margin.x),
+        y: Math.round((oldPointDisplay.position.y - oldCanvasDimensions.margin.y) * newDrawableHeight / oldDrawableHeight + newCanvasDimensions.margin.y)
       }, //rescale coordinates 
       image: (oldPointDisplay.image) ? {
         image: oldPointDisplay.image.image,
         offsetToCenter: {
-          x: Math.round(newCanvasDimensions.pixelWidth * oldPointDisplay.image.offsetToCenter.x / oldCanvasDimensions.pixelWidth),
-          y: Math.round(newCanvasDimensions.pixelWidth * oldPointDisplay.image.offsetToCenter.y / oldCanvasDimensions.pixelHeight)
+          x: Math.round(oldPointDisplay.image.offsetToCenter.x * newDrawableWidth / oldDrawableWidth),
+          y: Math.round(oldPointDisplay.image.offsetToCenter.y * newDrawableHeight / oldDrawableHeight)
         }
       } : undefined, //rescale offsets
     });

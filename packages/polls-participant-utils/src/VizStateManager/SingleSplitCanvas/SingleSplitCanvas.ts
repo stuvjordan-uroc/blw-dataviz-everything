@@ -67,7 +67,8 @@ export class SingleSplitCanvas {
       element: canvas,
       context: context,
       pixelWidth: shimmedPixelWidth,
-      pixelHeight: shimmedPixelHeight
+      pixelHeight: shimmedPixelHeight,
+      margin: vizRenderConfig.margin
     }
 
     //set loaded images
@@ -272,31 +273,38 @@ export class SingleSplitCanvas {
         this.logicalState.targetVisibleState,
         {
           pixelWidth: this.canvas.pixelWidth,
-          pixelHeight: this.canvas.pixelHeight
+          pixelHeight: this.canvas.pixelHeight,
+          margin: this.canvas.margin
         },
         {
           pixelWidth: shimmedPixelWidth,
-          pixelHeight: shimmedPixelHeight
+          pixelHeight: shimmedPixelHeight,
+          margin: this.canvas.margin
         }
       )
 
       //Step 4: rescale segmentDisplay lengths and coordinates to
       //the new canvas dimensions
+      const oldDrawableWidth = this.canvas.pixelWidth - 2 * this.canvas.margin.x;
+      const oldDrawableHeight = this.canvas.pixelHeight - 2 * this.canvas.margin.y;
+      const newDrawableWidth = shimmedPixelWidth - 2 * this.canvas.margin.x;
+      const newDrawableHeight = shimmedPixelHeight - 2 * this.canvas.margin.y;
+
       this.logicalState.segmentDisplay = {
         ...this.logicalState.segmentDisplay,
         segmentGroupBounds: {
-          x: 0,
-          y: 0,
-          width: shimmedPixelWidth,
-          height: shimmedPixelHeight
+          x: this.canvas.margin.x,
+          y: this.canvas.margin.y,
+          width: newDrawableWidth,
+          height: newDrawableHeight
         },
         responseGroups: this.logicalState.segmentDisplay.responseGroups.map((rg) => ({
           ...rg,
           bounds: {
-            x: Math.round(shimmedPixelWidth * rg.bounds.x / this.canvas.pixelWidth),
-            y: Math.round(shimmedPixelHeight * rg.bounds.y / this.canvas.pixelHeight),
-            width: Math.round(shimmedPixelWidth * rg.bounds.width / this.canvas.pixelWidth),
-            height: Math.round(shimmedPixelHeight * rg.bounds.height / this.canvas.pixelHeight)
+            x: Math.round((rg.bounds.x - this.canvas.margin.x) * newDrawableWidth / oldDrawableWidth) + this.canvas.margin.x,
+            y: Math.round((rg.bounds.y - this.canvas.margin.y) * newDrawableHeight / oldDrawableHeight) + this.canvas.margin.y,
+            width: Math.round(rg.bounds.width * newDrawableWidth / oldDrawableWidth),
+            height: Math.round(rg.bounds.height * newDrawableHeight / oldDrawableHeight)
           }
         }))
       }

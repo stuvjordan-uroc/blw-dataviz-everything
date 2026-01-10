@@ -109,7 +109,8 @@ export function createSimpleFixture(): GeometryTestFixture {
     element: {} as any,
     context: {} as any,
     pixelWidth: 800,
-    pixelHeight: 600
+    pixelHeight: 600,
+    margin: { x: 0, y: 0 }
   };
 
   return { vizData, canvasData, loadedImages };
@@ -368,7 +369,8 @@ export function createComplexFixture(): GeometryTestFixture {
     element: {} as any,
     context: {} as any,
     pixelWidth: vizWidth,
-    pixelHeight: vizHeight
+    pixelHeight: vizHeight,
+    margin: { x: 0, y: 0 }
   };
 
   return { vizData, canvasData, loadedImages };

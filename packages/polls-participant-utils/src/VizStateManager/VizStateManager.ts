@@ -6,7 +6,6 @@ import { computeCanvasPixelDimensions } from "./canvasComputation";
 import { computeSegmentDisplay, rescaleSegmentDisplay } from "./segmentDisplayComputation";
 import { computeTargetVisibleState, rescaleVisibleState } from "./pointDisplayComputation";
 import { VisualizationUpdateEvent, Question, ResponseGroup } from "shared-types";
-import { FocusedCanvas } from "./FocusedCanvas";
 import { SingleSplitCanvas } from "./SingleSplitCanvas";
 
 export class VizStateManager {
@@ -173,7 +172,8 @@ export class VizStateManager {
       element: canvas,
       context: ctx,
       pixelWidth: shimmedPixelWidth,
-      pixelHeight: shimmedPixelHeight
+      pixelHeight: shimmedPixelHeight,
+      margin: vizRenderConfig.margin
     }
     //initialize canvas's logical state
     const logicalState = {
@@ -538,11 +538,13 @@ export class VizStateManager {
           canvasData.logicalState.targetVisibleState,
           {
             pixelWidth: canvasData.canvas.pixelWidth,
-            pixelHeight: canvasData.canvas.pixelHeight
+            pixelHeight: canvasData.canvas.pixelHeight,
+            margin: canvasData.canvas.margin
           },
           {
             pixelWidth: shimmedPixelWidth,
-            pixelHeight: shimmedPixelHeight
+            pixelHeight: shimmedPixelHeight,
+            margin: canvasData.canvas.margin
           }
         )
 
@@ -552,11 +554,13 @@ export class VizStateManager {
           canvasData.logicalState.segmentDisplay,
           {
             pixelWidth: canvasData.canvas.pixelWidth,
-            pixelHeight: canvasData.canvas.pixelHeight
+            pixelHeight: canvasData.canvas.pixelHeight,
+            margin: canvasData.canvas.margin
           },
           {
             pixelWidth: shimmedPixelWidth,
-            pixelHeight: shimmedPixelHeight
+            pixelHeight: shimmedPixelHeight,
+            margin: canvasData.canvas.margin
           }
         )
 

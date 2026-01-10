@@ -60,24 +60,29 @@ export function computeSegmentDisplay(
 
 export function rescaleSegmentDisplay(
   oldSegmentDisplay: SegmentGroupDisplay[],
-  oldCanvasDimensions: { pixelWidth: number, pixelHeight: number },
-  newCanvasDimensions: { pixelWidth: number, pixelHeight: number }
+  oldCanvasDimensions: { pixelWidth: number, pixelHeight: number, margin: { x: number, y: number } },
+  newCanvasDimensions: { pixelWidth: number, pixelHeight: number, margin: { x: number, y: number } }
 ): SegmentGroupDisplay[] {
+  const oldDrawableWidth = oldCanvasDimensions.pixelWidth - 2 * oldCanvasDimensions.margin.x;
+  const oldDrawableHeight = oldCanvasDimensions.pixelHeight - 2 * oldCanvasDimensions.margin.y;
+  const newDrawableWidth = newCanvasDimensions.pixelWidth - 2 * newCanvasDimensions.margin.x;
+  const newDrawableHeight = newCanvasDimensions.pixelHeight - 2 * newCanvasDimensions.margin.y;
+
   return oldSegmentDisplay.map((segmentDisplay) => ({
     ...segmentDisplay,
     segmentGroupBounds: {
-      x: Math.round(newCanvasDimensions.pixelWidth * segmentDisplay.segmentGroupBounds.x / oldCanvasDimensions.pixelWidth),
-      y: Math.round(newCanvasDimensions.pixelHeight * segmentDisplay.segmentGroupBounds.y / oldCanvasDimensions.pixelHeight),
-      width: Math.round(newCanvasDimensions.pixelWidth * segmentDisplay.segmentGroupBounds.width / oldCanvasDimensions.pixelWidth),
-      height: Math.round(newCanvasDimensions.pixelHeight * segmentDisplay.segmentGroupBounds.height / oldCanvasDimensions.pixelHeight)
+      x: Math.round((segmentDisplay.segmentGroupBounds.x - oldCanvasDimensions.margin.x) * newDrawableWidth / oldDrawableWidth + newCanvasDimensions.margin.x),
+      y: Math.round((segmentDisplay.segmentGroupBounds.y - oldCanvasDimensions.margin.y) * newDrawableHeight / oldDrawableHeight + newCanvasDimensions.margin.y),
+      width: Math.round(segmentDisplay.segmentGroupBounds.width * newDrawableWidth / oldDrawableWidth),
+      height: Math.round(segmentDisplay.segmentGroupBounds.height * newDrawableHeight / oldDrawableHeight)
     },
     responseGroups: segmentDisplay.responseGroups.map((rg) => ({
       ...rg,
       bounds: {
-        x: Math.round(newCanvasDimensions.pixelWidth * rg.bounds.x / oldCanvasDimensions.pixelWidth),
-        y: Math.round(newCanvasDimensions.pixelHeight * rg.bounds.y / oldCanvasDimensions.pixelHeight),
-        width: Math.round(newCanvasDimensions.pixelWidth * rg.bounds.width / oldCanvasDimensions.pixelWidth),
-        height: Math.round(newCanvasDimensions.pixelHeight * rg.bounds.height / oldCanvasDimensions.pixelHeight)
+        x: Math.round((rg.bounds.x - oldCanvasDimensions.margin.x) * newDrawableWidth / oldDrawableWidth + newCanvasDimensions.margin.x),
+        y: Math.round((rg.bounds.y - oldCanvasDimensions.margin.y) * newDrawableHeight / oldDrawableHeight + newCanvasDimensions.margin.y),
+        width: Math.round(rg.bounds.width * newDrawableWidth / oldDrawableWidth),
+        height: Math.round(rg.bounds.height * newDrawableHeight / oldDrawableHeight)
       }
     }))
   }))

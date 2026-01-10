@@ -12,6 +12,10 @@ export function computeSingleSplitTVS(
 
   const mapToReturn: Map<string, PointDisplay> = new Map();
 
+  //calculate drawable area (canvas minus margins)
+  const drawableWidth = canvasData.pixelWidth - 2 * canvasData.margin.x;
+  const drawableHeight = canvasData.pixelHeight - 2 * canvasData.margin.y;
+
   for (const responseGroup of split.responseGroups[displayMode]) {
     const loadedImage = loadedImages.get(responseGroup.pointImage.svgDataURL)
     if (loadedImage) {
@@ -22,8 +26,8 @@ export function computeSingleSplitTVS(
             image: loadedImage,
             key: pointKey(point.point),
             position: {
-              x: Math.round(canvasData.pixelWidth * (responseGroup.bounds.x + point.x) / split.segmentGroupBounds.width),
-              y: Math.round(canvasData.pixelHeight * (responseGroup.bounds.y + point.y) / split.segmentGroupBounds.height)
+              x: Math.round(drawableWidth * (responseGroup.bounds.x + point.x) / split.segmentGroupBounds.width) + canvasData.margin.x,
+              y: Math.round(drawableHeight * (responseGroup.bounds.y + point.y) / split.segmentGroupBounds.height) + canvasData.margin.y
             },
             point: point.point
           }

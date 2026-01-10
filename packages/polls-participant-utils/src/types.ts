@@ -29,7 +29,11 @@ export interface VizRenderConfig {
   initialCanvasWidth: number;
   initialDisplayMode: "expanded" | "collapsed";
   initialViewId: string;
-  animation?: AnimationConfig | false
+  animation?: AnimationConfig | false;
+  margin: {
+    x: number;
+    y: number;
+  }
 }
 
 export interface AnimationConfig {

@@ -40,7 +40,6 @@ import { SessionVizClient } from "../SessionVizClient";
 import { VizStateManager } from "../VizStateManager";
 import { VisualizationData } from "shared-types";
 import { loadVizImages } from "../loadVizImages";
-import { VizRenderConfig } from "../types";
 
 export function useSessionViz(pollsApiUrl: string, pollsSessionSlug: string) {
 

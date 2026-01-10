@@ -130,6 +130,7 @@ export function createMockVizRenderConfig(overrides?: Partial<VizRenderConfig>):
       moveDuration: 400,
       imageChangeDuration: 400
     },
+    margin: { x: 0, y: 0 },
     ...overrides
   };
 }

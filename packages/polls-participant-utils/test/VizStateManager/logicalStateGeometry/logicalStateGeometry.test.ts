@@ -473,4 +473,148 @@ describe('Edge Cases', () => {
       );
     });
   });
+
+  describe('Margin Tests', () => {
+    it('should render correctly with 20px margins on all sides', () => {
+      const { vizData, canvasData, loadedImages } = createSimpleFixture();
+      const vizDataWithImages: VizData = { ...vizData, loadedImages };
+
+      const canvasWithMargin = {
+        ...canvasData,
+        margin: { x: 20, y: 20 }
+      };
+
+      const segmentDisplay = computeSegmentDisplay(
+        vizData.splits,
+        'expanded',
+        '',
+        vizDataWithImages,
+        canvasWithMargin
+      );
+
+      const targetVisibleState = computeTargetVisibleState(
+        vizData.splits,
+        'expanded',
+        '',
+        vizDataWithImages,
+        canvasWithMargin
+      );
+
+      validateGeometry(
+        segmentDisplay,
+        targetVisibleState,
+        canvasWithMargin.pixelWidth,
+        canvasWithMargin.pixelHeight,
+        vizData.viewMaps[''],
+        'expanded'
+      );
+    });
+
+    it('should render correctly with asymmetric margins (30px horizontal, 15px vertical)', () => {
+      const { vizData, canvasData, loadedImages } = createComplexFixture();
+      const vizDataWithImages: VizData = { ...vizData, loadedImages };
+
+      const canvasWithMargin = {
+        ...canvasData,
+        margin: { x: 30, y: 15 }
+      };
+
+      const segmentDisplay = computeSegmentDisplay(
+        vizData.splits,
+        'expanded',
+        '',
+        vizDataWithImages,
+        canvasWithMargin
+      );
+
+      const targetVisibleState = computeTargetVisibleState(
+        vizData.splits,
+        'expanded',
+        '',
+        vizDataWithImages,
+        canvasWithMargin
+      );
+
+      validateGeometry(
+        segmentDisplay,
+        targetVisibleState,
+        canvasWithMargin.pixelWidth,
+        canvasWithMargin.pixelHeight,
+        vizData.viewMaps[''],
+        'expanded'
+      );
+    });
+
+    it('should handle large margins (60px each side) without geometry violations', () => {
+      const { vizData, canvasData, loadedImages } = createSimpleFixture();
+      const vizDataWithImages: VizData = { ...vizData, loadedImages };
+
+      const canvasWithLargeMargin = {
+        ...canvasData,
+        margin: { x: 60, y: 60 }
+      };
+
+      const segmentDisplay = computeSegmentDisplay(
+        vizData.splits,
+        'collapsed',
+        '',
+        vizDataWithImages,
+        canvasWithLargeMargin
+      );
+
+      const targetVisibleState = computeTargetVisibleState(
+        vizData.splits,
+        'collapsed',
+        '',
+        vizDataWithImages,
+        canvasWithLargeMargin
+      );
+
+      validateGeometry(
+        segmentDisplay,
+        targetVisibleState,
+        canvasWithLargeMargin.pixelWidth,
+        canvasWithLargeMargin.pixelHeight,
+        vizData.viewMaps[''],
+        'collapsed'
+      );
+    });
+
+    it('should maintain geometry with margins across canvas resize', () => {
+      const { vizData, canvasData, loadedImages } = createComplexFixture();
+      const vizDataWithImages: VizData = { ...vizData, loadedImages };
+
+      const smallCanvasWithMargin = {
+        ...canvasData,
+        pixelWidth: 600,
+        pixelHeight: 480,
+        margin: { x: 25, y: 20 }
+      };
+
+      const segmentDisplay = computeSegmentDisplay(
+        vizData.splits,
+        'expanded',
+        '',
+        vizDataWithImages,
+        smallCanvasWithMargin
+      );
+
+      const targetVisibleState = computeTargetVisibleState(
+        vizData.splits,
+        'expanded',
+        '',
+        vizDataWithImages,
+        smallCanvasWithMargin
+      );
+
+      validateGeometry(
+        segmentDisplay,
+        targetVisibleState,
+        smallCanvasWithMargin.pixelWidth,
+        smallCanvasWithMargin.pixelHeight,
+        vizData.viewMaps[''],
+        'expanded'
+      );
+    });
+  });
 });
