@@ -2,11 +2,14 @@
  * Components for rendering full visualizations (all splits) via VizStateManager.attachCanvas
  */
 
-export { VizCanvas } from './VizCanvas';
-export type { VizCanvasProps } from './VizCanvas';
+export { VizCanvasMount } from './VizCanvasMount';
+export type { VizCanvasMountProps } from './VizCanvasMount';
 
-export { VizCanvasWithAnnotations } from './VizCanvasWithAnnotations';
-export type { VizCanvasWithAnnotationsProps } from './VizCanvasWithAnnotations';
+export { AnnotationLayer } from './AnnotationLayer';
+export type { AnnotationLayerProps } from './AnnotationLayer';
+
+export { ControllableViz } from './ControllableViz';
+export type { ControllableVizProps } from './ControllableViz';
 
 export { createDefaultAnnotations } from './annotationTypes';
 export type { AnnotatedResponseGroup, AnnotatedSplit, AnnotationConfig } from './annotationTypes';

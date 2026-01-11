@@ -32,6 +32,8 @@ export interface ResponseQuestion {
 export interface GroupingQuestion {
   question: Question;
   responseGroups: ResponseGroup[];
+  /** Human-readable label for this grouping question to display in UI controls */
+  questionDisplayLabel: string;
 }
 
 export interface ResponseGroup {

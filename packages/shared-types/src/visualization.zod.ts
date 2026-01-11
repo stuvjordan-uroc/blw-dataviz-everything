@@ -41,6 +41,7 @@ export const ResponseQuestionSchema = z.object({
 export const GroupingQuestionSchema = z.object({
   question: QuestionSchema,
   responseGroups: z.array(ResponseGroupSchema),
+  questionDisplayLabel: z.string(),
 });
 
 /**

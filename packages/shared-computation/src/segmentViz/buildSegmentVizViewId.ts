@@ -41,3 +41,52 @@ export function buildSegmentVizViewId(
 
   return flattened.join(',');
 }
+
+/**
+ * Parse a viewId string back into active question indices.
+ * 
+ * This is the inverse of buildSegmentVizViewId, decoding a viewId string
+ * back into the original active question indices for x and y axes.
+ * 
+ * Used by client code to:
+ * - Display current view state (which checkboxes are checked)
+ * - Modify view state (toggle checkboxes and rebuild viewId)
+ * 
+ * @param viewId - ViewId string to parse (e.g., "0,1,3" or "" for base view)
+ * @param numXQuestions - Total number of x-axis grouping questions (for offset calculation)
+ * @returns Object with activeXIndices and activeYIndices arrays
+ * 
+ * @example
+ * // If you have 2 x-questions and 3 y-questions:
+ * parseSegmentVizViewId("0,3", 2)  // { activeXIndices: [0], activeYIndices: [1] }
+ * parseSegmentVizViewId("", 2)     // { activeXIndices: [], activeYIndices: [] }
+ * parseSegmentVizViewId("0,1,2,4", 2) // { activeXIndices: [0,1], activeYIndices: [0,2] }
+ */
+export function parseSegmentVizViewId(
+  viewId: string,
+  numXQuestions: number
+): { activeXIndices: number[], activeYIndices: number[] } {
+  // Handle empty viewId (base view - no active questions)
+  if (viewId === '') {
+    return { activeXIndices: [], activeYIndices: [] };
+  }
+
+  // Parse comma-separated flattened indices
+  const flattenedIndices = viewId.split(',').map(idx => parseInt(idx, 10));
+
+  // Separate into x and y based on offset
+  const activeXIndices: number[] = [];
+  const activeYIndices: number[] = [];
+
+  for (const flatIdx of flattenedIndices) {
+    if (flatIdx < numXQuestions) {
+      // X-axis question index
+      activeXIndices.push(flatIdx);
+    } else {
+      // Y-axis question index (subtract offset)
+      activeYIndices.push(flatIdx - numXQuestions);
+    }
+  }
+
+  return { activeXIndices, activeYIndices };
+}

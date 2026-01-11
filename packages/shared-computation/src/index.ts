@@ -13,7 +13,7 @@ import { updateAllSplitsFromResponses } from "./statistics/update";
 
 import { initializeSplitsWithSegments } from "./segmentViz/initializeSplitsWithSegments";
 import { updateAllSplitsWithSegmentsFromResponses } from "./segmentViz/update";
-import { buildSegmentVizViewId } from "./segmentViz/buildSegmentVizViewId";
+import { buildSegmentVizViewId, parseSegmentVizViewId } from "./segmentViz/buildSegmentVizViewId";
 
 /**
  * from imageGeneration
@@ -28,6 +28,7 @@ export {
   initializeSplitsWithSegments,
   updateAllSplitsWithSegmentsFromResponses,
   buildSegmentVizViewId,
+  parseSegmentVizViewId,
   generateCircleImage,
 }
 

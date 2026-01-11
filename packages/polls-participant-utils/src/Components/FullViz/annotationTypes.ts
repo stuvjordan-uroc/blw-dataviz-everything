@@ -4,7 +4,8 @@ import type { ResponseGroupWithStatsAndSegment } from 'shared-types';
 /**
  * Response group data with annotation visibility flags
  */
-export interface AnnotatedResponseGroup extends Omit<ResponseGroupWithStatsAndSegment, 'pointPositions' | 'pointImage'> {
+export interface AnnotatedResponseGroup
+  extends Omit<ResponseGroupWithStatsAndSegment, 'pointPositions' | 'pointImage'> {
   showProportionLabel: boolean;
   showSegmentBoundary: boolean;
 }
@@ -39,17 +40,17 @@ export function createDefaultAnnotations(
     showSplitLabels = true,
     showSegmentGroupBoundaries = false,
     showProportionLabels = false,
-    showSegmentBoundaries = true
+    showSegmentBoundaries = true,
   } = defaults || {};
 
-  return segmentDisplay.map(split => ({
+  return segmentDisplay.map((split) => ({
     ...split,
     showSplitLabel: showSplitLabels,
     showSegmentGroupBoundary: showSegmentGroupBoundaries,
-    responseGroups: split.responseGroups.map(rg => ({
+    responseGroups: split.responseGroups.map((rg) => ({
       ...rg,
       showProportionLabel: showProportionLabels,
-      showSegmentBoundary: showSegmentBoundaries
-    }))
+      showSegmentBoundary: showSegmentBoundaries,
+    })),
   }));
 }
