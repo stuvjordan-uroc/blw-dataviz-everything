@@ -55,12 +55,16 @@ interface GridRow {
 function extractGridColumns(
   segmentDisplay: SegmentGroupDisplay[]
 ): GridColumn[] {
-  // Find unique x-coordinates
-  const uniqueX = Array.from(
-    new Set(segmentDisplay.map((s) => s.segmentGroupBounds.x))
-  ).sort((a, b) => a - b);
+  const columns: GridColumn[] = [];
 
-  return uniqueX.map((x) => {
+  for (const segment of segmentDisplay) {
+    const x = segment.segmentGroupBounds.x;
+
+    // Check if we already have a column with this x
+    if (columns.some((col) => col.x === x)) {
+      continue;
+    }
+
     // Get all splits in this column
     const splitsInColumn = segmentDisplay.filter(
       (s) => s.segmentGroupBounds.x === x
@@ -73,33 +77,53 @@ function extractGridColumns(
     // (these define the column)
     const firstSplitGroups = splitsInColumn[0].groups;
     const labelGroups = firstSplitGroups.filter((group) => {
-      // Check if this group is the same across all splits in column
+      // Skip groups with null responseGroup - no row/column for that question
+      if (group.responseGroup === null) {
+        return false;
+      }
+
+      // Check if all splits have the same responseGroup label for this question
       return splitsInColumn.every((split) =>
         split.groups.some(
           (g) =>
             g.question.varName === group.question.varName &&
             g.question.batteryName === group.question.batteryName &&
             g.question.subBattery === group.question.subBattery &&
-            ((g.responseGroup === null && group.responseGroup === null) ||
-              g.responseGroup?.label === group.responseGroup?.label)
+            g.responseGroup?.label === group.responseGroup!.label
         )
       );
     });
 
-    return { x, width, labelGroups };
-  });
+    const newColumn: GridColumn = { x, width, labelGroups };
+
+    // Find insertion position to maintain sorted order by x
+    const insertIndex = columns.findIndex((col) => col.x > x);
+    if (insertIndex === -1) {
+      // No column with larger x found, append to end
+      columns.push(newColumn);
+    } else {
+      // Insert before the first column with larger x
+      columns.splice(insertIndex, 0, newColumn);
+    }
+  }
+
+  return columns;
 }
 
 /**
  * Extract grid rows from segment display by grouping splits with same y-coordinate
  */
 function extractGridRows(segmentDisplay: SegmentGroupDisplay[]): GridRow[] {
-  // Find unique y-coordinates
-  const uniqueY = Array.from(
-    new Set(segmentDisplay.map((s) => s.segmentGroupBounds.y))
-  ).sort((a, b) => a - b);
+  const rows: GridRow[] = [];
 
-  return uniqueY.map((y) => {
+  for (const segment of segmentDisplay) {
+    const y = segment.segmentGroupBounds.y;
+
+    // Check if we already have a row with this y
+    if (rows.some((row) => row.y === y)) {
+      continue;
+    }
+
     // Get all splits in this row
     const splitsInRow = segmentDisplay.filter(
       (s) => s.segmentGroupBounds.y === y
@@ -112,21 +136,37 @@ function extractGridRows(segmentDisplay: SegmentGroupDisplay[]): GridRow[] {
     // (these define the row)
     const firstSplitGroups = splitsInRow[0].groups;
     const labelGroups = firstSplitGroups.filter((group) => {
-      // Check if this group is the same across all splits in row
+      // Skip groups with null responseGroup - no row/column for that question
+      if (group.responseGroup === null) {
+        return false;
+      }
+
+      // Check if all splits have the same responseGroup label for this question
       return splitsInRow.every((split) =>
         split.groups.some(
           (g) =>
             g.question.varName === group.question.varName &&
             g.question.batteryName === group.question.batteryName &&
             g.question.subBattery === group.question.subBattery &&
-            ((g.responseGroup === null && group.responseGroup === null) ||
-              g.responseGroup?.label === group.responseGroup?.label)
+            g.responseGroup?.label === group.responseGroup!.label
         )
       );
     });
 
-    return { y, height, labelGroups };
-  });
+    const newRow: GridRow = { y, height, labelGroups };
+
+    // Find insertion position to maintain sorted order by y
+    const insertIndex = rows.findIndex((row) => row.y > y);
+    if (insertIndex === -1) {
+      // No row with larger y found, append to end
+      rows.push(newRow);
+    } else {
+      // Insert before the first row with larger y
+      rows.splice(insertIndex, 0, newRow);
+    }
+  }
+
+  return rows;
 }
 
 export function SegmentGroupGridLabels({

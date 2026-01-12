@@ -120,7 +120,7 @@ export class VizStateManager {
     //instantiate the focused canvas
     const focusedCanvas = new SingleSplitCanvas(canvas, ctx, this.vizData.loadedImages, vizRenderConfig, split, splitIndex)
     //add the focused canvas to the map of focused canvases
-    this.singeSplitCanvases.set(this.nextSingleSplitCanvasId, focusedCanvas)
+    this.singleSplitCanvases.set(this.nextSingleSplitCanvasId, focusedCanvas)
     //increment nextSingleSplitCanvasId
     this.nextSingleSplitCanvasId++
     //return data to caller
