@@ -25,6 +25,26 @@ export const ResponseGroupSchema = z.object({
 });
 
 /**
+ * Schema for GridLabelsDisplay type
+ */
+export const GridLabelsDisplaySchema = z.object({
+  columns: z.array(
+    z.object({
+      responseGroupLabels: z.array(z.string()),
+      x: z.number(),
+      width: z.number(),
+    })
+  ),
+  rows: z.array(
+    z.object({
+      responseGroupLabels: z.array(z.string()),
+      y: z.number(),
+      height: z.number(),
+    })
+  ),
+});
+
+/**
  * Schema for ResponseQuestion type
  */
 export const ResponseQuestionSchema = z.object({
@@ -43,6 +63,21 @@ export const GroupingQuestionSchema = z.object({
   responseGroups: z.array(ResponseGroupSchema),
   questionDisplayLabel: z.string(),
 });
+
+/**
+ * Schema for ViewIdLookup type
+ */
+export const ViewIdLookupSchema = z.array(
+  z.tuple([
+    z.array(
+      z.object({
+        question: GroupingQuestionSchema,
+        active: z.boolean(),
+      })
+    ),
+    z.string(),
+  ])
+);
 
 /**
  * Schema for GroupColorOverride type

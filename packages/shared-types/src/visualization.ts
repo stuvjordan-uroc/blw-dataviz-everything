@@ -42,6 +42,48 @@ export interface ResponseGroup {
 }
 
 /**
+ * Grid labels for a specific view in the visualization.
+ * 
+ * Provides pre-computed labels and geometry for row/column labels in the segment group grid.
+ * Columns are defined by constant x-axis grouping question values,
+ * rows are defined by constant y-axis grouping question values.
+ */
+export interface GridLabelsDisplay {
+  columns: Array<{
+    /** Response group labels for active x-axis questions defining this column */
+    responseGroupLabels: string[];
+    /** X-coordinate of column (in abstract viz units) */
+    x: number;
+    /** Width of column (in abstract viz units) */
+    width: number;
+  }>;
+  rows: Array<{
+    /** Response group labels for active y-axis questions defining this row */
+    responseGroupLabels: string[];
+    /** Y-coordinate of row (in abstract viz units) */
+    y: number;
+    /** Height of row (in abstract viz units) */
+    height: number;
+  }>;
+}
+
+/**
+ * Lookup structure for converting active question selections to viewIds.
+ * 
+ * Serialized map structure where each entry is a tuple of:
+ * - Key: Array describing which questions are active (x-axis questions first, then y-axis)
+ * - Value: The corresponding viewId string
+ * 
+ * Enables UI controls to determine viewId from user's question selection
+ * without needing to decode/parse the viewId format.
+ * Uses GroupingQuestion (not Question) to include questionDisplayLabel for UI.
+ */
+export type ViewIdLookup = Array<[
+  Array<{ question: GroupingQuestion; active: boolean }>,
+  string
+]>;
+
+/**
  * Color configuration for all response groups on a specific grouping question.
  * 
  * When this grouping question is active, ALL of its response groups use these color ranges

@@ -23,6 +23,8 @@ export type {
   ResponseQuestion,
   GroupingQuestion,
   ResponseGroup,
+  GridLabelsDisplay,
+  ViewIdLookup,
   GroupColorOverride,
   VisualizationImageConfig,
   SegmentVizConfig,
@@ -69,6 +71,8 @@ export type {
 export {
   QuestionSchema,
   ResponseGroupSchema,
+  GridLabelsDisplaySchema,
+  ViewIdLookupSchema,
   ResponseQuestionSchema,
   GroupingQuestionSchema,
   GroupColorOverrideSchema,

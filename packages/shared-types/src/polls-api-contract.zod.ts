@@ -12,6 +12,8 @@ import {
   ViewMapsSchema,
   SegmentVizConfigSchema,
   QuestionSchema,
+  GridLabelsDisplaySchema,
+  ViewIdLookupSchema,
 } from './visualization.zod';
 
 /**
@@ -101,6 +103,8 @@ export const VisualizationDataSchema = z.object({
   basisSplitIndices: z.array(z.number()),
   lastUpdated: z.union([z.string(), z.date()]),
   viewMaps: ViewMapsSchema,
+  gridLabels: z.record(GridLabelsDisplaySchema),
+  viewIdLookup: ViewIdLookupSchema,
   vizWidth: z.number(),
   vizHeight: z.number(),
 });

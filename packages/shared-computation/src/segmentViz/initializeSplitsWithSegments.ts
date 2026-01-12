@@ -6,14 +6,22 @@ import { setBasisSplitIndices } from "../statistics/setBasisSplitIndices";
 import { buildSegmentVizViewId } from "./buildSegmentVizViewId";
 import { Question } from "shared-schemas";
 import { pointImageForResponseGroup } from "../imageGeneration";
-import { GroupColorOverride } from "shared-types";
+import { GroupColorOverride, GridLabelsDisplay, ViewIdLookup } from "shared-types";
 
 //helper to create a string key for a question, for quick matching
 function getQuestionKey(q: Question): string {
   return Object.values(q).join("")
 }
 
-export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig): { basisSplitIndices: number[], splits: SplitWithSegmentGroup[], viewMaps: ViewMaps, vizWidth: number, vizHeight: number } {
+export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig): {
+  basisSplitIndices: number[],
+  splits: SplitWithSegmentGroup[],
+  viewMaps: ViewMaps,
+  gridLabels: Record<string, GridLabelsDisplay>,
+  viewIdLookup: ViewIdLookup,
+  vizWidth: number,
+  vizHeight: number
+} {
 
   //create the array to hold the splits we produce
   const splits: SplitWithSegmentGroup[] = [];
@@ -24,6 +32,12 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
 
   //track views and their split indices
   const viewMaps: ViewMaps = {};
+
+  //track grid labels per view
+  const gridLabels: Record<string, GridLabelsDisplay> = {};
+
+  //track viewId lookup (active questions -> viewId)
+  const viewIdLookup: ViewIdLookup = [];
 
   //number of x-axis grouping questions (for index offset calculation)
   const numXQuestions = segmentVizConfig.groupingQuestions.x.length;
@@ -105,6 +119,9 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
       //This ensures viewMap keys match what clients will generate
       const viewId = buildSegmentVizViewId(activeXIndices, activeYIndices, numXQuestions);
 
+      //add entry to viewIdLookup mapping the combined view (x + y questions with active flags) to this viewId
+      viewIdLookup.push([[...viewX, ...viewY], viewId]);
+
       //determine whether this view uses a color range override and if so which one
       //Store which axis and index it came from for easy lookup later
       let colorRangeOverride: {
@@ -180,14 +197,63 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
         })) as Group[][]
       )
 
+      //compute grid labels for this view
+      //columns are defined by x-axis groups (constant across rows)
+      //rows are defined by y-axis groups (constant across columns)
+      const columns: GridLabelsDisplay['columns'] = [];
+      const rows: GridLabelsDisplay['rows'] = [];
+
       //iterate through the x-axis groups
       let xGroupIdx = -1;
       for (const xGroup of xGroups) {
         xGroupIdx++;
+
+        //compute column label (once per xGroup)
+        const columnResponseGroupLabels = xGroup
+          .filter(g => g.responseGroup !== null)
+          .map(g => g.responseGroup!.label);
+
+        const columnBounds = computeSegmentGroupBounds(
+          { x: xGroupIdx, y: 0 },
+          { x: xGroups.length, y: yGroups.length },
+          vizWidth,
+          vizHeight,
+          segmentVizConfig.groupGapX,
+          segmentVizConfig.groupGapY
+        );
+
+        columns.push({
+          responseGroupLabels: columnResponseGroupLabels,
+          x: columnBounds.x,
+          width: columnBounds.width
+        });
+
         //iterate through the y-axis groups
         let yGroupIdx = -1;
         for (const yGroup of yGroups) {
           yGroupIdx++;
+
+          //compute row label (once per yGroup, only when xGroupIdx == 0)
+          if (xGroupIdx === 0) {
+            const rowResponseGroupLabels = yGroup
+              .filter(g => g.responseGroup !== null)
+              .map(g => g.responseGroup!.label);
+
+            const rowBounds = computeSegmentGroupBounds(
+              { x: 0, y: yGroupIdx },
+              { x: xGroups.length, y: yGroups.length },
+              vizWidth,
+              vizHeight,
+              segmentVizConfig.groupGapX,
+              segmentVizConfig.groupGapY
+            );
+
+            rows.push({
+              responseGroupLabels: rowResponseGroupLabels,
+              y: rowBounds.y,
+              height: rowBounds.height
+            });
+          }
 
           //here we are!
           //this is a new split!!!
@@ -307,6 +373,9 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
           }))
         }
       }
+
+      //store grid labels for this viewId (after both loops complete)
+      gridLabels[viewId] = { columns, rows };
     }
   }
 
@@ -317,6 +386,8 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
     basisSplitIndices: allBasisSplits.map(bs => bs.splitIdx),
     splits: splits,
     viewMaps: viewMaps,
+    gridLabels: gridLabels,
+    viewIdLookup: viewIdLookup,
     vizWidth: vizWidth,
     vizHeight: vizHeight,
   }

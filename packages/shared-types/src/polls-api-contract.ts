@@ -6,7 +6,7 @@
  * For types returned FROM an api endpoint, omit the 'Dto' suffix.
  */
 
-import type { ViewMaps, SplitWithSegmentGroup, SplitWithSegmentGroupDiff, SegmentVizConfig } from './visualization';
+import type { ViewMaps, SplitWithSegmentGroup, SplitWithSegmentGroupDiff, SegmentVizConfig, GridLabelsDisplay, ViewIdLookup } from './visualization';
 import type { Question } from './index';
 
 /**
@@ -119,6 +119,8 @@ export interface VisualizationData {
   basisSplitIndices: number[];
   lastUpdated: string | Date;
   viewMaps: ViewMaps; // Precomputed view mappings for efficient view switching
+  gridLabels: Record<string, GridLabelsDisplay>; // Grid labels per viewId
+  viewIdLookup: ViewIdLookup; // Map from active questions to viewId
   vizWidth: number; // Canvas width in abstract units
   vizHeight: number; // Canvas height in abstract units
 }
