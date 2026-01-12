@@ -3,10 +3,10 @@ import { SegmentGroupDisplay } from "../../VizStateManager/types";
 
 /**
  * SegmentGroupBoundaries - Renders outer boundaries for segment groups
- * 
+ *
  * Each segment group (split) can have its boundary toggled by clicking.
  * Boundaries are initially hidden.
- * 
+ *
  * CSS Classes (for custom styling):
  * - .segment-group-boundary: All segment group boundaries
  */

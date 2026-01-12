@@ -3,16 +3,16 @@ import { SegmentGroupDisplay } from "../../VizStateManager/types";
 
 /**
  * Segments - Renders segment boundaries and proportion labels
- * 
+ *
  * Each segment (response group within a split) can have both its boundary
  * and proportion label toggled by clicking.
- * 
+ *
  * Initially:
  * - Boundaries are visible
  * - Proportion labels are hidden
- * 
+ *
  * Clicking a segment toggles both boundary and label together.
- * 
+ *
  * CSS Classes (for custom styling):
  * - .segment-boundary: Segment boundaries
  * - .segment-proportion-label: Proportion percentage labels
@@ -22,10 +22,7 @@ export interface SegmentsProps {
   margin: { x: number; y: number };
 }
 
-export function Segments({
-  segmentDisplay,
-  margin,
-}: SegmentsProps) {
+export function Segments({ segmentDisplay, margin }: SegmentsProps) {
   // Track which segments have boundaries visible (default: all)
   const [visibleBoundaries, setVisibleBoundaries] = useState<Set<string>>(
     new Set(
@@ -36,14 +33,16 @@ export function Segments({
   );
 
   // Track which segments have proportion labels visible (default: none)
-  const [visibleProportions, setVisibleProportions] = useState<Set<string>>(new Set());
+  const [visibleProportions, setVisibleProportions] = useState<Set<string>>(
+    new Set()
+  );
 
   const toggleSegment = (splitIndex: number, segmentIndex: number) => {
     const key = `${splitIndex}-${segmentIndex}`;
-    
+
     const newBoundaries = new Set(visibleBoundaries);
     const newProportions = new Set(visibleProportions);
-    
+
     if (visibleBoundaries.has(key)) {
       // Currently visible - hide both
       newBoundaries.delete(key);
@@ -53,7 +52,7 @@ export function Segments({
       newBoundaries.add(key);
       newProportions.add(key);
     }
-    
+
     setVisibleBoundaries(newBoundaries);
     setVisibleProportions(newProportions);
   };
