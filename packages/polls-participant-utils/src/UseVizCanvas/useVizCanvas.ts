@@ -24,6 +24,7 @@ import { VizLogicalState, StateChangeOrigin } from '../VizStateManager/types';
  * @returns Object containing:
  *   - canvasElement: The HTMLCanvasElement (initially null, then available)
  *   - canvasId: The ID for this canvas in VizStateManager
+ *   - vizState: Current VizLogicalState (segmentDisplay, viewId, displayMode)
  *   - canvasDimensions: Actual canvas dimensions { width, height }
  * 
  * @example
@@ -56,6 +57,7 @@ export function useVizCanvas(
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasIdRef = useRef<number | null>(null);
 
+  const [vizState, setVizState] = useState<VizLogicalState | null>(null);
   const [canvasDimensions, setCanvasDimensions] = useState<{ width: number; height: number }>({
     width: 0,
     height: 0
@@ -74,13 +76,12 @@ export function useVizCanvas(
       // Invoke optional callback on every state change
       onStateChange?.(state, origin);
 
-      // Optimize re-renders based on origin:
-      // - "canvas" origin: only dimensions changed
-      // - Other origins: state changed (segmentDisplay, viewId, displayMode)
-      // We only track dimensions in component state
+      // Always update vizState - state is mutated on ALL origins
+      // (origin just indicates what triggered the update, not which parts changed)
+      setVizState(state);
 
+      // Update dimensions on canvas resize or initial subscription
       if (origin === 'canvas' || origin === 'subscription') {
-        // Canvas dimensions changed or initial subscription - read from canvas element
         setCanvasDimensions({
           width: canvas.width,
           height: canvas.height
@@ -111,6 +112,7 @@ export function useVizCanvas(
   return {
     canvasElement: canvasRef.current,
     canvasId: canvasIdRef.current,
+    vizState,
     canvasDimensions
   };
 }

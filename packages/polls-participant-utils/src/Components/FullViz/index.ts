@@ -11,5 +11,11 @@ export type { AnnotationLayerProps } from './AnnotationLayer';
 export { ControllableViz } from './ControllableViz';
 export type { ControllableVizProps } from './ControllableViz';
 
-export { createDefaultAnnotations } from './annotationTypes';
-export type { AnnotatedResponseGroup, AnnotatedSplit, AnnotationConfig } from './annotationTypes';
+export { SegmentGroupGridLabels } from './SegmentGroupGridLabels';
+export type { SegmentGroupGridLabelsProps } from './SegmentGroupGridLabels';
+
+export { SegmentGroupBoundaries } from './SegmentGroupBoundaries';
+export type { SegmentGroupBoundariesProps } from './SegmentGroupBoundaries';
+
+export { Segments } from './Segments';
+export type { SegmentsProps } from './Segments';

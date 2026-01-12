@@ -3,7 +3,6 @@ import { VizStateManager } from "../../VizStateManager";
 import { useVizCanvas } from "../../UseVizCanvas";
 import { VizCanvasMount } from "./VizCanvasMount";
 import { AnnotationLayer } from "./AnnotationLayer";
-import { AnnotationConfig, createDefaultAnnotations } from "./annotationTypes";
 import type { VizRenderConfig } from "../../types";
 
 /**
@@ -13,11 +12,14 @@ import type { VizRenderConfig } from "../../types";
  * - Uses useVizCanvas hook to manage canvas and VizStateManager
  * - Renders canvas via VizCanvasMount (manual DOM attachment)
  * - Renders annotations via AnnotationLayer (pure React)
- * - Manages annotation state
  * - Provides container for UI controls (to be added by consumer)
  *
  * This is Layer 2b in the component architecture.
  * Consumers can wrap this with SessionVizDisplay (Layer 3) to render multiple visualizations.
+ *
+ * CSS Classes (for custom styling):
+ * - .controllable-viz: Root container
+ * - .controllable-viz__canvas-container: Canvas and annotation container
  *
  * @example
  * ```tsx
@@ -63,22 +65,6 @@ export interface ControllableVizProps {
   annotationMargin: { x: number; y: number };
 
   /**
-   * Default annotation visibility settings
-   */
-  defaultAnnotations?: {
-    showSplitLabels?: boolean;
-    showSegmentGroupBoundaries?: boolean;
-    showProportionLabels?: boolean;
-    showSegmentBoundaries?: boolean;
-  };
-
-  /**
-   * Enable interactive annotations (click-to-toggle)
-   * Default: false
-   */
-  enableInteractiveAnnotations?: boolean;
-
-  /**
    * Callback when view ID changes (for external controls)
    */
   onViewChange?: (viewId: string) => void;
@@ -87,46 +73,21 @@ export interface ControllableVizProps {
    * Callback when display mode changes (for external controls)
    */
   onDisplayModeChange?: (displayMode: "expanded" | "collapsed") => void;
-
-  /**
-   * Optional CSS class name
-   */
-  className?: string;
-
-  /**
-   * Optional inline styles
-   */
-  style?: React.CSSProperties;
 }
 
 export function ControllableViz({
   vizManager,
   vizRenderConfig,
   annotationMargin,
-  defaultAnnotations,
-  enableInteractiveAnnotations = false,
   onViewChange,
   onDisplayModeChange,
-  className,
-  style,
 }: ControllableVizProps) {
-  // Manage annotations state
-  const [annotations, setAnnotations] = useState<AnnotationConfig>([]);
-
   // Use custom hook to manage canvas and VizStateManager
-  const { canvasElement, canvasId, canvasDimensions } = useVizCanvas(
+  const { canvasElement, canvasId, vizState, canvasDimensions } = useVizCanvas(
     vizManager,
     vizRenderConfig,
     vizRenderConfig.initialCanvasWidth,
     (state, origin) => {
-      // Always update annotations - segmentDisplay is mutated on every state change
-      // (even on canvas resize, bounds are rescaled to new dimensions)
-      if (state.segmentDisplay) {
-        setAnnotations(
-          createDefaultAnnotations(state.segmentDisplay, defaultAnnotations)
-        );
-      }
-
       // Notify parent only when the specific property changes
       if (origin === "viewId") {
         onViewChange?.(state.viewId);
@@ -138,9 +99,10 @@ export function ControllableViz({
   );
 
   return (
-    <div className={className} style={style}>
+    <div className="controllable-viz">
       {/* Canvas container with canvas + annotations */}
       <div
+        className="controllable-viz__canvas-container"
         style={{
           position: "relative",
           width: canvasDimensions.width + 2 * annotationMargin.x,
@@ -151,12 +113,10 @@ export function ControllableViz({
         <VizCanvasMount canvasElement={canvasElement} />
 
         {/* React-rendered annotation overlays */}
-        {annotations.length > 0 && (
+        {vizState?.segmentDisplay && (
           <AnnotationLayer
-            annotations={annotations}
+            segmentDisplay={vizState.segmentDisplay}
             margin={annotationMargin}
-            onAnnotationToggle={setAnnotations}
-            enableInteractive={enableInteractiveAnnotations}
           />
         )}
       </div>
