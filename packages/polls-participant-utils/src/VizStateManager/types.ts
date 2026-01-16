@@ -1,4 +1,4 @@
-import { ResponseGroupWithStatsAndSegment, SplitWithSegmentGroup, VisualizationData } from "shared-types";
+import { GridLabelsDisplay, ResponseGroupWithStatsAndSegment, SplitWithSegmentGroup, VisualizationData } from "shared-types";
 import { PointLoadedImage, PointDisplay } from "../types";
 
 /**
@@ -20,6 +20,8 @@ export interface VizLogicalState {
   viewId: string;
   //boundaries and positions of segment groups and segments in the current state, coordinates and length scaled to canvas dimensions
   segmentDisplay: SegmentGroupDisplay[];
+  //grid labels with positions and dimensions for the current view, scaled to canvas dimensions
+  gridLabelsDisplay: GridLabelsDisplay;
   //images and positions for points displayed at the current state, with point coordinates and image offsets scaled to canvas dimensions
   //tracked separately as a "target" to allow animated transitions of point images and positions when state mutates. 
   targetVisibleState: Map<string, PointDisplay>;

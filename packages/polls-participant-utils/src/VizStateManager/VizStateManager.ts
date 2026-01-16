@@ -5,6 +5,7 @@ import { VizAnimationController } from "../VizAnimationController";
 import { computeCanvasPixelDimensions } from "./canvasComputation";
 import { computeSegmentDisplay, rescaleSegmentDisplay } from "./segmentDisplayComputation";
 import { computeTargetVisibleState, rescaleVisibleState } from "./pointDisplayComputation";
+import { scaleGridLabelsToCanvas, rescaleGridLabelsDisplay } from "./gridLabelsComputation";
 import { VisualizationUpdateEvent, Question, ResponseGroup } from "shared-types";
 import { SingleSplitCanvas } from "./SingleSplitCanvas";
 
@@ -25,6 +26,10 @@ export class VizStateManager {
       context: CanvasRenderingContext2D;
       pixelWidth: number;
       pixelHeight: number;
+      margin: {
+        x: number;
+        y: number;
+      }
     };
     stateSubscribers: Map<number, (state: VizLogicalState, origin: StateChangeOrigin) => void>;
     nextSubscriberId: number;
@@ -182,14 +187,20 @@ export class VizStateManager {
       segmentDisplay: computeSegmentDisplay(
         this.serverState,
         vizRenderConfig.initialDisplayMode,
-        "", //hardcoded default
+        vizRenderConfig.initialViewId,
         this.vizData,
+        canvasState
+      ),
+      gridLabelsDisplay: scaleGridLabelsToCanvas(
+        this.vizData.gridLabels[vizRenderConfig.initialViewId],
+        this.vizData.vizWidth,
+        this.vizData.vizHeight,
         canvasState
       ),
       targetVisibleState: computeTargetVisibleState(
         this.serverState,
         vizRenderConfig.initialDisplayMode,
-        "", //hardcoded default
+        vizRenderConfig.initialViewId,
         this.vizData,
         canvasState
       )
@@ -390,6 +401,12 @@ export class VizStateManager {
           this.vizData,
           canvasData.canvas
         )
+        canvasData.logicalState.gridLabelsDisplay = scaleGridLabelsToCanvas(
+          this.vizData.gridLabels[canvasData.logicalState.viewId],
+          this.vizData.vizWidth,
+          this.vizData.vizHeight,
+          canvasData.canvas
+        )
 
         //Step 2: start animation to new targetVisibleState
         canvasData.animationController.startAnimation(
@@ -564,16 +581,32 @@ export class VizStateManager {
           }
         )
 
-        //Step 5: reset canvas dimensions (clears canvas automatically)
+        //Step 5: rescale gridLabelsDisplay lengths and coordinates to
+        //the new canvas dimensions
+        canvasData.logicalState.gridLabelsDisplay = rescaleGridLabelsDisplay(
+          canvasData.logicalState.gridLabelsDisplay,
+          {
+            pixelWidth: canvasData.canvas.pixelWidth,
+            pixelHeight: canvasData.canvas.pixelHeight,
+            margin: canvasData.canvas.margin
+          },
+          {
+            pixelWidth: shimmedPixelWidth,
+            pixelHeight: shimmedPixelHeight,
+            margin: canvasData.canvas.margin
+          }
+        )
+
+        //Step 6: reset canvas dimensions (clears canvas automatically)
         canvasData.canvas.pixelWidth = shimmedPixelWidth;
         canvasData.canvas.pixelHeight = shimmedPixelHeight;
         canvasData.canvas.element.width = shimmedPixelWidth;
         canvasData.canvas.element.height = shimmedPixelHeight;
 
-        //Step 5: call this.syncToLogicalState() to set visible state to new logical state and redraw canvas
+        //Step 7: call this.syncToLogicalState() to set visible state to new logical state and redraw canvas
         this.syncToLogicalState(canvasId)
 
-        //Step 6: notify subscribers of state change
+        //Step 8: notify subscribers of state change
         this.notifySubscribers(canvasId, "canvas");
       }
     }
