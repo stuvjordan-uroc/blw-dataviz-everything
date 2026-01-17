@@ -4,6 +4,7 @@
 
 import type { SegmentGroupDisplay } from '../../../src/VizStateManager/types';
 import type { PointDisplay } from '../../../src/types';
+import type { GridLabelsDisplay } from 'shared-types';
 
 // Tolerance for rounding errors (±1 pixel)
 const PIXEL_TOLERANCE = 1;
@@ -100,6 +101,7 @@ export function assertPointWithinSegment(
 export function validateGeometry(
   segmentDisplay: SegmentGroupDisplay[],
   targetVisibleState: Map<string, PointDisplay>,
+  gridLabelsDisplay: GridLabelsDisplay,
   canvasWidth: number,
   canvasHeight: number,
   viewSplitIndices: number[],
@@ -118,11 +120,31 @@ export function validateGeometry(
   // 2. Segment groups non-overlapping
   assertSegmentGroupsNonOverlapping(segmentDisplay);
 
-  // 3 & 4. For each segment group, validate its segments
+  // 3. Grid label columns within canvas
+  gridLabelsDisplay.columns.forEach((col, idx) => {
+    assertRectWithinCanvas(
+      { x: col.x, y: 0, width: col.width, height: canvasHeight },
+      canvasWidth,
+      canvasHeight,
+      `Grid column ${idx}`
+    );
+  });
+
+  // 4. Grid label rows within canvas
+  gridLabelsDisplay.rows.forEach((row, idx) => {
+    assertRectWithinCanvas(
+      { x: 0, y: row.y, width: canvasWidth, height: row.height },
+      canvasWidth,
+      canvasHeight,
+      `Grid row ${idx}`
+    );
+  });
+
+  // 5 & 6. For each segment group, validate its segments
   segmentDisplay.forEach((sg, sgIdx) => {
     const segments = sg.responseGroups.map(rg => rg.bounds);
 
-    // 3. Each segment within parent segment group
+    // 5. Each segment within parent segment group
     segments.forEach((seg, segIdx) => {
       assertRectWithinParent(
         seg,
@@ -132,11 +154,11 @@ export function validateGeometry(
       );
     });
 
-    // 4. Segments non-overlapping within group
+    // 6. Segments non-overlapping within group
     assertSegmentsNonOverlapping(segments);
   });
 
-  // 5. Points within parent segments
+  // 7. Points within parent segments
   for (const [pointKey, pointDisplay] of targetVisibleState) {
     const { point, position } = pointDisplay;
 
@@ -169,4 +191,26 @@ export function validateGeometry(
       );
     }
   }
+
+  // 8. Grid column labels align with their segment group columns
+  // For each segment group, verify its x/width matches one of the grid columns
+  segmentDisplay.forEach((sg, sgIdx) => {
+    const matchingColumn = gridLabelsDisplay.columns.find(col =>
+      Math.abs(col.x - sg.segmentGroupBounds.x) <= PIXEL_TOLERANCE &&
+      Math.abs(col.width - sg.segmentGroupBounds.width) <= PIXEL_TOLERANCE
+    );
+
+    expect(matchingColumn).toBeDefined();
+  });
+
+  // 9. Grid row labels align with their segment group rows
+  // For each segment group, verify its y/height matches one of the grid rows
+  segmentDisplay.forEach((sg, sgIdx) => {
+    const matchingRow = gridLabelsDisplay.rows.find(row =>
+      Math.abs(row.y - sg.segmentGroupBounds.y) <= PIXEL_TOLERANCE &&
+      Math.abs(row.height - sg.segmentGroupBounds.height) <= PIXEL_TOLERANCE
+    );
+
+    expect(matchingRow).toBeDefined();
+  });
 }

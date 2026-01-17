@@ -7,6 +7,7 @@
 
 import { computeSegmentDisplay } from '../../../src/VizStateManager/segmentDisplayComputation';
 import { computeTargetVisibleState } from '../../../src/VizStateManager/pointDisplayComputation';
+import { scaleGridLabelsToCanvas } from '../../../src/VizStateManager/gridLabelsComputation';
 import { validateGeometry } from './helpers';
 import { createSimpleFixture, createComplexFixture } from './fixtures';
 import type { VizData } from '../../../src/VizStateManager/types';
@@ -33,9 +34,17 @@ describe('Geometric Validation - Simple Fixture', () => {
         canvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasData.pixelWidth,
         canvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -65,9 +74,17 @@ describe('Geometric Validation - Simple Fixture', () => {
         canvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasData.pixelWidth,
         canvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -103,9 +120,17 @@ describe('Geometric Validation - Simple Fixture', () => {
         scaledCanvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        scaledCanvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         scaledCanvasData.pixelWidth,
         scaledCanvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -141,9 +166,17 @@ describe('Geometric Validation - Simple Fixture', () => {
         scaledCanvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        scaledCanvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         scaledCanvasData.pixelWidth,
         scaledCanvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -175,9 +208,17 @@ describe('Geometric Validation - Complex Fixture (2x2 Grid)', () => {
         canvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasData.pixelWidth,
         canvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -209,9 +250,17 @@ describe('Geometric Validation - Complex Fixture (2x2 Grid)', () => {
         canvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasData.pixelWidth,
         canvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -241,9 +290,17 @@ describe('Geometric Validation - Complex Fixture (2x2 Grid)', () => {
         canvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels['view1'],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasData.pixelWidth,
         canvasData.pixelHeight,
         vizData.viewMaps['view1'],
@@ -275,9 +332,17 @@ describe('Geometric Validation - Complex Fixture (2x2 Grid)', () => {
         canvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels['view2'],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasData.pixelWidth,
         canvasData.pixelHeight,
         vizData.viewMaps['view2'],
@@ -315,9 +380,17 @@ describe('Geometric Validation - Complex Fixture (2x2 Grid)', () => {
         scaledCanvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        scaledCanvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         scaledCanvasData.pixelWidth,
         scaledCanvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -353,9 +426,17 @@ describe('Geometric Validation - Complex Fixture (2x2 Grid)', () => {
         scaledCanvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        scaledCanvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         scaledCanvasData.pixelWidth,
         scaledCanvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -385,9 +466,17 @@ describe('Geometric Validation - Complex Fixture (2x2 Grid)', () => {
         canvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels['view1'],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasData.pixelWidth,
         canvasData.pixelHeight,
         vizData.viewMaps['view1'],
@@ -425,9 +514,17 @@ describe('Edge Cases', () => {
         smallCanvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        smallCanvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         smallCanvasData.pixelWidth,
         smallCanvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -463,9 +560,17 @@ describe('Edge Cases', () => {
         largeCanvasData
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        largeCanvasData
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         largeCanvasData.pixelWidth,
         largeCanvasData.pixelHeight,
         vizData.viewMaps[''],
@@ -500,9 +605,17 @@ describe('Edge Cases', () => {
         canvasWithMargin
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasWithMargin
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasWithMargin.pixelWidth,
         canvasWithMargin.pixelHeight,
         vizData.viewMaps[''],
@@ -535,9 +648,17 @@ describe('Edge Cases', () => {
         canvasWithMargin
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasWithMargin
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasWithMargin.pixelWidth,
         canvasWithMargin.pixelHeight,
         vizData.viewMaps[''],
@@ -570,9 +691,17 @@ describe('Edge Cases', () => {
         canvasWithLargeMargin
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        canvasWithLargeMargin
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         canvasWithLargeMargin.pixelWidth,
         canvasWithLargeMargin.pixelHeight,
         vizData.viewMaps[''],
@@ -607,9 +736,17 @@ describe('Edge Cases', () => {
         smallCanvasWithMargin
       );
 
+      const gridLabelsDisplay = scaleGridLabelsToCanvas(
+        vizData.gridLabels[''],
+        vizData.vizWidth,
+        vizData.vizHeight,
+        smallCanvasWithMargin
+      );
+
       validateGeometry(
         segmentDisplay,
         targetVisibleState,
+        gridLabelsDisplay,
         smallCanvasWithMargin.pixelWidth,
         smallCanvasWithMargin.pixelHeight,
         vizData.viewMaps[''],

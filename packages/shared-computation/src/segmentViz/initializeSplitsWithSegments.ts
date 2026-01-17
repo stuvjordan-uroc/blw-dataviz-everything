@@ -213,6 +213,10 @@ export function initializeSplitsWithSegments(segmentVizConfig: SegmentVizConfig)
           .filter(g => g.responseGroup !== null)
           .map(g => g.responseGroup!.label);
 
+        //columnBounds has x at the left edge of the column
+        //y at the top edge of the viz
+        //width of the column
+        //height of one row
         const columnBounds = computeSegmentGroupBounds(
           { x: xGroupIdx, y: 0 },
           { x: xGroups.length, y: yGroups.length },

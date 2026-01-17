@@ -112,6 +112,14 @@ export function createMockVisualizationData(overrides?: Partial<VisualizationDat
     },
     vizWidth: 800,
     vizHeight: 600,
+    // gridLabels: empty for base view (no grouping questions)
+    gridLabels: {
+      '': { columns: [], rows: [] },
+      'view1': { columns: [], rows: [] },
+      'view2': { columns: [], rows: [] }
+    },
+    // viewIdLookup: empty array (no grouping questions)
+    viewIdLookup: [],
     ...overrides
   };
 }
