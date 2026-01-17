@@ -86,6 +86,12 @@ export interface ViewIdPickerProps {
   initialViewId: string;
 
   /**
+   * Optional label text for the control group.
+   * If provided, renders a label element associated with the button group.
+   */
+  label?: string;
+
+  /**
    * Callback fired when user selects a different view
    */
   onViewIdChange: (viewId: string) => void;
@@ -95,6 +101,7 @@ export function ViewIdPicker({
   allQuestions,
   viewIdLookup,
   initialViewId,
+  label,
   onViewIdChange,
 }: ViewIdPickerProps) {
   const { questionStates, toggleQuestion } = useViewIdPicker(
@@ -104,8 +111,20 @@ export function ViewIdPicker({
     onViewIdChange,
   );
 
+  const labelId = label ? `view-id-picker-label-${React.useId()}` : undefined;
+
   return (
-    <div className="view-id-picker">
+    <div
+      className="view-id-picker"
+      role="group"
+      aria-labelledby={labelId}
+      aria-label={!label ? "Select grouping questions" : undefined}
+    >
+      {label && (
+        <div id={labelId} className="view-id-picker__label">
+          {label}
+        </div>
+      )}
       {questionStates.map((qs, index) => (
         <button
           key={index}

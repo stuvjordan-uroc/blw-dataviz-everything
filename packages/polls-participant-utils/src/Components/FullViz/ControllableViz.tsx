@@ -109,6 +109,7 @@ export function ControllableViz({
             allQuestions={vizManager.getGroupingQuestions()}
             viewIdLookup={vizManager.getViewIdLookup()}
             initialViewId={vizRenderConfig.initialViewId}
+            label="Split by:"
             onViewIdChange={(viewId) =>
               vizManager.setClientViewId(canvasId, viewId)
             }
