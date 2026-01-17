@@ -375,6 +375,19 @@ export class VizStateManager {
      * PUBLIC METHODS
      */
 
+  //getter for viewIdLookup
+  getViewIdLookup() {
+    return this.vizData.viewIdLookup;
+  }
+
+  //getter for grouping questions (flat array: x questions first, then y questions)
+  getGroupingQuestions() {
+    return [
+      ...this.vizData.config.groupingQuestions.x,
+      ...this.vizData.config.groupingQuestions.y
+    ];
+  }
+
   //handle for client to set client-side view id
   setClientViewId(canvasId: number, viewId: string) {
     const canvasData = this.canvases.get(canvasId);

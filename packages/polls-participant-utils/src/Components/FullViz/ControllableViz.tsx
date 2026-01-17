@@ -3,6 +3,8 @@ import { VizStateManager } from "../../VizStateManager";
 import { useVizCanvas } from "../../UseVizCanvas";
 import { VizCanvasMount } from "./VizCanvasMount";
 import { AnnotationLayer } from "./AnnotationLayer";
+import { ViewIdPicker } from "./ViewIdPicker";
+import { DisplayModePicker } from "./DisplayModePicker";
 import type { VizRenderConfig } from "../../types";
 
 /**
@@ -95,11 +97,31 @@ export function ControllableViz({
       if (origin === "displayMode") {
         onDisplayModeChange?.(state.displayMode);
       }
-    }
+    },
   );
 
   return (
     <div className="controllable-viz">
+      {/* Controls container - only render when canvas is attached */}
+      {canvasId !== null && (
+        <div className="controllable-viz__controls-container">
+          <ViewIdPicker
+            allQuestions={vizManager.getGroupingQuestions()}
+            viewIdLookup={vizManager.getViewIdLookup()}
+            initialViewId={vizRenderConfig.initialViewId}
+            onViewIdChange={(viewId) =>
+              vizManager.setClientViewId(canvasId, viewId)
+            }
+          />
+          <DisplayModePicker
+            onDisplayModeChange={(mode) =>
+              vizManager.setClientDisplayMode(canvasId, mode)
+            }
+            initialMode={vizRenderConfig.initialDisplayMode}
+          />
+        </div>
+      )}
+
       {/* Canvas container with canvas + annotations */}
       <div
         className="controllable-viz__canvas-container"
@@ -113,10 +135,11 @@ export function ControllableViz({
         <VizCanvasMount canvasElement={canvasElement} />
 
         {/* React-rendered annotation overlays */}
-        {vizState?.segmentDisplay && (
+        {vizState?.segmentDisplay && vizState?.gridLabelsDisplay && (
           <AnnotationLayer
             segmentDisplay={vizState.segmentDisplay}
-            margin={annotationMargin}
+            gridLabelsDisplay={vizState.gridLabelsDisplay}
+            annotationMargin={annotationMargin}
           />
         )}
       </div>

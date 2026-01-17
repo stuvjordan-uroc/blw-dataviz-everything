@@ -1,14 +1,29 @@
 import React from "react";
-import { SegmentGroupDisplay } from "../../VizStateManager/types";
-import { SegmentGroupGridLabels } from "./SegmentGroupGridLabels";
+import type { SegmentGroupDisplay } from "../../VizStateManager/types";
+import type { GridLabelsDisplay } from "shared-types";
+import { GridLabels } from "./GridLabels";
 import { SegmentGroupBoundaries } from "./SegmentGroupBoundaries";
 import { Segments } from "./Segments";
+
+/**
+ * Default label component - joins labels with " · " separator
+ */
+function DefaultLabel({ labels }: { labels: string[] }) {
+  return <>{labels.join(" · ")}</>;
+}
+
+/**
+ * Default proportion label - displays percentage with 1 decimal place
+ */
+function DefaultProportionLabel({ proportion }: { proportion: number }) {
+  return <>{(proportion * 100).toFixed(1)}%</>;
+}
 
 /**
  * AnnotationLayer - Pure React component for rendering annotation overlays
  *
  * Renders absolutely positioned annotation components:
- * - SegmentGroupGridLabels: Row and column labels for the grid
+ * - Grid labels: Row and column labels for the segment group grid
  * - SegmentGroupBoundaries: Outer rectangles for segment groups (click-to-toggle)
  * - Segments: Inner segment boundaries and proportion labels (click-to-toggle)
  *
@@ -25,25 +40,43 @@ export interface AnnotationLayerProps {
   segmentDisplay: SegmentGroupDisplay[];
 
   /**
-   * Margin offset for positioning annotations relative to canvas
+   * Pre-computed grid labels with geometry
    */
-  margin: { x: number; y: number };
+  gridLabelsDisplay: GridLabelsDisplay;
+
+  /**
+   * Annotation margin offset for positioning annotations relative to canvas
+   */
+  annotationMargin: { x: number; y: number };
 }
 
 export function AnnotationLayer({
   segmentDisplay,
-  margin,
+  gridLabelsDisplay,
+  annotationMargin,
 }: AnnotationLayerProps) {
   return (
     <>
-      {/* Grid labels for rows and columns (always visible) */}
-      <SegmentGroupGridLabels segmentDisplay={segmentDisplay} margin={margin} />
+      {/* Grid labels for columns and rows */}
+      <GridLabels
+        gridLabelsDisplay={gridLabelsDisplay}
+        annotationMargin={annotationMargin}
+        ColumnLabel={DefaultLabel}
+        RowLabel={DefaultLabel}
+      />
 
       {/* Segment group boundaries (click-to-toggle) */}
-      <SegmentGroupBoundaries segmentDisplay={segmentDisplay} margin={margin} />
+      <SegmentGroupBoundaries
+        segmentDisplay={segmentDisplay}
+        margin={annotationMargin}
+      />
 
       {/* Segments: boundaries and proportion labels (click-to-toggle) */}
-      <Segments segmentDisplay={segmentDisplay} margin={margin} />
+      <Segments
+        segmentDisplay={segmentDisplay}
+        annotationMargin={annotationMargin}
+        ProportionLabel={DefaultProportionLabel}
+      />
     </>
   );
 }

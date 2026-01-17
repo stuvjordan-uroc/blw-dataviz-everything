@@ -5,10 +5,11 @@ import { SegmentGroupDisplay } from "../../VizStateManager/types";
  * SegmentGroupBoundaries - Renders outer boundaries for segment groups
  *
  * Each segment group (split) can have its boundary toggled by clicking.
- * Boundaries are initially hidden.
+ * Boundaries start hidden and can be toggled visible.
  *
  * CSS Classes (for custom styling):
  * - .segment-group-boundary: All segment group boundaries
+ * - .segment-group-boundary--visible: Added when boundary is toggled visible
  */
 export interface SegmentGroupBoundariesProps {
   segmentDisplay: SegmentGroupDisplay[];
@@ -34,22 +35,22 @@ export function SegmentGroupBoundaries({
   return (
     <>
       {segmentDisplay.map((split, index) => {
-        if (!visibleIndices.has(index)) return null;
+        const isVisible = visibleIndices.has(index);
 
         return (
           <div
             key={index}
             onClick={() => toggleBoundary(index)}
-            className="segment-group-boundary"
+            className={`segment-group-boundary${isVisible ? " segment-group-boundary--visible" : ""}`}
             style={{
               position: "absolute",
               left: margin.x + split.segmentGroupBounds.x,
               top: margin.y + split.segmentGroupBounds.y,
               width: split.segmentGroupBounds.width,
               height: split.segmentGroupBounds.height,
-              border: "2px solid rgba(0, 0, 0, 0.5)",
               boxSizing: "border-box",
               cursor: "pointer",
+              zIndex: 1,
             }}
           />
         );
