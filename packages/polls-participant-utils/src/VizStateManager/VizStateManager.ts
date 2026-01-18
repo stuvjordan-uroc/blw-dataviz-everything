@@ -62,6 +62,14 @@ export class VizStateManager {
   }
 
   /**
+   * Returns a deep copy of the visualization data.
+   * @returns A deep copy of the VizData
+   */
+  getVisualizationData(): VizData {
+    return structuredClone(this.vizData);
+  }
+
+  /**
    * 
    * + clears the canvas
    * + If VizStateManger is subscribed to a SessionVizClient, canvas will re-draw whenever server emits an update.

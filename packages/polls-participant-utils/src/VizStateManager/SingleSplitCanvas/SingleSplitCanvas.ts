@@ -20,6 +20,10 @@ export class SingleSplitCanvas {
     context: CanvasRenderingContext2D;
     pixelWidth: number;
     pixelHeight: number;
+    margin: {
+      x: number;
+      y: number;
+    }
   }
 
   //loadedImages
@@ -31,7 +35,7 @@ export class SingleSplitCanvas {
   private splitIndex: number;
 
   //logical state
-  private logicalState: Omit<VizLogicalState, "viewId" | "segmentDisplay"> & { segmentDisplay: SegmentGroupDisplay }
+  private logicalState: Omit<VizLogicalState, "viewId" | "segmentDisplay" | "gridLabelsDisplay"> & { segmentDisplay: SegmentGroupDisplay }
 
   //state subscribers
   private stateSubscribers: Map<number, (state: Omit<VizLogicalState, "viewId" | "segmentDisplay"> & { segmentDisplay: SegmentGroupDisplay }, origin: StateChangeOrigin) => void> = new Map();
@@ -367,7 +371,7 @@ export class SingleSplitCanvas {
   * @returns Unsubscribe function that removes the subscription
   */
   subscribeToStateUpdate(
-    callback: (state: Omit<VizLogicalState, "viewId" | "segmentDisplay"> & { segmentDisplay: SegmentGroupDisplay }, origin: StateChangeOrigin) => void
+    callback: (state: Omit<VizLogicalState, "viewId" | "segmentDisplay" | "gridLabelsDisplay"> & { segmentDisplay: SegmentGroupDisplay }, origin: StateChangeOrigin) => void
   ): (() => void) | undefined {
 
     // Generate a unique ID for this subscriber
