@@ -38,7 +38,7 @@ export class SingleSplitCanvas {
   private logicalState: Omit<VizLogicalState, "viewId" | "segmentDisplay" | "gridLabelsDisplay"> & { segmentDisplay: SegmentGroupDisplay }
 
   //state subscribers
-  private stateSubscribers: Map<number, (state: Omit<VizLogicalState, "viewId" | "segmentDisplay"> & { segmentDisplay: SegmentGroupDisplay }, origin: StateChangeOrigin) => void> = new Map();
+  private stateSubscribers: Map<number, (state: Omit<VizLogicalState, "viewId" | "segmentDisplay" | "gridLabelsDisplay"> & { segmentDisplay: SegmentGroupDisplay }, origin: StateChangeOrigin) => void> = new Map();
   private nextSubscriberId: number = 0;
 
   //visible state
@@ -171,7 +171,7 @@ export class SingleSplitCanvas {
             toDrawY
           );
         } else {
-          console.warn(`no image found for point ${pointKey} in visualization with id ${this.vizData.visualizationId}.`)
+          console.warn(`no image found for point ${pointKey}`)
         }
 
         // Reset alpha
@@ -179,7 +179,7 @@ export class SingleSplitCanvas {
       } else {
         // Normal rendering (no cross-fade)
         if (!pointDisplay.image) {
-          console.warn(`no image found for point ${pointKey} in visualization with id ${this.vizData.visualizationId}.`)
+          console.warn(`no image found for point ${pointKey}`)
           continue; // Skip points without images
         }
 

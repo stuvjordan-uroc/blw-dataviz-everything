@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { VizStateManager } from "../../VizStateManager";
+import { SingleSplitCanvas } from "../../VizStateManager/SingleSplitCanvas";
 import { VizRenderConfig } from "../../types";
 import { Question, ResponseGroup } from "shared-types";
 import { VizCanvasMount } from "../FullViz/VizCanvasMount";
@@ -30,6 +31,13 @@ export interface SingleSplitVizProps {
         question: Question;
         responseGroup: ResponseGroup | null;
       }>;
+
+  /**
+   * Optional canvas width in pixels. When this prop changes, the canvas will
+   * efficiently resize without remounting, preserving animations and state.
+   * If not provided, uses vizRenderConfig.initialCanvasWidth.
+   */
+  canvasWidth?: number;
 }
 
 export function SingleSplitViz({
@@ -37,13 +45,16 @@ export function SingleSplitViz({
   vizRenderConfig,
   annotationMargin,
   splitToFocus,
+  canvasWidth,
 }: SingleSplitVizProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const managerRef = useRef<SingleSplitCanvas | null>(null);
   const [canvasDimensions, setCanvasDimensions] = useState<{
     width: number;
     height: number;
   } | null>(null);
 
+  // Effect 1: Create and attach canvas (runs once or when core dependencies change)
   useEffect(() => {
     // Create the canvas element (not attached to DOM)
     const canvas = document.createElement("canvas");
@@ -68,6 +79,9 @@ export function SingleSplitViz({
 
     const { singleSplitCanvasManager, detachSingleSplitCanvas } = result;
 
+    // Store the manager in a ref so we can call methods on it later
+    managerRef.current = singleSplitCanvasManager;
+
     // Read canvas dimensions after attachment (attachSingleSplitCanvas sets them)
     setCanvasDimensions({
       width: canvas.width,
@@ -78,9 +92,24 @@ export function SingleSplitViz({
     return () => {
       detachSingleSplitCanvas();
       canvasRef.current = null;
+      managerRef.current = null;
       setCanvasDimensions(null);
     };
   }, [vizManager, vizRenderConfig, splitToFocus]);
+
+  // Effect 2: Handle canvas width changes (resize existing canvas without remounting)
+  useEffect(() => {
+    if (canvasWidth !== undefined && managerRef.current && canvasRef.current) {
+      // Call setCanvasWidth on the existing manager
+      managerRef.current.setCanvasWidth(canvasWidth);
+
+      // Update dimensions state to resize the wrapper div
+      setCanvasDimensions({
+        width: canvasRef.current.width,
+        height: canvasRef.current.height,
+      });
+    }
+  }, [canvasWidth]);
 
   return (
     <div

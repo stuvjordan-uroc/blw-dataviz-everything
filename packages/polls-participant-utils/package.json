@@ -1,6 +1,7 @@
 {
   "name": "polls-participant-utils",
   "version": "0.1.0",
+  "type": "module",
   "description": "Utilities for participant-side interaction with polling sessions",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

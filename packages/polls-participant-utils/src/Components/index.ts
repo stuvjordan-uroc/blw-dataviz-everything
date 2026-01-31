@@ -6,4 +6,4 @@
 export * from './FullViz';
 
 // Single-split visualization components (render one split via attachSingleSplitCanvas)
-// export * from './SingleSplitViz'; // TODO: Implement later
+export * from './SingleSplitViz';

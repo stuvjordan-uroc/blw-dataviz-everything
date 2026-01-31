@@ -19,7 +19,7 @@ export function scaleGridLabelsToCanvas(
 ): GridLabelsDisplay {
   return {
     columns: gridLabels.columns.map((col) => {
-      const { x, y } = scalePositionToCanvas(col.x, 0, vizWidth, vizHeight, canvasData);
+      const { x } = scalePositionToCanvas(col.x, 0, vizWidth, vizHeight, canvasData);
       return {
         responseGroupLabels: col.responseGroupLabels,
         x: x,
@@ -27,7 +27,7 @@ export function scaleGridLabelsToCanvas(
       };
     }),
     rows: gridLabels.rows.map((row) => {
-      const { x, y } = scalePositionToCanvas(0, row.y, vizWidth, vizHeight, canvasData);
+      const { y } = scalePositionToCanvas(0, row.y, vizWidth, vizHeight, canvasData);
       return {
         responseGroupLabels: row.responseGroupLabels,
         y: y,

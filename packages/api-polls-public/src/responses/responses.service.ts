@@ -21,6 +21,7 @@ import type {
   RespondentAnswer,
   VisualizationData,
 } from "shared-types";
+export type { SubmitResponsesDto } from "shared-types";
 import { BatchUpdateScheduler } from "./batch-update-scheduler.service";
 import { RespondentResponses } from "./response-transformer.service";
 import { VisualizationCacheService } from "./visualization-cache.service";

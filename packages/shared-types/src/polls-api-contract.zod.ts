@@ -23,10 +23,18 @@ import {
  */
 
 /**
+ * Schema for QuestionWithDetails
+ */
+export const QuestionWithDetailsSchema = QuestionSchema.extend({
+  text: z.string().nullable(),
+  responses: z.array(z.string()).nullable(),
+});
+
+/**
  * Schema for SessionConfig
  */
 export const SessionConfigSchema = z.object({
-  questionOrder: z.array(QuestionSchema),
+  questionOrder: z.array(QuestionWithDetailsSchema),
   visualizations: z.array(
     SegmentVizConfigSchema.extend({
       id: z.string(),

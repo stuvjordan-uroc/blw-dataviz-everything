@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: password
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5433:5432"  # Different host port to avoid conflict with dev
+      - "5433:5432" # Different host port to avoid conflict with dev
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
       - ./packages/db/init:/docker-entrypoint-initdb.d
@@ -54,7 +54,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-test-jwt-secret-key-for-integration-tests}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
     ports:
-      - "3004:3003"  # Different host port to avoid conflict with dev
+      - "3004:3003" # Different host port to avoid conflict with dev
     volumes:
       - ./packages/api-polls-admin/src:/app/packages/api-polls-admin/src
       - ./packages/shared-auth/src:/app/packages/shared-auth/src
@@ -68,22 +68,28 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  api-polls-public-test:
+  api-polls-unified-test:
     build:
       context: .
-      dockerfile: ./packages/api-polls-public/Dockerfile
+      dockerfile: ./packages/api-polls-unified/Dockerfile
       target: development
-    container_name: blw-api-polls-public-test
-    working_dir: /app/packages/api-polls-public
+    container_name: blw-api-polls-unified-test
+    working_dir: /app
+    command: /app/packages/api-polls-unified/dev-start.sh
     environment:
       DATABASE_URL: postgresql://postgres:password@postgres-test:5432/blw_dataviz_test
       NODE_ENV: test
-      PORT: 3004
+      PORT: 3000
       BATCH_UPDATE_INTERVAL_MS: 3000
+      JWT_SECRET: ${JWT_SECRET:-test-jwt-secret-for-e2e}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
     ports:
-      - "3005:3004"  # Different host port to avoid conflict with dev
+      - "3006:3000" # Unified API on host port 3006
     volumes:
+      - ./packages/api-polls-unified/src:/app/packages/api-polls-unified/src
+      - ./packages/api-polls-admin/src:/app/packages/api-polls-admin/src
       - ./packages/api-polls-public/src:/app/packages/api-polls-public/src
+      - ./packages/shared-auth/src:/app/packages/shared-auth/src
       - ./packages/shared-schemas/src:/app/packages/shared-schemas/src
     networks:
       - blw-test-network

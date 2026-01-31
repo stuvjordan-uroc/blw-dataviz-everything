@@ -4,8 +4,8 @@ import type {
   SegmentVizConfig,
   SplitWithSegmentGroup,
   RespondentAnswer,
+  VisualizationLookupMaps,
 } from "shared-types";
-import type { VisualizationLookupMaps } from "shared-schemas";
 
 /**
  * All answers from a single respondent

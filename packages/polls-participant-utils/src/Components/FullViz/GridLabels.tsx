@@ -105,7 +105,6 @@ export function GridLabels({
             pointerEvents: "none",
             userSelect: "none",
             zIndex: 3,
-            zIndex: 3,
           }}
         >
           <ColumnLabel labels={column.responseGroupLabels} />

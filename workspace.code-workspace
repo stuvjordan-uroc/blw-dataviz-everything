@@ -2,52 +2,60 @@
   "folders": [
     {
       "name": "Root",
-      "path": "."
+      "path": ".",
     },
     {
       "name": "Shared Types",
-      "path": "./packages/shared-types"
+      "path": "./packages/shared-types",
     },
     {
       "name": "Shared Schemas",
-      "path": "./packages/shared-schemas"
+      "path": "./packages/shared-schemas",
     },
     {
       "name": "Shared Auth",
-      "path": "./packages/shared-auth"
+      "path": "./packages/shared-auth",
     },
     {
       "name": "Shared Computation",
-      "path": "./packages/shared-computation"
+      "path": "./packages/shared-computation",
     },
     {
       "name": "Database",
-      "path": "./packages/db"
+      "path": "./packages/db",
     },
     {
       "name": "API Polls Admin",
-      "path": "./packages/api-polls-admin"
+      "path": "./packages/api-polls-admin",
     },
     {
       "name": "API Polls Public",
-      "path": "./packages/api-polls-public"
+      "path": "./packages/api-polls-public",
     },
     {
       "name": "API Polls Unified",
-      "path": "./packages/api-polls-unified"
+      "path": "./packages/api-polls-unified",
     },
     {
       "name": "API Polls Client",
-      "path": "./packages/api-polls-client"
+      "path": "./packages/api-polls-client",
     },
     {
       "name": "Polls Participant Utils",
-      "path": "./packages/polls-participant-utils"
+      "path": "./packages/polls-participant-utils",
     },
     {
       "name": "Integration Tests",
-      "path": "./packages/integration-tests"
-    }
+      "path": "./packages/integration-tests",
+    },
+    {
+      "name": "UI Shared",
+      "path": "./packages/ui-shared",
+    },
+    {
+      "name": "UI Participant",
+      "path": "./packages/ui-participant",
+    },
   ],
   "settings": {
     "typescript.preferences.useAliasesForRenames": false,
@@ -56,25 +64,25 @@
     "eslint.workingDirectories": ["packages/*"],
     "eslint.validate": ["typescript"],
     "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": "explicit"
+      "source.fixAll.eslint": "explicit",
     },
     "search.exclude": {
       "**/node_modules": true,
       "**/dist": true,
-      "**/*.tsbuildinfo": true
+      "**/*.tsbuildinfo": true,
     },
     "files.exclude": {
       "**/node_modules": true,
       "**/dist": true,
-      "**/*.tsbuildinfo": true
-    }
+      "**/*.tsbuildinfo": true,
+    },
   },
   "extensions": {
     "recommendations": [
       "ms-vscode.vscode-eslint",
       "ms-vscode.vscode-typescript-next",
-      "pmneo.tsimporter"
-    ]
+      "pmneo.tsimporter",
+    ],
   },
   "tasks": {
     "version": "2.0.0",
@@ -86,10 +94,10 @@
         "args": ["run", "build"],
         "group": {
           "kind": "build",
-          "isDefault": true
+          "isDefault": true,
         },
         "options": {
-          "cwd": "${workspaceFolder:Root}"
+          "cwd": "${workspaceFolder:Root}",
         },
         "presentation": {
           "echo": true,
@@ -97,9 +105,9 @@
           "focus": false,
           "panel": "shared",
           "showReuseMessage": true,
-          "clear": false
+          "clear": false,
         },
-        "problemMatcher": "$tsc"
+        "problemMatcher": "$tsc",
       },
       {
         "label": "Build DB Package",
@@ -108,15 +116,15 @@
         "args": ["run", "build"],
         "group": "build",
         "options": {
-          "cwd": "${workspaceFolder:Database Package}"
+          "cwd": "${workspaceFolder:Database Package}",
         },
         "presentation": {
           "echo": true,
           "reveal": "always",
           "focus": false,
-          "panel": "shared"
+          "panel": "shared",
         },
-        "problemMatcher": "$tsc"
+        "problemMatcher": "$tsc",
       },
       {
         "label": "Lint All",
@@ -125,16 +133,16 @@
         "args": ["run", "lint"],
         "group": "test",
         "options": {
-          "cwd": "${workspaceFolder:Root}"
+          "cwd": "${workspaceFolder:Root}",
         },
         "presentation": {
           "echo": true,
           "reveal": "always",
           "focus": false,
-          "panel": "shared"
+          "panel": "shared",
         },
-        "problemMatcher": "$eslint-stylish"
-      }
-    ]
-  }
+        "problemMatcher": "$eslint-stylish",
+      },
+    ],
+  },
 }

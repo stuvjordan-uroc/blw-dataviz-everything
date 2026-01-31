@@ -11,9 +11,6 @@ export type { AnnotationLayerProps } from './AnnotationLayer';
 export { ControllableViz } from './ControllableViz';
 export type { ControllableVizProps } from './ControllableViz';
 
-export { SegmentGroupGridLabels } from './SegmentGroupGridLabels';
-export type { SegmentGroupGridLabelsProps } from './SegmentGroupGridLabels';
-
 export { SegmentGroupBoundaries } from './SegmentGroupBoundaries';
 export type { SegmentGroupBoundariesProps } from './SegmentGroupBoundaries';
 

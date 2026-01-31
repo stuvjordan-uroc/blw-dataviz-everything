@@ -7,7 +7,7 @@
  */
 
 import type { ViewMaps, SplitWithSegmentGroup, SplitWithSegmentGroupDiff, SegmentVizConfig, GridLabelsDisplay, ViewIdLookup } from './visualization';
-import type { Question } from './index';
+import type { Question, QuestionWithDetails } from './index';
 
 /**
  * ===============================
@@ -21,7 +21,8 @@ import type { Question } from './index';
  */
 export interface SessionConfig {
   // Questions in the order they will be presented to respondents
-  questionOrder: Question[];
+  // Includes full question details (text, responses) for rendering forms
+  questionOrder: QuestionWithDetails[];
 
   // One visualization per response question, with unique ID for reference
   visualizations: (SegmentVizConfig & { id: string })[];

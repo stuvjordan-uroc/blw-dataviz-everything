@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import type { ViewIdLookup, GroupingQuestion } from "shared-types";
 
 /**
@@ -111,7 +111,7 @@ export function ViewIdPicker({
     onViewIdChange,
   );
 
-  const labelId = label ? `view-id-picker-label-${React.useId()}` : undefined;
+  const labelId = label ? `view-id-picker-label-${useId()}` : undefined;
 
   return (
     <div

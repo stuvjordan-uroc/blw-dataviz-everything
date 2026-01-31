@@ -12,6 +12,8 @@
     "test:integration": "npm run test --workspace=integration-tests",
     "test:integration:watch": "npm run test:watch --workspace=integration-tests",
     "test:integration:coverage": "npm run test:coverage --workspace=integration-tests",
+    "test:ui-participant:seed": "TEST_DATABASE_URL=postgresql://postgres:password@localhost:5433/blw_dataviz_test tsx packages/db/src/seed/ui-participant-e2e-seed.ts",
+    "test:ui-participant:setup": "npm run test && npm run test:db-populate && npm run test:ui-participant:seed",
     "build": "tsc --build",
     "lint": "eslint packages/*/src --ext .ts",
     "lint:fix": "eslint packages/*/src --ext .ts --fix",

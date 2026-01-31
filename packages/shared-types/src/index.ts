@@ -16,6 +16,15 @@ export interface Question {
 }
 
 /**
+ * Full question data including text and responses.
+ * Extends Question with additional fields from the questions.questions table.
+ */
+export interface QuestionWithDetails extends Question {
+  text: string | null;
+  responses: string[] | null;
+}
+
+/**
  * Visualization types
  * Re-exported from visualization.ts for convenience
  */
@@ -94,6 +103,7 @@ export {
  */
 export {
   // Shared session schemas
+  QuestionWithDetailsSchema,
   SessionConfigSchema,
   SessionSchema,
   VisualizationLookupMapsSchema,

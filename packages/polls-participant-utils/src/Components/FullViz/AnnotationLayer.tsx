@@ -1,4 +1,4 @@
-import React from "react";
+// React imported for JSX transform
 import type { SegmentGroupDisplay } from "../../VizStateManager/types";
 import type { GridLabelsDisplay } from "shared-types";
 import { GridLabels } from "./GridLabels";

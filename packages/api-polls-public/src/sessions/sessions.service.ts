@@ -1,9 +1,9 @@
 import { Injectable, Inject, NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "../database/database.providers";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq } from "drizzle-orm";
-import { sessions } from "shared-schemas";
-import type { SessionResponse } from "shared-types";
+import { eq, and } from "drizzle-orm";
+import { sessions, questions } from "shared-schemas";
+import type { SessionResponse, Question, QuestionWithDetails } from "shared-types";
 import { ResponsesService } from "../responses/responses.service";
 
 /**
@@ -45,6 +45,11 @@ export class SessionsService {
       throw new NotFoundException(`Session ${session.id} has no configuration`);
     }
 
+    // Get full question details for the session
+    const fullQuestions = await this.getFullQuestionDetails(
+      session.sessionConfig.questionOrder
+    );
+
     // Get current visualization data with viewMaps (static metadata for client-side view switching)
     const visualizations = await this.responsesService.getVisualizationData(session.id, true);
 
@@ -57,8 +62,11 @@ export class SessionsService {
       description: session.description,
       createdAt: session.createdAt,
 
-      // Session configuration
-      config: session.sessionConfig,
+      // Session configuration with full question details
+      config: {
+        ...session.sessionConfig,
+        questionOrder: fullQuestions,
+      },
 
       // Current visualization state
       visualizations,
@@ -72,5 +80,44 @@ export class SessionsService {
         visualizationStream: `/visualizations/session/${session.id}/stream`,
       },
     };
+  }
+
+  /**
+   * Fetch full question details from the database
+   * 
+   * @param questionKeys - Array of Question keys to fetch
+   * @returns Array of full question objects with text and responses fields
+   */
+  private async getFullQuestionDetails(
+    questionKeys: Question[]
+  ): Promise<QuestionWithDetails[]> {
+    // Fetch all matching questions from the database
+    const fetchedQuestions = await Promise.all(
+      questionKeys.map(key =>
+        this.db
+          .select()
+          .from(questions)
+          .where(
+            and(
+              eq(questions.varName, key.varName),
+              eq(questions.batteryName, key.batteryName),
+              eq(questions.subBattery, key.subBattery)
+            )
+          )
+          .limit(1)
+          .then(results => results[0])
+      )
+    );
+
+    // Verify all questions were found
+    const missingQuestions = questionKeys.filter((key, index) => !fetchedQuestions[index]);
+    if (missingQuestions.length > 0) {
+      throw new NotFoundException(
+        `Questions not found: ${missingQuestions.map(q => `${q.batteryName}.${q.varName}.${q.subBattery}`).join(', ')}`
+      );
+    }
+
+    // Return in the same order as questionKeys
+    return fetchedQuestions as QuestionWithDetails[];
   }
 }

@@ -1,4 +1,3 @@
-import React, { useEffect, useState, useMemo } from "react";
 import { VizStateManager } from "../../VizStateManager";
 import { useVizCanvas } from "../../UseVizCanvas";
 import { VizCanvasMount } from "./VizCanvasMount";
