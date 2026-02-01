@@ -4,11 +4,12 @@
 
 This is a monorepo for a live polling and data visualization system. It consists of multiple packages including APIs, shared libraries, and client utilities for real-time polling sessions with interactive visualizations.
 
-## Two-Schema Database Design
+## Three-Schema Database Design
 
-The system uses **two separate PostgreSQL schemas** with distinct purposes:
+The system uses **three separate PostgreSQL schemas** with distinct purposes. You can find the table definitions (constructed using Drizzle) in the shared-schemas package
 
 ### questions schema (source of truth)
+
 - **Purpose**: Stores the master question catalog
 - **Tables**:
   - `questions.batteries` - Question battery definitions
@@ -18,6 +19,7 @@ The system uses **two separate PostgreSQL schemas** with distinct purposes:
 - **Used by**: Both Admin and Public APIs for querying full question details
 
 ### polls schema (session-specific data)
+
 - **Purpose**: Stores session data and responses
 - **Tables**:
   - `polls.sessions` - Session metadata with JSONB config containing Question[] keys only
@@ -27,56 +29,30 @@ The system uses **two separate PostgreSQL schemas** with distinct purposes:
   - `polls.session_visualizations` - Pre-computed visualization state
 
 ### admin schema
+
 - **Purpose**: Admin user authentication
 - **Tables**:
   - `admin.users` - Admin credentials (bcrypt hashed passwords)
 
-## Question Storage Pattern
-
-**CRITICAL ARCHITECTURAL RULE**: Question text and response options are NEVER duplicated into the polls schema.
-
-### How it works:
-
-1. **Admin API creates session**:
-   - Receives `CreateSessionDto` with `sessionConfig.questionOrder: Question[]` (keys only)
-   - Stores those Question[] keys directly in `polls.sessions.session_config` JSONB
-   - Also inserts question keys into `polls.questions` table for relational queries
-   - **Does NOT expand** questions to include text/responses before storage
-
-2. **Public API serves session**:
-   - Reads `session.sessionConfig.questionOrder` from DB (contains Question[] keys)
-   - Calls `getFullQuestionDetails()` to query `questions.questions` schema
-   - Expands Question[] to QuestionWithDetails[] with text and responses
-   - Returns `SessionResponse` with full question details to client
-
-### Why this design?
-
-- Single source of truth for question text/responses
-- Easy to update questions globally without touching session data
-- Smaller session storage (JSONB contains only keys)
-- Clear separation between session structure and question content
-
 ## Type System
 
-### Core Types (shared-types package)
+Core types are are shared across the DB, api, and frontends are in the shared-types package. Note that there are both types and zod schemas exported by this package. If you are a bot and you are reading this. Do not do anything until you read ALL the source files in shared-types.
 
-- **`Question`** - Just the composite key: `{varName, batteryName, subBattery}`
-- **`QuestionWithDetails`** - Extends Question with: `{text, responses[]}`
+## API
 
-### API Contract Types
+There are two core API packages -- api-polls-admin and api-polls-public. api-polls-unified just wraps these two packages to make depolyment of both apis on a single machine/container easier.
 
-- **`CreateSessionDto`** (Admin API input):
-  - `sessionConfig.questionOrder: Question[]` - Keys only for storage
-  
-- **`SessionConfig`** (Public API response):
-  - `questionOrder: QuestionWithDetails[]` - Full details for client rendering
+## Frontends
 
-- **`Session`** (Admin API response):
-  - `sessionConfig: SessionConfig | null` - Type annotation matches API response format
+All frontends are supported by **polls-participant-utils**, which provides classes and hooks for maintaining a connection to streaming visualization updates, and react components that mount canvases that render real-time visualizations.
 
-### Important Note
+**ui-shared** provides uniform styling (specified using Vanilla Extract).
 
-The database schema type annotation for `polls.sessions.session_config` uses `SessionConfig` type, but the actual stored JSONB data has the structure of `CreateSessionDto.sessionConfig` (with Question[] not QuestionWithDetails[]). This is intentional - the type annotation represents what the API returns, not what's physically stored.
+**ui-participant** is the main front end for poll participants.
+
+**ui-facilitator** is not yet created, but will be the main front end for poll session facilitators.
+
+At some point in the future, we may develop a frontend that facilitates admins creating and configuring polling sessions.
 
 ## Package Structure
 
@@ -101,21 +77,9 @@ Sessions include pre-configured visualizations that update in real-time as respo
 - **Updates**: Public API processes responses and emits incremental diffs via SSE stream
 - **Lookup Maps**: Pre-computed at session creation for O(1) response → split mapping
 
-## Development Workflow
+The computation functions that construct and update visualization structures are defined in shared-computation.
 
-- **Monorepo**: Uses npm workspaces
-- **TypeScript**: All packages written in TypeScript
-- **Build**: `npm run build` from root builds all packages
-- **Lint**: `npm run lint` from root lints all packages
-- **Database**: Docker compose for PostgreSQL (test and dev environments)
-
-## Common Gotchas
-
-1. **Never expand questions in Admin API** - It only stores keys
-2. **Always expand questions in Public API** - Before sending to clients
-3. **Question keys are composite** - All three fields (varName, batteryName, subBattery) required
-4. **subBattery is NOT NULL** - Use empty string `''` for questions without sub-battery
-5. **Visualization IDs** - Generated server-side, clients reference by ID
+If you are a bot and reading this, do not do anything without first reading the `initializeSplitsWithSegments` function at shared-computation/src/segmentViz/initializeSplitsWithSegments.ts. By reading this function, you can see the basic structure of a visualization (defined in an abstract coordinate space) which is computed/populated/updated on the backend.
 
 ## Code Quality Rules
 
