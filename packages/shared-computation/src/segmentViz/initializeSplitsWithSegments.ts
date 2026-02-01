@@ -4,7 +4,7 @@ import { Group, GroupingQuestion, ViewMaps } from "../statistics/types";
 import { computeSegmentGroupBounds, getWidthHeight } from "./geometry";
 import { setBasisSplitIndices } from "../statistics/setBasisSplitIndices";
 import { buildSegmentVizViewId } from "./buildSegmentVizViewId";
-import { Question } from "shared-schemas";
+import { Question } from "shared-types";
 import { pointImageForResponseGroup } from "../imageGeneration";
 import { GroupColorOverride, GridLabelsDisplay, ViewIdLookup } from "shared-types";
 

@@ -29,8 +29,7 @@
     { "path": "./packages/shared-auth" },
     { "path": "./packages/db" },
     { "path": "./packages/api-polls-admin" },
-    { "path": "./packages/api-polls-public" },
-    { "path": "./packages/integration-tests" }
+    { "path": "./packages/api-polls-public" }
   ],
   "exclude": ["node_modules", "dist", "build"],
   "files": []

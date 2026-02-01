@@ -31,15 +31,22 @@ export const QuestionWithDetailsSchema = QuestionSchema.extend({
 });
 
 /**
- * Schema for SessionConfig
+ * Schema for SessionConfig (storage format with Question keys)
  */
 export const SessionConfigSchema = z.object({
-  questionOrder: z.array(QuestionWithDetailsSchema),
+  questionOrder: z.array(QuestionSchema),
   visualizations: z.array(
     SegmentVizConfigSchema.extend({
       id: z.string(),
     })
   ),
+});
+
+/**
+ * Schema for SessionConfig with full question details (public API response format)
+ */
+export const SessionConfigResponseSchema = SessionConfigSchema.omit({ questionOrder: true }).extend({
+  questionOrder: z.array(QuestionWithDetailsSchema),
 });
 
 /**
@@ -126,7 +133,7 @@ export const SessionResponseSchema = z.object({
   isOpen: z.boolean(),
   description: z.string().nullable(),
   createdAt: z.union([z.string(), z.date()]),
-  config: SessionConfigSchema,
+  config: SessionConfigResponseSchema,
   visualizations: z.array(VisualizationDataSchema),
   endpoints: z.object({
     submitResponse: z.string(),

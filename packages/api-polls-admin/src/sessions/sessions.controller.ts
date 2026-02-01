@@ -14,12 +14,9 @@ import {
 import { SessionsService } from './sessions.service';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from 'shared-auth';
-import { insertSessionSchema } from 'shared-schemas/src/schemas/polls.zod';
+import { CreateSessionDtoSchema } from 'shared-types';
 import { z } from 'zod';
-import type { InferInsertModel } from 'drizzle-orm';
-import { sessions } from 'shared-schemas/src/schemas/polls';
-
-type NewSession = InferInsertModel<typeof sessions>;
+import type { CreateSessionDto } from 'shared-types';
 
 // Schema for toggling session status
 const toggleStatusSchema = z.object({
@@ -77,7 +74,7 @@ export class SessionsController {
    */
   @Post()
   async create(
-    @Body(new ZodValidationPipe(insertSessionSchema)) sessionData: NewSession,
+    @Body(new ZodValidationPipe(CreateSessionDtoSchema)) sessionData: CreateSessionDto,
   ) {
     return await this.sessionsService.create(sessionData);
   }

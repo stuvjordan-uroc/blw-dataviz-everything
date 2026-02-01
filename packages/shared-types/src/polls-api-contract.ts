@@ -18,11 +18,15 @@ import type { Question, QuestionWithDetails } from './index';
 /**
  * Session configuration for a polling session.
  * Defines which questions are presented to respondents and how responses are visualized.
+ * 
+ * This is the storage format - stores only Question keys, not full details.
+ * Admin API uses this for creating sessions.
+ * Public API expands Question[] to QuestionWithDetails[] when serving to clients.
  */
 export interface SessionConfig {
   // Questions in the order they will be presented to respondents
-  // Includes full question details (text, responses) for rendering forms
-  questionOrder: QuestionWithDetails[];
+  // Stored as keys only (varName, batteryName, subBattery)
+  questionOrder: Question[];
 
   // One visualization per response question, with unique ID for reference
   visualizations: (SegmentVizConfig & { id: string })[];
@@ -142,8 +146,8 @@ export interface SessionResponse {
   description: string | null;
   createdAt: Date | string;
 
-  // Session configuration
-  config: SessionConfig;
+  // Session configuration with full question details for client rendering
+  config: Omit<SessionConfig, 'questionOrder'> & { questionOrder: QuestionWithDetails[] };
 
   // Current visualization state
   visualizations: VisualizationData[];

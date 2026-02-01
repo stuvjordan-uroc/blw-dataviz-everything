@@ -13,8 +13,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { questions as questionsDef } from "./questions";
 import type {
-  Question,
-  SegmentVizConfig,
   SplitWithSegmentGroup,
   ViewMaps,
   SessionConfig,

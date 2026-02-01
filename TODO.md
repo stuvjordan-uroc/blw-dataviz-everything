@@ -1,7 +1,0 @@
-- shared-computation. See todo list at top of segmentViz/index.ts
-- api-polls-public endpoints and logic
-  - (DONE) GET to for questions in a given session
-  - (DONE) Endpoint: POST one respondent's responses to all questions from session.
-  - (DONE) API inserts new record into polls.respondents and polls.responses for each received response at POST enpoint.
-  - responses POST endpoint -- when enough posts come in, compute new viz points and statistics, then update respondents and responses table and statistics/viz table all in one go.
-- api-polls-realtime -- realtime updates on statistics table for a session with a given ID.

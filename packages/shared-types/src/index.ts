@@ -105,6 +105,7 @@ export {
   // Shared session schemas
   QuestionWithDetailsSchema,
   SessionConfigSchema,
+  SessionConfigResponseSchema,
   SessionSchema,
   VisualizationLookupMapsSchema,
   // Admin session endpoint schemas

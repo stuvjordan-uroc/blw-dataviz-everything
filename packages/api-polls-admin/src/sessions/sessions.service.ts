@@ -13,7 +13,6 @@ import {
   respondents,
   responses,
   sessionVisualizations,
-  VisualizationLookupMaps,
 } from "shared-schemas";
 import type { InferSelectModel } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
@@ -24,6 +23,7 @@ import type {
   CreateSessionDto,
   Session,
   GetAllSessionsResponse,
+  VisualizationLookupMaps,
 } from "shared-types";
 import { validateSessionConfig } from "./validate-session-config";
 
@@ -95,7 +95,7 @@ export class SessionsService {
       // Generate a unique slug if not provided
       const slug = dto.slug || this.generateSlug();
 
-      // Extract configuration
+      // Extract configuration (store Question keys as-is, don't expand)
       const questionOrder = dto.sessionConfig.questionOrder;
       const visualizationsInput = dto.sessionConfig.visualizations;
 
