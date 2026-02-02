@@ -3,9 +3,16 @@
   "version": "1.0.0",
   "description": "Admin API for poll session management",
   "main": "dist/main.js",
+  "types": "dist/main.d.ts",
   "exports": {
-    ".": "./dist/main.js",
-    "./app.module": "./dist/app.module.js"
+    ".": {
+      "types": "./dist/main.d.ts",
+      "default": "./dist/main.js"
+    },
+    "./app.module": {
+      "types": "./dist/app.module.d.ts",
+      "default": "./dist/app.module.js"
+    }
   },
   "scripts": {
     "build": "tsc",
