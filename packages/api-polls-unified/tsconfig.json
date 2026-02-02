@@ -4,6 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "module": "commonjs",
+    "moduleResolution": "node16",
     "composite": true,
     "declaration": true,
     "removeComments": true,
