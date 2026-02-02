@@ -9,7 +9,6 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
  */
 function getS3Client(): S3Client {
   const region = process.env.AWS_REGION || 'us-east-1';
-  console.log(`Using AWS region: ${region}`);
   return new S3Client({ region });
 }
 
@@ -20,7 +19,7 @@ function getS3Client(): S3Client {
  * @param key - Object key (path to file)
  * @returns Parsed JSON object
  */
-export async function fetchJsonFromS3<T = any>(
+export async function fetchJsonFromS3<T = unknown>(
   bucket: string,
   key: string
 ): Promise<T> {

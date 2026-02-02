@@ -1,0 +1,67 @@
+# Exclude from Docker build context to reduce build time and image size
+
+# Git
+.git
+.gitignore
+
+# Dependencies (will be installed in container)
+node_modules
+**/node_modules
+
+# Build artifacts (will be generated in container)
+dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Environment files (set via Railway variables)
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Test files
+test
+**/test
+*.test.ts
+*.spec.ts
+**/*.test.ts
+**/*.spec.ts
+
+# Documentation
+*.md
+docs
+**/docs
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# AWS and deployment configs (not needed in container)
+.aws
+aws-exports.js
+
+# UI packages (not needed for API)
+packages/ui-*
+packages/polls-participant-utils
+
+# Integration tests (not needed for API)
+packages/integration-tests
+
+# Database package (not needed for API runtime)
+packages/db
+
+# Scripts (not needed for API runtime)
+scripts
