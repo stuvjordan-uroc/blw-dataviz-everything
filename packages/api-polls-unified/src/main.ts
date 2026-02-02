@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { UnifiedAppModule } from './app.module';
-import { AllExceptionsFilter } from 'api-polls-admin/src/common/filters/all-exceptions.filter';
+import { AllExceptionsFilter } from 'api-polls-admin/dist/common/filters/all-exceptions.filter';
 import * as dotenv from 'dotenv';
 
 /**
