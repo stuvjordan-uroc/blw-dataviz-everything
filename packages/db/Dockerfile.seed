@@ -19,7 +19,7 @@ COPY packages/shared-schemas ./packages/shared-schemas
 COPY packages/db ./packages/db
 COPY tsconfig.json ./
 
-# Build the packages
+# Build all packages
 RUN npm run build --workspace=shared-types --workspace=shared-schemas --workspace=db
 
 # Stage 2: Production runtime
