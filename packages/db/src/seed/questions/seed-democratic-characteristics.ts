@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { batteries, subBatteries, questions } from 'shared-schemas';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, and } from 'drizzle-orm';
 import { fetchJsonFromS3, getDataMigrationsBucket } from '../utils/s3';
 
 /**
@@ -85,8 +85,10 @@ export async function seedDemocraticCharacteristics(): Promise<void> {
         const existing = await db
           .select()
           .from(subBatteries)
-          .where(eq(subBatteries.batteryName, batteryName))
-          .where(eq(subBatteries.name, category))
+          .where(and(
+            eq(subBatteries.batteryName, batteryName),
+            eq(subBatteries.name, category)
+          ))
           .limit(1);
 
         if (existing.length === 0) {
@@ -116,9 +118,11 @@ export async function seedDemocraticCharacteristics(): Promise<void> {
         const existing = await db
           .select()
           .from(questions)
-          .where(eq(questions.varName, char.variable_name))
-          .where(eq(questions.batteryName, config.batteryName))
-          .where(eq(questions.subBattery, char.category))
+          .where(and(
+            eq(questions.varName, char.variable_name),
+            eq(questions.batteryName, config.batteryName),
+            eq(questions.subBattery, char.category)
+          ))
           .limit(1);
 
         const questionData = {
@@ -136,9 +140,11 @@ export async function seedDemocraticCharacteristics(): Promise<void> {
               text: questionData.text,
               responses: questionData.responses,
             })
-            .where(eq(questions.varName, char.variable_name))
-            .where(eq(questions.batteryName, config.batteryName))
-            .where(eq(questions.subBattery, char.category));
+            .where(and(
+              eq(questions.varName, char.variable_name),
+              eq(questions.batteryName, config.batteryName),
+              eq(questions.subBattery, char.category)
+            ));
         } else {
           await db.insert(questions).values(questionData);
         }
