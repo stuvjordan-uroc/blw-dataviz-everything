@@ -12,6 +12,10 @@
     "./app.module": {
       "types": "./dist/app.module.d.ts",
       "default": "./dist/app.module.js"
+    },
+    "./dist/common/filters/all-exceptions.filter": {
+      "types": "./dist/common/filters/all-exceptions.filter.d.ts",
+      "default": "./dist/common/filters/all-exceptions.filter.js"
     }
   },
   "scripts": {
