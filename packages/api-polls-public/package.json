@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "Public API for poll sessions and questions",
   "main": "dist/main.js",
+  "exports": {
+    ".": "./dist/main.js",
+    "./app.module": "./dist/app.module.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/main.js",

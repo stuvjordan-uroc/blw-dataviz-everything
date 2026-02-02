@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { AppModule as AdminModule } from 'api-polls-admin/src/app.module';
-import { AppModule as PublicModule } from 'api-polls-public/src/app.module';
+import { AppModule as AdminModule } from 'api-polls-admin/app.module';
+import { AppModule as PublicModule } from 'api-polls-public/app.module';
 
 /**
  * UnifiedAppModule combines both admin and public polling APIs
