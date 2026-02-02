@@ -31,8 +31,8 @@ COPY packages/api-polls-unified ./packages/api-polls-unified
 # Copy workspace configuration
 COPY tsconfig.json ./
 
-# Build all TypeScript packages
-RUN npm run build
+# Build only the packages we copied (not db, ui, etc.)
+RUN npm run build --workspace=shared-types --workspace=shared-schemas --workspace=shared-auth --workspace=shared-computation --workspace=api-polls-admin --workspace=api-polls-public --workspace=api-polls-unified
 
 # Stage 2: Production runtime
 FROM node:20-alpine
