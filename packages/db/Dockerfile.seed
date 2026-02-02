@@ -1,0 +1,53 @@
+# Multi-stage Dockerfile for database seeding
+# Stage 1: Build
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files for all needed packages
+COPY package*.json ./
+COPY packages/shared-types/package*.json ./packages/shared-types/
+COPY packages/shared-schemas/package*.json ./packages/shared-schemas/
+COPY packages/db/package*.json ./packages/db/
+
+# Install all dependencies (including dev for build)
+RUN npm install
+
+# Copy source code for packages we need to build
+COPY packages/shared-types ./packages/shared-types
+COPY packages/shared-schemas ./packages/shared-schemas
+COPY packages/db ./packages/db
+COPY tsconfig.json ./
+
+# Build the packages
+RUN npm run build --workspace=shared-types --workspace=shared-schemas --workspace=db
+
+# Stage 2: Production runtime
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/shared-types/package*.json ./packages/shared-types/
+COPY packages/shared-schemas/package*.json ./packages/shared-schemas/
+COPY packages/db/package*.json ./packages/db/
+
+# Install only production dependencies
+RUN npm ci --omit=dev
+
+# Copy built artifacts from builder stage
+COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder /app/packages/shared-schemas/dist ./packages/shared-schemas/dist
+COPY --from=builder /app/packages/db/dist ./packages/db/dist
+
+# Copy package.json files for module resolution
+COPY --from=builder /app/packages/shared-types/package.json ./packages/shared-types/
+COPY --from=builder /app/packages/shared-schemas/package.json ./packages/shared-schemas/
+COPY --from=builder /app/packages/db/package.json ./packages/db/
+
+# Set working directory to db package
+WORKDIR /app/packages/db
+
+# Run the seed script
+CMD ["node", "dist/seed/index.js"]
