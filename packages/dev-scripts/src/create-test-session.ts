@@ -10,7 +10,7 @@
  * 3. Outputs the session slug for use with simulate-responses.ts
  */
 
-import type { CreateSessionDto, SegmentVizConfig } from 'shared-types';
+import type { CreateSessionDto } from 'shared-types';
 
 const API_BASE_URL = process.env.API_URL || 'http://localhost:3003';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'stuart.jordan@rochester.edu';
@@ -44,7 +44,7 @@ async function login(): Promise<string> {
     throw new Error(`Login failed: ${response.statusText}`);
   }
 
-  const data: LoginResponse = await response.json();
+  const data = await response.json() as LoginResponse;
   return data.access_token;
 }
 
@@ -59,35 +59,38 @@ async function createTestSession(token: string): Promise<CreateSessionResponse> 
     sessionConfig: {
       questionOrder: [
         {
-          varName: 'free_fair_elections',
+          varName: 'candidates_disclose',
           batteryName: 'democratic_characteristics_importance',
-          subBattery: 'Elections and Rights',
+          subBattery: 'Electoral competition and political accountability',
         },
         {
-          varName: 'media_free_criticism',
+          varName: 'legislature_check',
           batteryName: 'democratic_characteristics_importance',
-          subBattery: 'Media and Expression',
+          subBattery: 'Executive, legislative, and judicial powers',
         },
         {
-          varName: 'opposition_run',
+          varName: 'ban_ideology',
           batteryName: 'democratic_characteristics_importance',
-          subBattery: 'Elections and Rights',
+          subBattery: 'Political and civil rights',
         },
       ],
       visualizations: [
         {
           responseQuestion: {
             question: {
-              varName: 'free_fair_elections',
+              varName: 'candidates_disclose',
               batteryName: 'democratic_characteristics_importance',
-              subBattery: 'Elections and Rights',
+              subBattery: 'Electoral competition and political accountability',
             },
             responseGroups: {
               expanded: [
-                { values: [0], label: 'Not important' },
-                { values: [1], label: 'Somewhat important' },
-                { values: [2], label: 'Important' },
-                { values: [3], label: 'Very important' },
+                { values: [0], label: 'Not essential' },
+                { values: [1], label: 'Important but not essential' },
+                { values: [2], label: 'Essential' },
+              ],
+              collapsed: [
+                { values: [0], label: 'Not essential' },
+                { values: [1, 2], label: 'Important/Essential' },
               ],
             },
           },
@@ -95,13 +98,18 @@ async function createTestSession(token: string): Promise<CreateSessionResponse> 
             x: [],
             y: [],
           },
-          imageGeneration: {
-            type: 'color-based' as const,
-            config: {
-              colors: ['#ff0000', '#ffaa00', '#00ff00', '#0000ff'],
-            },
+          minGroupAvailableWidth: 800,
+          minGroupHeight: 600,
+          groupGapX: 50,
+          groupGapY: 50,
+          responseGap: 10,
+          baseSegmentWidth: 30,
+          images: {
+            circleRadius: 8,
+            baseColorRange: ['#ff6b6b', '#4ecdc4'],
+            groupColorOverrides: [],
           },
-        } as SegmentVizConfig,
+        },
       ],
     },
   };
@@ -120,7 +128,7 @@ async function createTestSession(token: string): Promise<CreateSessionResponse> 
     throw new Error(`Failed to create session: ${response.statusText}\n${error}`);
   }
 
-  return await response.json();
+  return await response.json() as CreateSessionResponse;
 }
 
 /**

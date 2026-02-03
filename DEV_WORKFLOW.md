@@ -21,18 +21,13 @@ The system consists of:
 
 ### 1. Configure Environment
 
-Copy the example environment file and fill in Railway credentials:
-
-```bash
-cp .env.local.example .env.local
-```
-
-Edit `.env.local` and update:
+Ensure your `.env` file has the correct Railway credentials:
 
 - `DATABASE_URL`: Get from Railway → PostgreSQL service → Connect → Connection String
-- Other variables should match production (already configured in example)
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: IAM user credentials for S3 access
+- Other variables should match production (see `.env.example` for reference)
 
-**Important**: Never commit `.env.local` - it contains production database credentials!
+**Important**: Never commit `.env` - it contains production credentials! It's already in `.gitignore`.
 
 ### 2. Install Dependencies
 
