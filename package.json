@@ -15,7 +15,9 @@
     "dev:db-populate": "npm run aws:auth && npm run db:migrate:data",
     "aws:auth": "./scripts/aws-auth.sh",
     "db:migrate": "npm run db:migrate --workspace=db",
-    "db:migrate:data": "npm run data:migrate --workspace=db"
+    "db:migrate:data": "npm run data:migrate --workspace=db",
+    "dev:create-session": "npm run create-session --workspace=dev-scripts",
+    "dev:simulate": "npm run simulate --workspace=dev-scripts"
   },
   "workspaces": [
     "packages/*"

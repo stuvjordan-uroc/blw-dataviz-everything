@@ -66,7 +66,26 @@ At some point in the future, we may develop a frontend that facilitates admins c
 - **api-polls-unified**: Unified API combining admin/public (NestJS)
 - **api-polls-client**: Type-safe API client library
 - **polls-participant-utils**: React hooks and utilities for participant UI
+- **ui-shared**: Shared UI components and styling (Vanilla Extract)
+- **ui-participant**: Participant polling interface (React + Vite)
+- **dev-scripts**: Development scripts for local testing and seeding
 - **integration-tests**: E2E tests across all services
+
+## Deployment
+
+**Production (Railway):**
+
+- PostgreSQL database with all schemas
+- Unified API (api-polls-unified) deployed as Docker container
+- Database seeding service (runs on-demand)
+
+**Local Development:**
+
+- API runs locally via Docker Compose, connects to Railway DB
+- UI runs via Vite dev server (port 3000), proxies to local API (port 3003)
+- Dev scripts create test sessions and simulate responses
+
+See [DEV_WORKFLOW.md](../DEV_WORKFLOW.md) for complete local development setup.
 
 ## Visualization System
 
@@ -80,6 +99,22 @@ Sessions include pre-configured visualizations that update in real-time as respo
 The computation functions that construct and update visualization structures are defined in shared-computation.
 
 If you are a bot and reading this, do not do anything without first reading the `initializeSplitsWithSegments` function at shared-computation/src/segmentViz/initializeSplitsWithSegments.ts. By reading this function, you can see the basic structure of a visualization (defined in an abstract coordinate space) which is computed/populated/updated on the backend.
+
+## Development Workflow for UI
+
+To work on the UI and see live polling behavior:
+
+1. **Start local API**: `docker compose -f docker-compose.dev.yml up`
+2. **Create test session**: `npm run dev:create-session` (outputs session slug)
+3. **Start UI**: `cd packages/ui-participant && npm run dev`
+4. **Simulate responses**: `npm run dev:simulate {slug} 20 --interval 2000`
+
+This workflow ensures:
+
+- Visualization structures are properly initialized via API endpoints
+- SSE streaming works correctly
+- UI updates in real-time as "participants" submit responses
+- No database seeding required - everything goes through proper API flow
 
 ## Code Quality Rules
 

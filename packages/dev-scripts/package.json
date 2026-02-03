@@ -1,0 +1,20 @@
+{
+  "name": "dev-scripts",
+  "version": "1.0.0",
+  "description": "Development scripts for local testing and seeding",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "create-session": "tsx src/create-test-session.ts",
+    "simulate": "tsx src/simulate-responses.ts"
+  },
+  "dependencies": {
+    "api-polls-client": "*",
+    "shared-types": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.3"
+  }
+}

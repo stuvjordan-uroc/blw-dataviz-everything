@@ -52,6 +52,10 @@
       "name": "UI Participant",
       "path": "./packages/ui-participant",
     },
+    {
+      "name": "Dev Scripts",
+      "path": "./packages/dev-scripts",
+    },
   ],
   "settings": {
     "typescript.preferences.useAliasesForRenames": false,
