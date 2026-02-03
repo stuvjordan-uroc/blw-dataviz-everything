@@ -21,11 +21,12 @@ The system consists of:
 
 ### 1. Configure Environment
 
-Ensure your `.env` file has the correct Railway credentials:
+Ensure your `.env` file has the Railway database connection:
 
 - `DATABASE_URL`: Get from Railway → PostgreSQL service → Connect → Connection String
-- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: IAM user credentials for S3 access
-- Other variables should match production (see `.env.example` for reference)
+- `JWT_SECRET`: Already configured in `.env.example`
+
+**Note**: AWS credentials are only needed for the Railway db-seed service, not for local development.
 
 **Important**: Never commit `.env` - it contains production credentials! It's already in `.gitignore`.
 

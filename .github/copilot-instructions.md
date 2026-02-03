@@ -87,6 +87,29 @@ At some point in the future, we may develop a frontend that facilitates admins c
 
 See [DEV_WORKFLOW.md](../DEV_WORKFLOW.md) for complete local development setup.
 
+## Environment Configuration
+
+**Critical: Two separate environment files with different purposes**
+
+### .env (Local Development)
+- Used by: Docker Compose (local API) AND dev-scripts (create-test-session, simulate-responses)
+- Contains: DATABASE_URL, JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, PORT, BATCH_UPDATE_INTERVAL_MS, NODE_ENV
+- **Does NOT contain AWS credentials** - not needed locally since questions are already seeded in Railway DB
+
+### .env.railway (Railway Dashboard Reference)
+- Documents environment variables set in Railway's UI
+- Used by Railway services: api-polls-unified, db-seed
+- Contains: Everything in .env PLUS AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, DATA_MIGRATIONS_BUCKET
+- **Railway reads from dashboard UI, not this file** - file exists only for documentation
+
+**Key difference:** 
+- AWS credentials are Railway-only (used by db-seed service to fetch questions from S3)
+- Admin credentials are in both (Railway uses them for seeding, local dev uses them for API authentication)
+
+**Templates:**
+- `.env.example` - Template for local development
+- `.env.railway.example` - Template for Railway dashboard configuration
+
 ## Visualization System
 
 Sessions include pre-configured visualizations that update in real-time as responses arrive:
@@ -115,6 +138,40 @@ This workflow ensures:
 - SSE streaming works correctly
 - UI updates in real-time as "participants" submit responses
 - No database seeding required - everything goes through proper API flow
+
+## Working with Questions Data
+
+**CRITICAL: Never fabricate or guess question data**
+
+Questions are seeded from S3 by Railway's db-seed service into `questions.questions` table. The composite primary key is (varName, batteryName, subBattery).
+
+**Known battery names:**
+- `democratic_characteristics_importance`
+- `democratic_characteristics_performance`
+
+**When creating sessions or test scripts:**
+1. If you don't know actual question keys, **STOP and ask the user**
+2. Options to get real data:
+   - User provides specific question keys from the database
+   - User shares example from S3 JSON
+   - Query database if user grants access
+
+**Never make up:**
+- varName values
+- subBattery category names
+- Response arrays or labels
+
+## Creating Complete Type Objects
+
+**SegmentVizConfig requires ALL fields:**
+
+Required fields (see `packages/shared-types/src/visualization.ts`):
+- `responseQuestion` - Must include both `expanded` AND `collapsed` responseGroups
+- `groupingQuestions` - Both `x` and `y` arrays (can be empty `[]`)
+- Layout: `minGroupAvailableWidth`, `minGroupHeight`, `groupGapX`, `groupGapY`, `responseGap`, `baseSegmentWidth`
+- `images` - Must include `circleRadius`, `baseColorRange` (array of 2 hex colors), `groupColorOverrides` (array, can be empty)
+
+**Before creating configs, read the complete type definition at packages/shared-types/src/visualization.ts**
 
 ## Code Quality Rules
 

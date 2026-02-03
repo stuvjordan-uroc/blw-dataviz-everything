@@ -1,5 +1,6 @@
 # Environment variables
 .env
+.env.railway
 .env.local
 .env.*.local
 
