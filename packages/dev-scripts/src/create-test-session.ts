@@ -5,26 +5,47 @@
  * Usage: npm run create-session
  * 
  * This script:
- * 1. Authenticates with admin credentials
- * 2. Creates a session with democratic characteristics questions
+ * 1. Checks if dev test session already exists (idempotent)
+ * 2. If not, authenticates with admin credentials and creates it
  * 3. Outputs the session slug for use with simulate-responses.ts
  */
 
-import type { CreateSessionDto } from 'shared-types';
+import type { CreateSessionDto, Session, LoginResponse } from 'shared-types';
 
 const API_BASE_URL = process.env.API_URL || 'http://localhost:3003';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'stuart.jordan@rochester.edu';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'turnsOut0BrightLines!';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const FIXED_TEST_SLUG = 'dev-test';
 
-interface LoginResponse {
-  access_token: string;
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  console.error('❌ Error: ADMIN_EMAIL and ADMIN_PASSWORD environment variables must be set');
+  console.error('   Set these in your .env file');
+  process.exit(1);
 }
 
-interface CreateSessionResponse {
-  id: number;
-  slug: string;
-  isOpen: boolean;
-  description: string;
+/**
+ * Check if a session already exists by slug (uses public API, no auth required)
+ */
+async function checkSessionExists(slug: string): Promise<Session | null> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${slug}`);
+
+  if (response.ok) {
+    const sessionData = await response.json() as { id: number; slug: string; isOpen: boolean; description: string };
+    return {
+      id: sessionData.id,
+      slug: sessionData.slug,
+      isOpen: sessionData.isOpen,
+      description: sessionData.description,
+      createdAt: new Date(),
+      sessionConfig: null,
+    };
+  }
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  throw new Error(`Unexpected error checking session: ${response.statusText}`);
 }
 
 /**
@@ -45,17 +66,18 @@ async function login(): Promise<string> {
   }
 
   const data = await response.json() as LoginResponse;
-  return data.access_token;
+  return data.accessToken;
 }
 
 /**
  * Create a test session with democratic characteristics questions
  */
-async function createTestSession(token: string): Promise<CreateSessionResponse> {
+async function createTestSession(token: string, slug: string): Promise<Session> {
   // Define a simple test session with democratic characteristics
   // These questions should already exist in the questions.questions table from seeding
   const sessionConfig: CreateSessionDto = {
     description: 'Test Session - Democratic Characteristics',
+    slug, // Use the fixed slug to prevent duplicates
     sessionConfig: {
       questionOrder: [
         {
@@ -128,7 +150,7 @@ async function createTestSession(token: string): Promise<CreateSessionResponse> 
     throw new Error(`Failed to create session: ${response.statusText}\n${error}`);
   }
 
-  return await response.json() as CreateSessionResponse;
+  return await response.json() as Session;
 }
 
 /**
@@ -136,13 +158,24 @@ async function createTestSession(token: string): Promise<CreateSessionResponse> 
  */
 async function main() {
   try {
-    console.log('🔐 Authenticating...');
-    const token = await login();
-    console.log('✅ Authenticated successfully\n');
+    console.log('� Checking for existing test session...');
+    const existingSession = await checkSessionExists(FIXED_TEST_SLUG);
 
-    console.log('🌱 Creating test session...');
-    const session = await createTestSession(token);
-    console.log('✅ Session created successfully!\n');
+    let session: Session;
+
+    if (existingSession) {
+      console.log('✅ Found existing test session\n');
+      session = existingSession;
+    } else {
+      console.log('❌ No existing session found');
+      console.log('🔐 Authenticating...');
+      const token = await login();
+      console.log('✅ Authenticated successfully\n');
+
+      console.log('🌱 Creating test session...');
+      session = await createTestSession(token, FIXED_TEST_SLUG);
+      console.log('✅ Session created successfully!\n');
+    }
 
     console.log('📋 Session Details:');
     console.log(`   ID: ${session.id}`);

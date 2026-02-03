@@ -57,6 +57,8 @@ export type {
   Session,
   VisualizationLookupMaps,
   // Admin session endpoints
+  // Admin auth endpoints
+  LoginResponse,
   CreateSessionDto,
   GetAllSessionsResponse,
   ToggleSessionStatusDto,

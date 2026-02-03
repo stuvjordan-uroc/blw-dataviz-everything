@@ -65,6 +65,25 @@ export interface Session {
 
 /**
  * ===============================
+ * ADMIN AUTH ENDPOINTS
+ * ===============================
+ */
+
+/**
+ * POST /admin/auth/login - Admin authentication
+ */
+export interface LoginResponse {
+  accessToken: string;
+  user: {
+    id: number;
+    email: string;
+    name: string;
+    isActive: boolean;
+  };
+}
+
+/**
+ * ===============================
  * ADMIN SESSION ENDPOINTS
  * ===============================
  */
