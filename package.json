@@ -17,6 +17,7 @@
     "db:migrate": "npm run db:migrate --workspace=db",
     "db:migrate:data": "npm run data:migrate --workspace=db",
     "dev:create-session": "npm run create-session --workspace=dev-scripts",
+    "dev:delete-session": "npm run delete-session --workspace=dev-scripts",
     "dev:simulate": "npm run simulate --workspace=dev-scripts"
   },
   "workspaces": [

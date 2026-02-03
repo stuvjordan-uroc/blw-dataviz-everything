@@ -67,14 +67,14 @@ Create a polling session with pre-configured questions:
 npm run dev:create-session
 ```
 
-This will output a session slug like: `abc123xyz`
+This creates a new test session if it has not been previously run. Otherwise it exits.
 
 **What happens**:
 
-1. Authenticates as admin user
-2. Creates a session with democratic characteristics questions
-3. Initializes visualization structures via `initializeSplitsWithSegments()`
-4. Returns the session slug for accessing the poll
+1. Checks if the test session already exists. If it does, logs session info to the console. Otherwise....
+2. Authenticates as admin user
+3. Creates a session with democratic characteristics questions
+4. logs session info to the console.
 
 ### Step 3: Start the UI Dev Server
 
@@ -158,11 +158,15 @@ npm run dev:simulate abc123xyz 20 --interval 2000
 
 ### Resetting the Test Session
 
-Delete the session and create a new one:
+Delete the existing test session:
 
 ```bash
-# Delete via admin API (TODO: add script)
-# OR just create a new session
+npm run dev:delete-session
+```
+
+Then create a fresh one:
+
+```bash
 npm run dev:create-session
 ```
 

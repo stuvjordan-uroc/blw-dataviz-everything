@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "create-session": "tsx src/create-test-session.ts",
+    "delete-session": "tsx src/delete-test-session.ts",
     "simulate": "tsx src/simulate-responses.ts"
   },
   "dependencies": {

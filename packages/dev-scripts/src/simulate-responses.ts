@@ -66,7 +66,7 @@ async function getSession(slug: string): Promise<SessionResponse> {
     throw new Error(`Failed to fetch session: ${response.statusText}`);
   }
 
-  return await response.json();
+  return await response.json() as SessionResponse;
 }
 
 /**
