@@ -30,14 +30,17 @@ async function bootstrap() {
   // Register global exception filter for consistent error responses
   app.useGlobalFilters(new AllExceptionsFilter());
 
+  // Set global prefix for all routes
+  app.setGlobalPrefix('api');
+
   // Get port from environment or default to 3005
   const port = process.env.POLLING_UNIFIED_PORT || process.env.PORT || 3005;
 
   // Start the server
   await app.listen(port);
   console.log(`🚀 Unified Polls API is running on: http://localhost:${port}`);
-  console.log(`   - Admin API: http://localhost:${port}/admin`);
-  console.log(`   - Public API: http://localhost:${port}`);
+  console.log(`   - Admin API: http://localhost:${port}/api/admin`);
+  console.log(`   - Public API: http://localhost:${port}/api`);
 }
 
 bootstrap();
