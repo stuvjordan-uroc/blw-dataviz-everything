@@ -27,7 +27,7 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
  * Login and get JWT token
  */
 async function login(): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/admin/auth/login`, {
+  const response = await fetch(`${API_BASE_URL}/api/admin/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -48,7 +48,7 @@ async function login(): Promise<string> {
  * Get session by slug to find its ID
  */
 async function getSessionBySlug(slug: string): Promise<{ id: number } | null> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${slug}`);
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${slug}`);
 
   if (response.ok) {
     const sessionData = await response.json() as SessionResponse;
@@ -66,7 +66,7 @@ async function getSessionBySlug(slug: string): Promise<{ id: number } | null> {
  * Delete session by ID
  */
 async function deleteSession(token: string, id: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/admin/sessions/${id}`, {
+  const response = await fetch(`${API_BASE_URL}/api/admin/sessions/${id}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`,

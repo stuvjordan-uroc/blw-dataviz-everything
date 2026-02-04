@@ -27,7 +27,7 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
  * Check if a session already exists by slug (uses public API, no auth required)
  */
 async function checkSessionExists(slug: string): Promise<Session | null> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${slug}`);
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${slug}`);
 
   if (response.ok) {
     const sessionData = await response.json() as { id: number; slug: string; isOpen: boolean; description: string };
@@ -52,7 +52,7 @@ async function checkSessionExists(slug: string): Promise<Session | null> {
  * Login and get JWT token
  */
 async function login(): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/admin/auth/login`, {
+  const response = await fetch(`${API_BASE_URL}/api/admin/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -136,7 +136,7 @@ async function createTestSession(token: string, slug: string): Promise<Session> 
     },
   };
 
-  const response = await fetch(`${API_BASE_URL}/admin/sessions`, {
+  const response = await fetch(`${API_BASE_URL}/api/admin/sessions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

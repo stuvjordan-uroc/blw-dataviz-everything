@@ -74,10 +74,10 @@ export class SessionsService {
       // API endpoints for client to use
       endpoints: {
         // For submitting responses (if session is open)
-        submitResponse: `/sessions/${slug}/responses`,
+        submitResponse: `/api/sessions/${slug}/responses`,
 
         // For real-time visualization updates
-        visualizationStream: `/visualizations/session/${session.id}/stream`,
+        visualizationStream: `/api/visualizations/session/${session.id}/stream`,
       },
     };
   }
