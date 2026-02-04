@@ -361,9 +361,12 @@ export class ResponsesService {
         vizHeight: vizState.vizHeight,
       };
 
-      // Only include viewMaps when explicitly requested (e.g., for GET /sessions/:slug)
+      // Only include viewMaps, gridLabels, and viewIdLookup when explicitly requested (e.g., for GET /sessions/:slug)
+      // These are large data structures only needed on initial session load, not for SSE updates
       if (includeViewMaps) {
         vizData.viewMaps = vizState.viewMaps;
+        vizData.gridLabels = vizState.gridLabels;
+        vizData.viewIdLookup = vizState.viewIdLookup;
       }
 
       result.push(vizData as VisualizationData);

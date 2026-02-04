@@ -42,7 +42,7 @@ export class VisualizationStreamController {
     let visualizationData;
     let session;
     try {
-      visualizationData = await this.responsesService.getVisualizationData(sessionId);
+      visualizationData = await this.responsesService.getVisualizationData(sessionId, true);
       session = await this.responsesService.getSession(sessionId);
     } catch (error) {
       if (error instanceof NotFoundException) {

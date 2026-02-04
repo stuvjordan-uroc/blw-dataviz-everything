@@ -143,19 +143,21 @@ export class SessionsService {
         const { id, ...vizConfig } = viz;
 
         // Initialize the visualization with empty data
-        const { basisSplitIndices, splits, viewMaps, vizWidth, vizHeight } = initializeSplitsWithSegments(vizConfig);
+        const { basisSplitIndices, splits, viewMaps, gridLabels, viewIdLookup, vizWidth, vizHeight } = initializeSplitsWithSegments(vizConfig);
 
         // Build pre-computed lookup maps for efficient response transformation
         const lookupMaps = this.buildLookupMaps(vizConfig, splits, basisSplitIndices);
 
 
-        // Store the initialized visualization with lookup maps and view maps
+        // Store the initialized visualization with lookup maps, view maps, grid labels, and view ID lookup
         await tx.insert(sessionVisualizations).values({
           sessionId: dbSession.id,
           visualizationId: id,
           basisSplitIndices,
           splits,
           viewMaps,
+          gridLabels,
+          viewIdLookup,
           lookupMaps,
           vizWidth,
           vizHeight,

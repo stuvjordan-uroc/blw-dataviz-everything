@@ -16,7 +16,9 @@ import type {
   SplitWithSegmentGroup,
   ViewMaps,
   SessionConfig,
-  VisualizationLookupMaps
+  VisualizationLookupMaps,
+  GridLabelsDisplay,
+  ViewIdLookup
 } from "shared-types";
 
 /* CREATE POLLS SCHEMA AND ITS TABLES */
@@ -107,6 +109,8 @@ export const sessionVisualizations = pollsSchema.table(
     basisSplitIndices: jsonb("basis_split_indices").$type<number[]>(),
     splits: jsonb("splits").$type<SplitWithSegmentGroup[]>(),
     viewMaps: jsonb("view_maps").$type<ViewMaps>(),
+    gridLabels: jsonb("grid_labels").$type<Record<string, GridLabelsDisplay>>(),
+    viewIdLookup: jsonb("view_id_lookup").$type<ViewIdLookup>(),
     lookupMaps: jsonb("lookup_maps").$type<VisualizationLookupMaps>(),
     vizWidth: real("viz_width").notNull(), // Canvas width in abstract units
     vizHeight: real("viz_height").notNull(), // Canvas height in abstract units

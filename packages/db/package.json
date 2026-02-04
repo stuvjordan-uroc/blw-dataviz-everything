@@ -7,9 +7,6 @@
   "scripts": {
     "build": "tsc",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
     "seed": "tsx src/seed/index.ts",
     "seed:admin": "tsx src/seed/admin/seed-admin.ts"
   },

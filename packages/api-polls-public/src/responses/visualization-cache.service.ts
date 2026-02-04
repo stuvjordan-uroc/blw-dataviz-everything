@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { sessionVisualizations, sessions } from "shared-schemas";
 import type { SplitWithSegmentGroup, SegmentVizConfig, ViewMaps, VisualizationLookupMaps } from "shared-types";
 
+import type { GridLabelsDisplay, ViewIdLookup } from "shared-types";
+
 /**
  * State for a single visualization in memory
  */
@@ -15,6 +17,8 @@ interface VisualizationState {
   splits: SplitWithSegmentGroup[];
   lookupMaps: VisualizationLookupMaps;
   viewMaps: ViewMaps; // Precomputed view mappings for client-side view switching
+  gridLabels: Record<string, GridLabelsDisplay>; // Grid labels per viewId
+  viewIdLookup: ViewIdLookup; // Map from active questions to viewId
   vizWidth: number; // Canvas width in abstract units
   vizHeight: number; // Canvas height in abstract units
   sequenceNumber: number;
@@ -167,6 +171,8 @@ export class VisualizationCacheService {
           profileToSplitIndex: {},
         },
         viewMaps: vizDbData.viewMaps || {},
+        gridLabels: vizDbData.gridLabels || {},
+        viewIdLookup: vizDbData.viewIdLookup || [],
         vizWidth: vizDbData.vizWidth,
         vizHeight: vizDbData.vizHeight,
         sequenceNumber: 0,
