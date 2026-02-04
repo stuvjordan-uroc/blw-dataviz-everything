@@ -7,6 +7,7 @@ interface PollFormProps {
   sessionId: number;
   submitEndpoint: string;
   onSuccess: () => void;
+  onError: (errorMessage: string) => void;
 }
 
 export function PollForm({
@@ -14,13 +15,13 @@ export function PollForm({
   sessionId,
   submitEndpoint,
   onSuccess,
+  onError,
 }: PollFormProps) {
   // Store answer as response index (number) for multiple choice, or text (string) for free-form
   const [answers, setAnswers] = useState<Map<string, number | string>>(
     new Map(),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleAnswerChange = (varName: string, value: number | string) => {
     setAnswers((prev) => {
@@ -33,7 +34,6 @@ export function PollForm({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setError(null);
 
     // Convert Map to RespondentAnswer array
     const respondentAnswers: RespondentAnswer[] = questions
@@ -64,13 +64,32 @@ export function PollForm({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to submit responses");
+        // Try to parse JSON error response, fallback to generic message
+        let errorMessage = "Failed to submit your responses. Please try again.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // Response wasn't JSON, use status-specific message
+          if (response.status === 404) {
+            errorMessage =
+              "This session was not found. Please check your link.";
+          } else if (response.status >= 500) {
+            errorMessage = "Server error. Please try again in a moment.";
+          }
+        }
+        throw new Error(errorMessage);
       }
 
+      // Submission successful - navigate to visualization view
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred. Please try again.";
+      // Don't stay on the form - navigate to error state
+      onError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -124,8 +143,6 @@ export function PollForm({
           </div>
         ))}
       </div>
-
-      {error && <div className={styles.errorBox}>{error}</div>}
 
       <button
         type="submit"

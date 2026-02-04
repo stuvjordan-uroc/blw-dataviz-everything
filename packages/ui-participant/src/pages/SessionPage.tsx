@@ -313,6 +313,7 @@ function SessionPage() {
             sessionId={session.id}
             submitEndpoint={session.endpoints.submitResponse}
             onSuccess={() => setSubmitted(true)}
+            onError={(errorMessage) => setError(errorMessage)}
           />
         </div>
       )}
