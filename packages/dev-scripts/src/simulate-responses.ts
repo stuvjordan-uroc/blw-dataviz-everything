@@ -60,7 +60,7 @@ function parseArgs() {
  * Get session configuration
  */
 async function getSession(slug: string): Promise<SessionResponse> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${slug}`);
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${slug}`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch session: ${response.statusText}`);
@@ -158,7 +158,7 @@ async function main() {
       const answers = generateRandomResponses(session);
 
       try {
-        await submitResponses(session.id, session.endpoints.submitResponse, answers);
+        await submitResponses(session.id, `${API_BASE_URL}${session.endpoints.submitResponse}`, answers);
         console.log(`   ✓ Respondent ${i}/${count} submitted`);
 
         // Sleep between submissions if interval specified

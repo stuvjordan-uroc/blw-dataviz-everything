@@ -1,7 +1,7 @@
 import { Split } from "../statistics/types";
 import { updateSplitFromUpdatedBasisSplits, updateBasisSplitFromResponses } from "../statistics/update";
 import { getSyntheticCounts } from "./syntheticCounts";
-import { SegmentVizConfig, SplitWithSegmentGroup, Point, SplitWithSegmentGroupDiff } from './types';
+import { SegmentVizConfig, SplitWithSegmentGroup, Point, SplitWithSegmentGroupDiff, PointPosition } from './types';
 import { computeSegmentBounds, positionPointsInSegment, positionNewPointsAmongExisting } from "./geometry";
 import {
   createExpandedToCollapsedResponseGroupMap,
@@ -9,6 +9,18 @@ import {
   aggregatePointChangesFromDiffs
 } from "./updateHelpers";
 
+
+/**
+ * Deep copy a PointPosition array to avoid shared references.
+ * Creates new PointPosition objects with new Point objects.
+ */
+function deepCopyPointPositions(pointPositions: PointPosition[]): PointPosition[] {
+  return pointPositions.map(pp => ({
+    point: { ...pp.point },
+    x: pp.x,
+    y: pp.y
+  }));
+}
 
 /**
  * Returns updates and diffs of each split in allSplits.  Does not mutate any split in allSplits.
@@ -227,8 +239,8 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
           segmentBoundsUpdated.expanded[ergIdx]
         );
       }
-      // No change, return the same point positions
-      return split.responseGroups.expanded[ergIdx].pointPositions;
+      // No change, but return a deep copy to avoid shared references
+      return deepCopyPointPositions(split.responseGroups.expanded[ergIdx].pointPositions);
     }),
     collapsed: splitStatsUpdated.responseGroups.collapsed.map((_, crgIdx) => {
       //get the required expanded response groups
@@ -266,8 +278,8 @@ export function updateSplitWithSegmentsFromUpdatedBasisSplitsWithSegments(
           segmentBoundsUpdated.collapsed[crgIdx]
         );
       }
-      // No change, return the same point positions
-      return split.responseGroups.collapsed[crgIdx].pointPositions;
+      // No change, but return a deep copy to avoid shared references
+      return deepCopyPointPositions(split.responseGroups.collapsed[crgIdx].pointPositions);
     })
   }
 
@@ -523,28 +535,41 @@ export function updateBasisSplitPoints(
     //get the existing point set for the current response group
     const existing = currentPoints[ergIdx] ?? [];
     const existingLength = existing.length;
+
+    // RUNTIME VALIDATION: Check for corrupted data
+    if (existingLength > 0) {
+      for (let i = 0; i < existingLength; i++) {
+        if (existing[i] === null || existing[i] === undefined) {
+          throw new Error(
+            `CORRUPTION DETECTED: currentPoints[${ergIdx}][${i}] is ${existing[i]}. ` +
+            `Array length: ${existingLength}, actual elements: ${existing.filter(p => p !== null && p !== undefined).length}`
+          );
+        }
+      }
+    }
+
     if (existingLength < count) {
       const lastExistingId = (existingLength > 0) ? existing[existingLength - 1].id : -1
-      const additionalPoints = Array(count - existing.length).map((_, idx) => ({
+      const additionalPoints = Array.from({ length: count - existing.length }, (_, idx) => ({
         splitIdx: updatedSplitStats.basisSplitIndices[0],
         expandedResponseGroupIdx: ergIdx,
         id: lastExistingId + 1 + idx
       }))
       newPoints.push([
-        ...existing,
+        ...existing.map(p => ({ ...p })), // Deep copy existing Points
         ...additionalPoints
       ])
       diff.added.push(additionalPoints)
       diff.removed.push([])
     }
     if (existingLength > count) {
-      const retainedPoints = existing.slice(0, count);
-      newPoints.push([...retainedPoints]);
+      const retainedPoints = existing.slice(0, count).map(p => ({ ...p })); // Deep copy
+      newPoints.push(retainedPoints);
       diff.added.push([]);
       diff.removed.push(existing.slice(count))
     }
     if (existingLength === count) {
-      newPoints.push(existing);
+      newPoints.push(existing.map(p => ({ ...p }))); // Deep copy Points to avoid shared references
       diff.added.push([]);
       diff.removed.push([]);
     }

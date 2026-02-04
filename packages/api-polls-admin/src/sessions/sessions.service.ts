@@ -2,6 +2,7 @@ import {
   Injectable,
   Inject,
   NotFoundException,
+  Logger,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { DATABASE_CONNECTION } from "../database/database.providers";
@@ -47,6 +48,8 @@ type DbSession = InferSelectModel<typeof sessions>;
  */
 @Injectable()
 export class SessionsService {
+  private readonly logger = new Logger(SessionsService.name);
+
   /**
    * Constructor with dependency injection
    *
@@ -143,11 +146,32 @@ export class SessionsService {
         const { id, ...vizConfig } = viz;
 
         // Initialize the visualization with empty data
-        const { basisSplitIndices, splits, viewMaps, gridLabels, viewIdLookup, vizWidth, vizHeight } = initializeSplitsWithSegments(vizConfig);
+        const initResult = initializeSplitsWithSegments(vizConfig);
+        const { basisSplitIndices, splits, viewMaps, gridLabels, viewIdLookup, vizWidth, vizHeight } = initResult;
 
         // Build pre-computed lookup maps for efficient response transformation
         const lookupMaps = this.buildLookupMaps(vizConfig, splits, basisSplitIndices);
 
+        // DEBUG: Verify splits structure after initialization
+        this.logger.debug(
+          `[INIT] Session ${dbSession.id}, Viz ${id}: Initialized with ${splits.length} splits`
+        );
+
+        const firstSplit = splits[0];
+        if (firstSplit) {
+          const pointsContainsNull = firstSplit.points.some(pg => pg.some(p => p === null));
+          this.logger.debug(
+            `[INIT] First split points structure: ${JSON.stringify({
+              pointsArrayLength: firstSplit.points.length,
+              pointsPerGroup: firstSplit.points.map(pg => pg.length),
+              samplePoints: firstSplit.points.map(pg => pg[0] || null),
+              pointsContainsNull
+            })}`
+          );
+          if (pointsContainsNull) {
+            this.logger.error(`[INIT] FOUND NULL POINTS AFTER INITIALIZATION!`);
+          }
+        }
 
         // Store the initialized visualization with lookup maps, view maps, grid labels, and view ID lookup
         await tx.insert(sessionVisualizations).values({
@@ -162,6 +186,8 @@ export class SessionsService {
           vizWidth,
           vizHeight,
         });
+
+        this.logger.debug(`[INIT->DB] Persisted viz ${id} to database`);
       }
 
       // Map database session to API contract Session type

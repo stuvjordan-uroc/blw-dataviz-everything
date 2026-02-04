@@ -106,13 +106,14 @@ async function createTestSession(token: string, slug: string): Promise<Session> 
             },
             responseGroups: {
               expanded: [
-                { values: [0], label: 'Not essential' },
-                { values: [1], label: 'Important but not essential' },
-                { values: [2], label: 'Essential' },
+                { values: [0], label: 'Not relevant' },
+                { values: [1], label: 'Beneficial' },
+                { values: [2], label: 'Important' },
+                { values: [3], label: 'Essential' }
               ],
               collapsed: [
-                { values: [0], label: 'Not essential' },
-                { values: [1, 2], label: 'Important/Essential' },
+                { values: [0, 1], label: 'Not relevant/Beneficial' },
+                { values: [2, 3], label: 'Important/Essential' },
               ],
             },
           },
@@ -120,18 +121,90 @@ async function createTestSession(token: string, slug: string): Promise<Session> 
             x: [],
             y: [],
           },
-          minGroupAvailableWidth: 800,
-          minGroupHeight: 600,
-          groupGapX: 50,
-          groupGapY: 50,
-          responseGap: 10,
-          baseSegmentWidth: 30,
+          minGroupAvailableWidth: 100,
+          minGroupHeight: 100,
+          groupGapX: 10,
+          groupGapY: 10,
+          responseGap: 5,
+          baseSegmentWidth: 10,
           images: {
             circleRadius: 8,
-            baseColorRange: ['#ff6b6b', '#4ecdc4'],
+            baseColorRange: ['#a5d6a7', '#1b5e20'],
             groupColorOverrides: [],
           },
         },
+        {
+          responseQuestion: {
+            question: {
+              varName: 'legislature_check',
+              batteryName: 'democratic_characteristics_importance',
+              subBattery: 'Executive, legislative, and judicial powers',
+            },
+            responseGroups: {
+              expanded: [
+                { values: [0], label: 'Not relevant' },
+                { values: [1], label: 'Beneficial' },
+                { values: [2], label: 'Important' },
+                { values: [3], label: 'Essential' }
+              ],
+              collapsed: [
+                { values: [0, 1], label: 'Not relevant/Beneficial' },
+                { values: [2, 3], label: 'Important/Essential' },
+              ],
+            },
+          },
+          groupingQuestions: {
+            x: [],
+            y: [],
+          },
+          minGroupAvailableWidth: 100,
+          minGroupHeight: 100,
+          groupGapX: 10,
+          groupGapY: 10,
+          responseGap: 5,
+          baseSegmentWidth: 10,
+          images: {
+            circleRadius: 8,
+            baseColorRange: ['#a5d6a7', '#1b5e20'],
+            groupColorOverrides: [],
+          },
+        },
+        {
+          responseQuestion: {
+            question: {
+              varName: 'ban_ideology',
+              batteryName: 'democratic_characteristics_importance',
+              subBattery: 'Political and civil rights',
+            },
+            responseGroups: {
+              expanded: [
+                { values: [0], label: 'Not relevant' },
+                { values: [1], label: 'Beneficial' },
+                { values: [2], label: 'Important' },
+                { values: [3], label: 'Essential' }
+              ],
+              collapsed: [
+                { values: [0, 1], label: 'Not relevant/Beneficial' },
+                { values: [2, 3], label: 'Important/Essential' },
+              ],
+            },
+          },
+          groupingQuestions: {
+            x: [],
+            y: [],
+          },
+          minGroupAvailableWidth: 100,
+          minGroupHeight: 100,
+          groupGapX: 10,
+          groupGapY: 10,
+          responseGap: 5,
+          baseSegmentWidth: 10,
+          images: {
+            circleRadius: 8,
+            baseColorRange: ['#a5d6a7', '#1b5e20'],
+            groupColorOverrides: [],
+          },
+        }
       ],
     },
   };

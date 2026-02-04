@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { UnifiedAppModule } from './app.module';
 import { AllExceptionsFilter } from 'api-polls-admin/dist/common/filters/all-exceptions.filter';
 import * as dotenv from 'dotenv';
+import { LogLevel } from '@nestjs/common';
 
 //
 
@@ -21,8 +22,16 @@ async function bootstrap() {
   // Load environment variables from root .env
   dotenv.config({ path: '../../.env' });
 
+  // Determine log levels based on LOG_LEVEL environment variable
+  const logLevel = process.env.LOG_LEVEL || 'log';
+  const logLevels: LogLevel[] = logLevel === 'debug'
+    ? ['error', 'warn', 'log', 'debug', 'verbose']
+    : ['error', 'warn', 'log'];
+
   // Create the unified NestJS application
-  const app = await NestFactory.create(UnifiedAppModule);
+  const app = await NestFactory.create(UnifiedAppModule, {
+    logger: logLevels,
+  });
 
   // Enable CORS so frontends can make requests to this API
   app.enableCors();

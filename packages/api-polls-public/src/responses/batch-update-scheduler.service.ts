@@ -185,6 +185,19 @@ export class BatchUpdateScheduler {
     // Capture current sequence before update
     const fromSequence = vizState.sequenceNumber;
 
+    // DEBUG: Log current state before update
+    const hasNullsBefore = vizState.splits.some(split =>
+      split.points.some(pointGroup => pointGroup.some(p => p === null))
+    );
+
+    this.logger.debug(
+      `[UPDATE->BEFORE] Viz ${visualizationId}: splits[0].points has ${vizState.splits[0]?.points.length} groups, hasNulls=${hasNullsBefore}`
+    );
+
+    if (hasNullsBefore) {
+      this.logger.error(`[UPDATE->BEFORE] SPLITS ALREADY CONTAIN NULLS BEFORE UPDATE!`);
+    }
+
     // Update visualizations
     const updatedSplitsWithDiffs = updateAllSplitsWithSegmentsFromResponses(
       vizState.splits,
@@ -196,6 +209,24 @@ export class BatchUpdateScheduler {
     // Extract splits and diffs
     const updatedSplits = updatedSplitsWithDiffs.map(([split]) => split);
     const splitDiffs = updatedSplitsWithDiffs.map(([, diff]) => diff);
+
+    // DEBUG: Log updated structure
+    const hasNullsAfter = updatedSplits.some(split =>
+      split.points.some(pointGroup => pointGroup.some(p => p === null))
+    );
+
+    this.logger.debug(
+      `[UPDATE->AFTER] Viz ${visualizationId}: ${JSON.stringify({
+        splitsCount: updatedSplits.length,
+        firstSplitPointsGroups: updatedSplits[0]?.points.length,
+        hasNullsAfter,
+        sampleUpdatedPoints: updatedSplits[0]?.points.map(pg => pg[0] || null)
+      })}`
+    );
+
+    if (hasNullsAfter) {
+      this.logger.error(`[UPDATE->AFTER] UPDATE INTRODUCED NULL POINTS!`);
+    }
 
     // Update cache and get new sequence number
     const toSequence = this.visualizationCache.updateVisualization(

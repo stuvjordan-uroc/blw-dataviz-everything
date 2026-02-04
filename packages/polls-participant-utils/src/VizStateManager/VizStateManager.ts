@@ -127,7 +127,7 @@ export class VizStateManager {
       })
     }
     //early return if the passed splitToFocus fails to match any splits in this viz
-    if (!split || !splitIndex) {
+    if (!split || splitIndex === undefined) {
       return null
     }
     //instantiate the focused canvas

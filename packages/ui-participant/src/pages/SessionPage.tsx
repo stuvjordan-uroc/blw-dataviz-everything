@@ -291,9 +291,7 @@ function SessionPage() {
                         }}
                         annotationMargin={currentVizConfig.annotationMargin} // External space for labels (responsive)
                         canvasWidth={currentVizConfig.canvasWidth} // Responsive width from breakpoint system
-                        splitToFocus={
-                          vizRef.vizData.viewMaps[""][0] // Base view split index (empty string = no grouping questions active)
-                        }
+                        splitToFocus={vizRef.vizData.viewMaps[""][0]} // Base view (empty viewId = no active grouping questions)
                       />
                     </div>
                   )}

@@ -111,6 +111,22 @@ export class VisualizationCacheService {
       return;
     }
 
+    // DEBUG: Verify incoming splits before caching
+    const hasNullsInUpdate = splits.some(split =>
+      split.points.some(pointGroup => pointGroup.some(p => p === null))
+    );
+
+    this.logger.debug(
+      `[CACHE->UPDATE] Updating viz ${visualizationId} in cache: hasNulls=${hasNullsInUpdate}`
+    );
+
+    if (hasNullsInUpdate) {
+      this.logger.error(
+        `[CACHE->UPDATE] RECEIVING SPLITS WITH NULL POINTS FOR CACHING! ` +
+        `First split sample: ${JSON.stringify(splits[0]?.points.map(pg => pg.slice(0, 2)))}`
+      );
+    }
+
     vizState.splits = splits;
     vizState.basisSplitIndices = basisSplitIndices;
     vizState.sequenceNumber++;
@@ -161,18 +177,61 @@ export class VisualizationCacheService {
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, ...config } = viz;
+
+      // DEBUG: Verify loaded splits structure from DB
+      const loadedSplits = vizDbData.splits || [];
+      this.logger.debug(`[DB->LOAD] Loaded viz ${viz.id} from DB for session ${sessionId}`);
+
+      // Check if DB persisted nulls (which shouldn't happen)
+
+      if (loadedSplits.length > 0) {
+        const firstSplit = loadedSplits[0];
+        const pointsContainsNull = firstSplit.points?.some(pg => pg?.some(p => p === null));
+
+        this.logger.debug(
+          `[DB->LOAD] First split structure: ${JSON.stringify({
+            hasPoints: !!firstSplit.points,
+            pointsArrayLength: firstSplit.points?.length,
+            pointsPerGroup: firstSplit.points?.map(pg => pg?.length),
+            samplePoints: firstSplit.points?.map(pg => pg?.[0] || null),
+            pointsContainsNull
+          }, null, 2)}`
+        );
+
+        if (pointsContainsNull) {
+          this.logger.error(`[DB->LOAD] LOADED SPLITS WITH NULL POINTS FROM DATABASE!`);
+          this.logger.debug(`[DB->LOAD] Cleaned ${loadedSplits.length} splits to remove nulls`);
+        }
+
+        // Check responseGroups.expanded pointPositions
+        if (firstSplit.responseGroups?.expanded) {
+          firstSplit.responseGroups.expanded.forEach((rg, idx) => {
+            if (rg.pointPositions && rg.pointPositions.length > 0) {
+              const firstPos = rg.pointPositions[0];
+              this.logger.debug(
+                `[DB->LOAD] Expanded group ${idx} first pointPosition: ${JSON.stringify({
+                  hasPoint: !!firstPos?.point,
+                  pointFields: firstPos?.point ? Object.keys(firstPos.point) : null,
+                  point: firstPos?.point
+                })}`
+              );
+            }
+          });
+        }
+      }
+
       visualizations.set(viz.id, {
         visualizationId: viz.id,
         config,
         basisSplitIndices: vizDbData.basisSplitIndices || [],
-        splits: vizDbData.splits || [],
+        splits: loadedSplits,
         lookupMaps: vizDbData.lookupMaps || {
           responseIndexToGroupIndex: {},
           profileToSplitIndex: {},
         },
         viewMaps: vizDbData.viewMaps || {},
-        gridLabels: vizDbData.gridLabels || {},
-        viewIdLookup: vizDbData.viewIdLookup || [],
+        gridLabels: (vizDbData.gridLabels as Record<string, GridLabelsDisplay> | null) || {},
+        viewIdLookup: (vizDbData.viewIdLookup as ViewIdLookup | null) || [],
         vizWidth: vizDbData.vizWidth,
         vizHeight: vizDbData.vizHeight,
         sequenceNumber: 0,
@@ -186,6 +245,13 @@ export class VisualizationCacheService {
     };
   }
 
+  /**
+   * Clean null Points from splits data loaded from JSONB.
+   * PostgreSQL JSONB serialization can introduce nulls where undefined values existed.
+   * 
+   * @param splits - Raw splits data from database
+   * @returns Cleaned splits with null Points filtered out
+   */
   /**
    * Reset the inactivity timer for a session
    * 
@@ -226,6 +292,22 @@ export class VisualizationCacheService {
       // Persist all visualizations to DB
       await this.db.transaction(async (tx) => {
         for (const [vizId, vizState] of sessionState.visualizations) {
+          // DEBUG: Check what we're about to persist
+          const hasNulls = vizState.splits.some(split =>
+            split.points.some(pointGroup => pointGroup.some(p => p === null))
+          );
+
+          this.logger.debug(
+            `[CACHE->DB] About to persist viz ${vizId}: hasNulls=${hasNulls}`
+          );
+
+          if (hasNulls) {
+            this.logger.error(
+              `[CACHE->DB] PERSISTING SPLITS WITH NULL POINTS! ` +
+              `Session ${sessionId}, Viz ${vizId}`
+            );
+          }
+
           await tx
             .update(sessionVisualizations)
             .set({
