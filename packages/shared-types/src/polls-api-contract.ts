@@ -89,7 +89,7 @@ export interface LoginResponse {
  */
 
 /**
- * POST /sessions - Create a new session
+ * POST /admin/sessions - Create a new session
  */
 export interface CreateSessionDto {
   description: string | null;

@@ -47,7 +47,7 @@ const toggleStatusSchema = z.object({
  * - PUT    /sessions/:id/status - Toggle session open/closed status
  * - DELETE /sessions/:id       - Delete session (cascades to all related data)
  */
-@Controller('sessions')
+@Controller('admin/sessions')
 @UseGuards(JwtAuthGuard) // Protect all routes in this controller
 export class SessionsController {
   /**

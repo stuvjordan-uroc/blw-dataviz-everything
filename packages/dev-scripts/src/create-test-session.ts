@@ -27,7 +27,7 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
  * Check if a session already exists by slug (uses public API, no auth required)
  */
 async function checkSessionExists(slug: string): Promise<Session | null> {
-  const response = await fetch(`${API_BASE_URL}/api/sessions/${slug}`);
+  const response = await fetch(`${API_BASE_URL}/sessions/${slug}`);
 
   if (response.ok) {
     const sessionData = await response.json() as { id: number; slug: string; isOpen: boolean; description: string };

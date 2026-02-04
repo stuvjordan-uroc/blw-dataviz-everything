@@ -13,7 +13,7 @@ import { JwtAuthGuard } from 'shared-auth';
  * 
  * Note: Battery-related routes are in a separate controller to avoid conflicts
  */
-@Controller('questions')
+@Controller('admin/questions')
 @UseGuards(JwtAuthGuard) // Protect all routes in this controller
 export class QuestionsController {
   constructor(private readonly questionsService: QuestionsService) { }

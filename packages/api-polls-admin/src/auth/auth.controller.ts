@@ -15,7 +15,7 @@ import type { RegisterAdminRequest, LoginResponse, AdminUserSafe } from 'shared-
  * - POST /auth/register   - Create new admin user
  * - GET  /auth/profile    - Get current user profile (protected)
  */
-@Controller('auth')
+@Controller('admin/auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,

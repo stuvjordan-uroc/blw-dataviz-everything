@@ -11,7 +11,7 @@ import { JwtAuthGuard } from 'shared-auth';
  * - GET /batteries                    - Get all batteries
  * - GET /batteries/:name/sub-batteries - Get sub-batteries for a battery
  */
-@Controller('batteries')
+@Controller('admin/batteries')
 @UseGuards(JwtAuthGuard) // Protect all routes in this controller
 export class BatteriesController {
   constructor(private readonly questionsService: QuestionsService) { }

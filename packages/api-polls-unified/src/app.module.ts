@@ -31,10 +31,10 @@ import { AppModule as PublicModule } from 'api-polls-public/app.module';
       ignoreErrors: false,
     }),
 
-    // Admin API module
+    // Admin API module (routes prefixed with /admin in controllers)
     AdminModule,
 
-    // Public API module
+    // Public API module (routes at root level)
     PublicModule,
   ],
   controllers: [],

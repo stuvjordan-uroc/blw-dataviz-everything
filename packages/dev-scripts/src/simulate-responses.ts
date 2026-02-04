@@ -60,7 +60,7 @@ function parseArgs() {
  * Get session configuration
  */
 async function getSession(slug: string): Promise<SessionResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/sessions/${slug}`);
+  const response = await fetch(`${API_BASE_URL}/sessions/${slug}`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch session: ${response.statusText}`);

@@ -48,7 +48,7 @@ async function login(): Promise<string> {
  * Get session by slug to find its ID
  */
 async function getSessionBySlug(slug: string): Promise<{ id: number } | null> {
-  const response = await fetch(`${API_BASE_URL}/api/sessions/${slug}`);
+  const response = await fetch(`${API_BASE_URL}/sessions/${slug}`);
 
   if (response.ok) {
     const sessionData = await response.json() as SessionResponse;

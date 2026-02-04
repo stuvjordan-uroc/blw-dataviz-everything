@@ -30,9 +30,6 @@ async function bootstrap() {
   // Register global exception filter for consistent error responses
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // Set global prefix for admin routes
-  // Note: Public routes have no prefix, admin routes will need to be prefixed in their controllers
-
   // Get port from environment or default to 3005
   const port = process.env.POLLING_UNIFIED_PORT || process.env.PORT || 3005;
 
