@@ -1,0 +1,1 @@
+ALTER TABLE "questions"."sub_batteries" ADD COLUMN "prefix" text;

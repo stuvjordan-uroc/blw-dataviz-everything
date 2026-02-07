@@ -22,7 +22,8 @@ export const subBatteries = questionsSchema.table(
   {
     id: serial("id").primaryKey(),
     batteryName: text().notNull().references(() => batteries.name),
-    name: text().notNull()
+    name: text().notNull(),
+    prefix: text()
   },
   (table) => [
     //insure that the set of sub-batteries belonging to any battery has no duplicates.
