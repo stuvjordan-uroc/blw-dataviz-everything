@@ -83,10 +83,11 @@ export function SingleSplitViz({
     managerRef.current = singleSplitCanvasManager;
 
     // Read canvas dimensions after attachment (attachSingleSplitCanvas sets them)
-    setCanvasDimensions({
+    const dims = {
       width: canvas.width,
       height: canvas.height,
-    });
+    };
+    setCanvasDimensions(dims);
 
     // Cleanup: detach the canvas when component unmounts or dependencies change
     return () => {
@@ -128,6 +129,8 @@ export function SingleSplitViz({
           position: "absolute",
           left: annotationMargin.x,
           top: annotationMargin.y,
+          width: canvasDimensions ? canvasDimensions.width : 0,
+          height: canvasDimensions ? canvasDimensions.height : 0,
         }}
       >
         <VizCanvasMount canvasElement={canvasRef.current} />

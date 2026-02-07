@@ -28,6 +28,7 @@ export function VizCanvasMount({ canvasElement }: VizCanvasMountProps) {
       return () => {
         canvasElement.remove();
       };
+    } else {
     }
   }, [canvasElement]);
 

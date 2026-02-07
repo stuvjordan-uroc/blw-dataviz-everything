@@ -8,6 +8,7 @@ import { computeTargetVisibleState, rescaleVisibleState } from "./pointDisplayCo
 import { scaleGridLabelsToCanvas, rescaleGridLabelsDisplay } from "./gridLabelsComputation";
 import { VisualizationUpdateEvent, Question, ResponseGroup } from "shared-types";
 import { SingleSplitCanvas } from "./SingleSplitCanvas";
+import { cloneVizData, cloneVizLogicalState } from './cloneUtils';
 
 export class VizStateManager {
 
@@ -66,7 +67,7 @@ export class VizStateManager {
    * @returns A deep copy of the VizData
    */
   getVisualizationData(): VizData {
-    return structuredClone(this.vizData);
+    return cloneVizData(this.vizData);
   }
 
   /**
@@ -370,7 +371,7 @@ export class VizStateManager {
     const canvasData = this.canvases.get(canvasId);
     if (canvasData) {
       // Create a deep copy of the logical state
-      const stateCopy = structuredClone(canvasData.logicalState);
+      const stateCopy = cloneVizLogicalState(canvasData.logicalState);
 
       // Invoke all subscriber callbacks with the state copy and origin
       for (const callback of canvasData.stateSubscribers.values()) {
@@ -658,7 +659,7 @@ export class VizStateManager {
     canvasData.stateSubscribers.set(subscriberId, callback);
 
     // Immediately invoke the callback with current state
-    const stateCopy = structuredClone(canvasData.logicalState);
+    const stateCopy = cloneVizLogicalState(canvasData.logicalState);
     callback(stateCopy, "subscription");
 
     // Return unsubscribe function

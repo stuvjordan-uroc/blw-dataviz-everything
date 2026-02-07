@@ -26,8 +26,10 @@ export function computeSingleSplitTVS(
             image: loadedImage,
             key: pointKey(point.point),
             position: {
-              x: Math.round(drawableWidth * (responseGroup.bounds.x + point.x) / split.segmentGroupBounds.width) + canvasData.margin.x,
-              y: Math.round(drawableHeight * (responseGroup.bounds.y + point.y) / split.segmentGroupBounds.height) + canvasData.margin.y
+              // point.x and point.y are already absolute coordinates relative to segmentGroupBounds
+              // so we don't add responseGroup.bounds.x/y (that would double-count the segment position)
+              x: Math.round(drawableWidth * point.x / split.segmentGroupBounds.width) + canvasData.margin.x,
+              y: Math.round(drawableHeight * point.y / split.segmentGroupBounds.height) + canvasData.margin.y
             },
             point: point.point
           }

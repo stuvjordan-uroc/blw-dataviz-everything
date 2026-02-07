@@ -6,6 +6,8 @@ import { computeCanvasPixelDimensions } from "../canvasComputation";
 import { computeSingleSplitSegmentDisplay } from './computeSegmentDisplay';
 import { computeSingleSplitTVS } from "./computeTargetVisibleState";
 import { rescaleVisibleState } from "../pointDisplayComputation";
+import { cloneSingleSplitLogicalState } from "../cloneUtils";
+import { pointKey } from "../../utils";
 
 
 export class SingleSplitCanvas {
@@ -62,10 +64,13 @@ export class SingleSplitCanvas {
   ) {
 
     //set up canvas dimensions and resize canvas
-    const aspectRatio = split.segmentGroupBounds.width / split.segmentGroupBounds.height
+    const aspectRatio = split.segmentGroupBounds.height / split.segmentGroupBounds.width
     const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(vizRenderConfig.initialCanvasWidth, aspectRatio)
     canvas.width = shimmedPixelWidth;
     canvas.height = shimmedPixelHeight;
+    // Set CSS dimensions to match internal dimensions
+    canvas.style.width = `${shimmedPixelWidth}px`;
+    canvas.style.height = `${shimmedPixelHeight}px`;
     //canvas now cleared!
     this.canvas = {
       element: canvas,
@@ -133,8 +138,46 @@ export class SingleSplitCanvas {
     // Clear the entire canvas
     this.canvas.context.clearRect(0, 0, this.canvas.pixelWidth, this.canvas.pixelHeight);
 
+    // GEOMETRY DEBUG LOGGING
+    if (this.currentVisibleState.size > 0) {
+      console.group(`[SingleSplitCanvas ${this.splitIndex}] Geometry Debug`);
+      console.log('Canvas dimensions:', {
+        pixelWidth: this.canvas.pixelWidth,
+        pixelHeight: this.canvas.pixelHeight,
+        margin: this.canvas.margin,
+        drawableWidth: this.canvas.pixelWidth - 2 * this.canvas.margin.x,
+        drawableHeight: this.canvas.pixelHeight - 2 * this.canvas.margin.y
+      });
+      console.log('Server state segmentGroupBounds (logical):', this.serverState.segmentGroupBounds);
+      console.log('Segment display (canvas):', this.logicalState.segmentDisplay.segmentGroupBounds);
+      console.log('Response groups:', this.logicalState.displayMode === 'expanded'
+        ? this.serverState.responseGroups.expanded.length
+        : this.serverState.responseGroups.collapsed.length);
+
+      // Log first few segment bounds (logical and canvas)
+      const responseGroups = this.logicalState.displayMode === 'expanded'
+        ? this.serverState.responseGroups.expanded
+        : this.serverState.responseGroups.collapsed;
+      responseGroups.slice(0, 3).forEach((rg, idx) => {
+        const canvasBounds = this.logicalState.segmentDisplay.responseGroups[idx]?.bounds;
+        console.log(`Segment ${idx} [${rg.label}]:`);
+        console.log('  Logical bounds:', rg.bounds);
+        console.log('  Canvas bounds:', canvasBounds);
+        console.log('  Points in segment:', rg.pointPositions.length);
+        if (rg.pointPositions.length > 0) {
+          const firstPoint = rg.pointPositions[0];
+          console.log('  First point logical (relative to segment):', { x: firstPoint.x, y: firstPoint.y });
+          const canvasPoint = this.currentVisibleState.get(pointKey(firstPoint.point));
+          if (canvasPoint) {
+            console.log('  First point canvas (absolute):', canvasPoint.position);
+          }
+        }
+      });
+      console.groupEnd();
+    }
+
     // Draw each point at its position
-    for (const [pointKey, pointDisplay] of this.currentVisibleState.entries()) {
+    for (const [, pointDisplay] of this.currentVisibleState.entries()) {
 
       // Skip points with opacity 0 (fully transparent)
       if (pointDisplay.opacity !== undefined && pointDisplay.opacity <= 0) {
@@ -204,7 +247,7 @@ export class SingleSplitCanvas {
 
   private notifySubscribers(origin: StateChangeOrigin) {
     //deep copy the logical state
-    const stateCopy = structuredClone(this.logicalState);
+    const stateCopy = cloneSingleSplitLogicalState(this.logicalState);
 
     //invoke all subscriber callbacks with the state copy and origin
     for (const callback of this.stateSubscribers.values()) {
@@ -261,7 +304,7 @@ export class SingleSplitCanvas {
     //Step 1: compute shimmed dimensions from requestedWidth
     const { shimmedPixelWidth, shimmedPixelHeight } = computeCanvasPixelDimensions(
       requestedWidth,
-      this.serverState.segmentGroupBounds.width / this.serverState.segmentGroupBounds.height
+      this.serverState.segmentGroupBounds.height / this.serverState.segmentGroupBounds.width
     );
 
     //no-op if we're already set
@@ -318,6 +361,9 @@ export class SingleSplitCanvas {
       this.canvas.pixelHeight = shimmedPixelHeight;
       this.canvas.element.width = shimmedPixelWidth;
       this.canvas.element.height = shimmedPixelHeight;
+      // Update CSS dimensions to match
+      this.canvas.element.style.width = `${shimmedPixelWidth}px`;
+      this.canvas.element.style.height = `${shimmedPixelHeight}px`;
 
       //Step 5: set visible state to new logical state and redraw canvas
       this.currentVisibleState = this.logicalState.targetVisibleState;
@@ -381,7 +427,7 @@ export class SingleSplitCanvas {
     this.stateSubscribers.set(subscriberId, callback);
 
     // Immediately invoke the callback with current state
-    const stateCopy = structuredClone(this.logicalState);
+    const stateCopy = cloneSingleSplitLogicalState(this.logicalState);
     callback(stateCopy, "subscription");
 
     // Return unsubscribe function
