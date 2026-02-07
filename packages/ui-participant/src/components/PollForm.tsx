@@ -1,5 +1,6 @@
 import { useState, FormEvent } from "react";
 import type { QuestionWithDetails, RespondentAnswer } from "shared-types";
+import { HierarchicalQuestionList } from "./HierarchicalQuestionList";
 import * as styles from "./PollForm.css";
 
 interface PollFormProps {
@@ -99,52 +100,11 @@ export function PollForm({
 
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
-      <div className={styles.questionList}>
-        {questions.map((question, index) => (
-          <div key={index} className={styles.questionCard}>
-            <label className={styles.questionLabel}>
-              <div className={styles.questionText}>
-                {index + 1}. {question.text || question.varName}
-              </div>
-              {question.responses && question.responses.length > 0 ? (
-                <div className={styles.responseList}>
-                  {question.responses.map((response, responseIndex) => {
-                    // Get the actual DB index for this response
-                    const dbIndex = question.responseIndices[responseIndex];
-                    return (
-                      <label
-                        key={responseIndex}
-                        className={styles.responseOption}
-                      >
-                        <input
-                          type="radio"
-                          name={`question-${index}`}
-                          value={dbIndex}
-                          checked={answers.get(question.varName) === dbIndex}
-                          onChange={() =>
-                            handleAnswerChange(question.varName, dbIndex)
-                          }
-                          className={styles.radioInput}
-                        />
-                        {response}
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  value={answers.get(question.varName) || ""}
-                  onChange={(e) =>
-                    handleAnswerChange(question.varName, e.target.value)
-                  }
-                  className={styles.textInput}
-                />
-              )}
-            </label>
-          </div>
-        ))}
-      </div>
+      <HierarchicalQuestionList
+        questions={questions}
+        answers={answers}
+        onAnswerChange={handleAnswerChange}
+      />
 
       <button
         type="submit"

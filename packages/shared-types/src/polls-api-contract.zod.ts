@@ -29,6 +29,8 @@ export const QuestionWithDetailsSchema = QuestionSchema.extend({
   text: z.string().nullable(),
   responses: z.array(z.string()).nullable(),
   responseIndices: z.array(z.number().int().nonnegative()),
+  batteryPrefix: z.string().nullable(),
+  subBatteryPrefix: z.string().nullable(),
 });
 
 /**

@@ -2,7 +2,7 @@ import { Injectable, Inject, NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "../database/database.providers";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq, and } from "drizzle-orm";
-import { sessions, questions } from "shared-schemas";
+import { sessions, questions, batteries, subBatteries } from "shared-schemas";
 import type { SessionResponse, QuestionInSession, QuestionWithDetails } from "shared-types";
 import { ResponsesService } from "../responses/responses.service";
 
@@ -91,12 +91,28 @@ export class SessionsService {
   private async getFullQuestionDetails(
     questionKeys: QuestionInSession[]
   ): Promise<QuestionWithDetails[]> {
-    // Fetch all matching questions from the database
+    // Fetch all matching questions from the database with JOINs to get prefixes
     const fetchedQuestions = await Promise.all(
       questionKeys.map(key =>
         this.db
-          .select()
+          .select({
+            varName: questions.varName,
+            text: questions.text,
+            batteryName: questions.batteryName,
+            subBattery: questions.subBattery,
+            responses: questions.responses,
+            batteryPrefix: batteries.prefix,
+            subBatteryPrefix: subBatteries.prefix,
+          })
           .from(questions)
+          .leftJoin(batteries, eq(questions.batteryName, batteries.name))
+          .leftJoin(
+            subBatteries,
+            and(
+              eq(questions.batteryName, subBatteries.batteryName),
+              eq(questions.subBattery, subBatteries.name)
+            )
+          )
           .where(
             and(
               eq(questions.varName, key.varName),
@@ -134,6 +150,8 @@ export class SessionsService {
           text: dbQuestion.text,
           responses: dbResponses,
           responseIndices: allIndices,
+          batteryPrefix: dbQuestion.batteryPrefix,
+          subBatteryPrefix: dbQuestion.subBatteryPrefix,
         };
       }
 
@@ -147,6 +165,8 @@ export class SessionsService {
         text: dbQuestion.text,
         responses: filteredResponses,
         responseIndices: key.responseIndices,
+        batteryPrefix: dbQuestion.batteryPrefix,
+        subBatteryPrefix: dbQuestion.subBatteryPrefix,
       };
     });
   }

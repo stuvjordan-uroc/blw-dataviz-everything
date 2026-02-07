@@ -35,6 +35,8 @@ export interface QuestionWithDetails extends Question {
   text: string | null;
   responses: string[] | null;  // Filtered/ordered subset for session-configured questions
   responseIndices: number[];   // DB indices corresponding to each response
+  batteryPrefix: string | null;  // User-facing prefix from batteries.prefix (via JOIN)
+  subBatteryPrefix: string | null;  // User-facing prefix from sub_batteries.prefix (via JOIN)
 }
 
 /**
