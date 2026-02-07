@@ -3,7 +3,7 @@ import { DATABASE_CONNECTION } from "../database/database.providers";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq, and } from "drizzle-orm";
 import { sessions, questions } from "shared-schemas";
-import type { SessionResponse, Question, QuestionWithDetails } from "shared-types";
+import type { SessionResponse, QuestionInSession, QuestionWithDetails } from "shared-types";
 import { ResponsesService } from "../responses/responses.service";
 
 /**
@@ -83,13 +83,13 @@ export class SessionsService {
   }
 
   /**
-   * Fetch full question details from the database
+   * Fetch full question details from the database and apply response filtering
    * 
-   * @param questionKeys - Array of Question keys to fetch
-   * @returns Array of full question objects with text and responses fields
+   * @param questionKeys - Array of QuestionInSession with response configuration
+   * @returns Array of full question objects with filtered/reordered responses
    */
   private async getFullQuestionDetails(
-    questionKeys: Question[]
+    questionKeys: QuestionInSession[]
   ): Promise<QuestionWithDetails[]> {
     // Fetch all matching questions from the database
     const fetchedQuestions = await Promise.all(
@@ -117,7 +117,37 @@ export class SessionsService {
       );
     }
 
-    // Return in the same order as questionKeys
-    return fetchedQuestions as QuestionWithDetails[];
+    // Filter and reorder responses based on responseIndices
+    return questionKeys.map((key, index) => {
+      const dbQuestion = fetchedQuestions[index];
+      const dbResponses = dbQuestion.responses || [];
+
+      // Handle missing responseIndices (defensive - shouldn't happen with valid sessions)
+      if (!key.responseIndices || !Array.isArray(key.responseIndices)) {
+        console.error(`[ERROR] Question missing responseIndices:`, JSON.stringify(key, null, 2));
+        // Fallback: use all response indices in order
+        const allIndices = dbResponses.map((_, idx) => idx);
+        return {
+          varName: dbQuestion.varName,
+          batteryName: dbQuestion.batteryName,
+          subBattery: dbQuestion.subBattery,
+          text: dbQuestion.text,
+          responses: dbResponses,
+          responseIndices: allIndices,
+        };
+      }
+
+      // Filter and reorder based on responseIndices
+      const filteredResponses = key.responseIndices.map(idx => dbResponses[idx]);
+
+      return {
+        varName: dbQuestion.varName,
+        batteryName: dbQuestion.batteryName,
+        subBattery: dbQuestion.subBattery,
+        text: dbQuestion.text,
+        responses: filteredResponses,
+        responseIndices: key.responseIndices,
+      };
+    });
   }
 }

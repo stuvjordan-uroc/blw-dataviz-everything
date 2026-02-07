@@ -7,7 +7,7 @@
  */
 
 import type { ViewMaps, SplitWithSegmentGroup, SplitWithSegmentGroupDiff, SegmentVizConfig, GridLabelsDisplay, ViewIdLookup } from './visualization';
-import type { Question, QuestionWithDetails } from './index';
+import type { QuestionInSession, QuestionWithDetails } from './index';
 
 /**
  * ===============================
@@ -19,14 +19,14 @@ import type { Question, QuestionWithDetails } from './index';
  * Session configuration for a polling session.
  * Defines which questions are presented to respondents and how responses are visualized.
  * 
- * This is the storage format - stores only Question keys, not full details.
+ * This is the storage format - stores Question keys with response configuration.
  * Admin API uses this for creating sessions.
- * Public API expands Question[] to QuestionWithDetails[] when serving to clients.
+ * Public API expands QuestionInSession[] to QuestionWithDetails[] when serving to clients.
  */
 export interface SessionConfig {
   // Questions in the order they will be presented to respondents
-  // Stored as keys only (varName, batteryName, subBattery)
-  questionOrder: Question[];
+  // Each includes response configuration (which responses to show and in what order)
+  questionOrder: QuestionInSession[];
 
   // One visualization per response question, with unique ID for reference
   visualizations: (SegmentVizConfig & { id: string })[];
@@ -94,7 +94,7 @@ export interface LoginResponse {
 export interface CreateSessionDto {
   description: string | null;
   sessionConfig: {
-    questionOrder: Question[];
+    questionOrder: QuestionInSession[];
     visualizations: Omit<SegmentVizConfig, 'id'>[]; // IDs are generated server-side
   };
   slug?: string; // Optional - will be generated if not provided

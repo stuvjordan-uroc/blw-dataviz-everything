@@ -6,7 +6,8 @@ import type {
   SegmentVizConfig,
   ResponseQuestion,
   GroupingQuestion,
-  GroupColorOverride
+  GroupColorOverride,
+  QuestionInSession
 } from "shared-types";
 
 /**
@@ -46,7 +47,7 @@ type SegmentVizConfigWithKeys = Omit<SegmentVizConfig, 'responseQuestion' | 'gro
  */
 export async function validateSessionConfig(
   sessionConfig: {
-    questionOrder: Array<{ varName: string; batteryName: string; subBattery: string }>;
+    questionOrder: QuestionInSession[];
     visualizations: Array<SegmentVizConfig & { id?: string }>
   },
   tx: ReturnType<typeof drizzle> | Parameters<Parameters<ReturnType<typeof drizzle>['transaction']>[0]>[0]
@@ -166,8 +167,119 @@ export async function validateSessionConfig(
     );
   }
 
-  // Step 7: Validate each visualization in the config
+  // Step 7: Validate responseIndices configuration for each question
+  for (const q of questionOrder) {
+    // Find the corresponding question from DB
+    const dbQuestion = existingQuestions.find(
+      (eq) =>
+        eq.varName === q.varName &&
+        eq.batteryName === q.batteryName &&
+        eq.subBattery === q.subBattery
+    );
+
+    if (!dbQuestion) {
+      // This should never happen after Step 6, but be defensive
+      throw new BadRequestException(
+        `Question (varName: ${q.varName}, battery: ${q.batteryName}, subBattery: ${q.subBattery || "(none)"}) not found in DB`
+      );
+    }
+
+    // Validate responseIndices is a set (no duplicates)
+    const uniqueIndices = new Set(q.responseIndices);
+    if (uniqueIndices.size !== q.responseIndices.length) {
+      throw new BadRequestException(
+        `Question (varName: ${q.varName}, battery: ${q.batteryName}, subBattery: ${q.subBattery || "(none)"}) has duplicate response indices in responseIndices array`
+      );
+    }
+
+    // Validate all indices are within bounds
+    const dbResponsesLength = dbQuestion.responses?.length ?? 0;
+    if (dbResponsesLength === 0) {
+      throw new BadRequestException(
+        `Question (varName: ${q.varName}, battery: ${q.batteryName}, subBattery: ${q.subBattery || "(none)"}) has no responses in the database`
+      );
+    }
+
+    const maxIndex = Math.max(...q.responseIndices);
+    if (maxIndex >= dbResponsesLength) {
+      throw new BadRequestException(
+        `Question (varName: ${q.varName}, battery: ${q.batteryName}, subBattery: ${q.subBattery || "(none)"}) has response index ${maxIndex} but database only has ${dbResponsesLength} responses (max index: ${dbResponsesLength - 1})`
+      );
+    }
+
+    // Note: min length >= 1 is already validated by Zod schema
+  }
+
+  // Step 8: Validate each visualization in the config
   for (const viz of visualizations) {
+    /**
+     * Validate that all response group values are in the configured responseIndices
+     * for the corresponding questions in questionOrder.
+     */
+    // Helper to find configured responseIndices for a question
+    const getConfiguredResponseIndices = (questionKey: string): number[] => {
+      const q = questionOrder.find(
+        (q) => getQuestionKey(q) === questionKey
+      );
+      if (!q) {
+        throw new BadRequestException(
+          `Question ${questionKey} is referenced in visualization but not found in questionOrder`
+        );
+      }
+      return q.responseIndices;
+    };
+
+    // Validate response question (both expanded and collapsed)
+    const responseQIndices = new Set(
+      getConfiguredResponseIndices(viz.responseQuestion.questionKey)
+    );
+
+    // Check expanded response groups
+    for (const rg of viz.responseQuestion.responseGroups.expanded) {
+      const invalidValues = rg.values.filter((val) => !responseQIndices.has(val));
+      if (invalidValues.length > 0) {
+        throw new BadRequestException(
+          `Response question ${viz.responseQuestion.questionKey} expanded response group "${rg.label}" contains response indices [${invalidValues.join(", ")}] that are not in the configured responseIndices for this question`
+        );
+      }
+    }
+
+    // Check collapsed response groups
+    for (const rg of viz.responseQuestion.responseGroups.collapsed) {
+      const invalidValues = rg.values.filter((val) => !responseQIndices.has(val));
+      if (invalidValues.length > 0) {
+        throw new BadRequestException(
+          `Response question ${viz.responseQuestion.questionKey} collapsed response group "${rg.label}" contains response indices [${invalidValues.join(", ")}] that are not in the configured responseIndices for this question`
+        );
+      }
+    }
+
+    // Validate x-axis grouping questions
+    for (const gq of viz.groupingQuestions.x) {
+      const gqIndices = new Set(getConfiguredResponseIndices(gq.questionKey));
+      for (const rg of gq.responseGroups) {
+        const invalidValues = rg.values.filter((val) => !gqIndices.has(val));
+        if (invalidValues.length > 0) {
+          throw new BadRequestException(
+            `X-axis grouping question ${gq.questionKey} response group "${rg.label}" contains response indices [${invalidValues.join(", ")}] that are not in the configured responseIndices for this question`
+          );
+        }
+      }
+    }
+
+    // Validate y-axis grouping questions
+    for (const gq of viz.groupingQuestions.y) {
+      const gqIndices = new Set(getConfiguredResponseIndices(gq.questionKey));
+      for (const rg of gq.responseGroups) {
+        const invalidValues = rg.values.filter((val) => !gqIndices.has(val));
+        if (invalidValues.length > 0) {
+          throw new BadRequestException(
+            `Y-axis grouping question ${gq.questionKey} response group "${rg.label}" contains response indices [${invalidValues.join(", ")}] that are not in the configured responseIndices for this question`
+          );
+        }
+      }
+    }
+
     /**
      * On the response question, 
      * values of each expanded response group are a subset of the values

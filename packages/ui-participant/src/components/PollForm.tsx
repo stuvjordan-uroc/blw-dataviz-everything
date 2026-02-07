@@ -108,26 +108,28 @@ export function PollForm({
               </div>
               {question.responses && question.responses.length > 0 ? (
                 <div className={styles.responseList}>
-                  {question.responses.map((response, responseIndex) => (
-                    <label
-                      key={responseIndex}
-                      className={styles.responseOption}
-                    >
-                      <input
-                        type="radio"
-                        name={`question-${index}`}
-                        value={responseIndex}
-                        checked={
-                          answers.get(question.varName) === responseIndex
-                        }
-                        onChange={() =>
-                          handleAnswerChange(question.varName, responseIndex)
-                        }
-                        className={styles.radioInput}
-                      />
-                      {response}
-                    </label>
-                  ))}
+                  {question.responses.map((response, responseIndex) => {
+                    // Get the actual DB index for this response
+                    const dbIndex = question.responseIndices[responseIndex];
+                    return (
+                      <label
+                        key={responseIndex}
+                        className={styles.responseOption}
+                      >
+                        <input
+                          type="radio"
+                          name={`question-${index}`}
+                          value={dbIndex}
+                          checked={answers.get(question.varName) === dbIndex}
+                          onChange={() =>
+                            handleAnswerChange(question.varName, dbIndex)
+                          }
+                          className={styles.radioInput}
+                        />
+                        {response}
+                      </label>
+                    );
+                  })}
                 </div>
               ) : (
                 <input

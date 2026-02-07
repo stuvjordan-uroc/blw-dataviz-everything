@@ -16,12 +16,25 @@ export interface Question {
 }
 
 /**
+ * Question configured for a specific session.
+ * Extends Question with response configuration (which responses to show and in what order).
+ */
+export interface QuestionInSession extends Question {
+  // Array of response indices from the DB responses array
+  // e.g., [2, 8, 0] means "show responses at indices 2, 8, and 0, in that order"
+  responseIndices: number[];
+}
+
+/**
  * Full question data including text and responses.
  * Extends Question with additional fields from the questions.questions table.
+ * For session-specific questions, responses contains the filtered/ordered subset,
+ * and responseIndices maps displayed positions to DB indices.
  */
 export interface QuestionWithDetails extends Question {
   text: string | null;
-  responses: string[] | null;
+  responses: string[] | null;  // Filtered/ordered subset for session-configured questions
+  responseIndices: number[];   // DB indices corresponding to each response
 }
 
 /**
@@ -105,6 +118,7 @@ export {
  */
 export {
   // Shared session schemas
+  QuestionInSessionSchema,
   QuestionWithDetailsSchema,
   SessionConfigSchema,
   SessionConfigResponseSchema,

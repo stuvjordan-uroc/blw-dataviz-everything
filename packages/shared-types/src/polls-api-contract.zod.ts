@@ -28,13 +28,21 @@ import {
 export const QuestionWithDetailsSchema = QuestionSchema.extend({
   text: z.string().nullable(),
   responses: z.array(z.string()).nullable(),
+  responseIndices: z.array(z.number().int().nonnegative()),
+});
+
+/**
+ * Schema for QuestionInSession
+ */
+export const QuestionInSessionSchema = QuestionSchema.extend({
+  responseIndices: z.array(z.number().int().nonnegative()).min(1),
 });
 
 /**
  * Schema for SessionConfig (storage format with Question keys)
  */
 export const SessionConfigSchema = z.object({
-  questionOrder: z.array(QuestionSchema),
+  questionOrder: z.array(QuestionInSessionSchema),
   visualizations: z.array(
     SegmentVizConfigSchema.extend({
       id: z.string(),
@@ -81,7 +89,7 @@ export const SessionSchema = z.object({
 export const CreateSessionDtoSchema = z.object({
   description: z.string().nullable(),
   sessionConfig: z.object({
-    questionOrder: z.array(QuestionSchema),
+    questionOrder: z.array(QuestionInSessionSchema),
     visualizations: z.array(SegmentVizConfigSchema),
   }),
   slug: z.string().optional(),

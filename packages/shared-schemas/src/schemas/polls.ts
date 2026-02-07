@@ -32,6 +32,8 @@ export const pollsSchema = pgSchema("polls");
 export const sessions = pollsSchema.table("sessions", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
+  // SessionConfig includes questionOrder (QuestionInSession[]) with response configuration
+  // Each question specifies responseIndices array for filtering/ordering responses
   sessionConfig: jsonb("session_config").$type<SessionConfig>(),
   description: text(),
   isOpen: boolean("is_open").notNull().default(true),

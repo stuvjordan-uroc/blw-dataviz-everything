@@ -84,16 +84,19 @@ async function createTestSession(token: string, slug: string): Promise<Session> 
           varName: 'candidates_disclose',
           batteryName: 'democratic_characteristics_importance',
           subBattery: 'Electoral competition and political accountability',
+          responseIndices: [1, 2, 3], // Filter: exclude "Not relevant" (index 0)
         },
         {
           varName: 'legislature_check',
           batteryName: 'democratic_characteristics_importance',
           subBattery: 'Executive, legislative, and judicial powers',
+          responseIndices: [3, 2, 1, 0], // Reorder: reverse the responses
         },
         {
           varName: 'ban_ideology',
           batteryName: 'democratic_characteristics_importance',
           subBattery: 'Political and civil rights',
+          responseIndices: [0, 1, 2, 3], // Baseline: all responses in order
         },
       ],
       visualizations: [
@@ -106,13 +109,12 @@ async function createTestSession(token: string, slug: string): Promise<Session> 
             },
             responseGroups: {
               expanded: [
-                { values: [0], label: 'Not relevant' },
                 { values: [1], label: 'Beneficial' },
                 { values: [2], label: 'Important' },
                 { values: [3], label: 'Essential' }
               ],
               collapsed: [
-                { values: [0, 1], label: 'Not relevant/Beneficial' },
+                { values: [1], label: 'Beneficial' },
                 { values: [2, 3], label: 'Important/Essential' },
               ],
             },

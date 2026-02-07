@@ -1,7 +1,14 @@
+// Load environment variables BEFORE any module imports that read process.env.
+// Module decorators (e.g. JwtModule.register()) evaluate at import time,
+// so process.env must be populated before they run.
+// In production (Railway), env vars are injected by the platform and this is a no-op
+// (dotenv silently does nothing when the file doesn't exist).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require('dotenv').config({ path: '../../.env' });
+
 import { NestFactory } from '@nestjs/core';
 import { UnifiedAppModule } from './app.module';
 import { AllExceptionsFilter } from 'api-polls-admin/dist/common/filters/all-exceptions.filter';
-import * as dotenv from 'dotenv';
 import { LogLevel } from '@nestjs/common';
 
 //
@@ -19,9 +26,6 @@ import { LogLevel } from '@nestjs/common';
  * - Public API on /* (no authentication required)
  */
 async function bootstrap() {
-  // Load environment variables from root .env
-  dotenv.config({ path: '../../.env' });
-
   // Determine log levels based on LOG_LEVEL environment variable
   const logLevel = process.env.LOG_LEVEL || 'log';
   const logLevels: LogLevel[] = logLevel === 'debug'
