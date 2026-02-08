@@ -5,6 +5,33 @@ import { AnnotationLayer } from "./AnnotationLayer";
 import { ViewIdPicker } from "./ViewIdPicker";
 import { DisplayModePicker } from "./DisplayModePicker";
 import type { VizRenderConfig } from "../../types";
+import { forwardRef, useImperativeHandle } from "react";
+
+/**
+ * Ref interface exposed by ControllableViz for debug wrapper
+ */
+export interface FullVizRef {
+  vizState: {
+    segmentDisplay: Array<{
+      segmentGroupBounds: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+      responseGroups: Array<{
+        bounds: { x: number; y: number; width: number; height: number };
+        label: string;
+      }>;
+    }>;
+  } | null;
+  annotationMargin: { x: number; y: number };
+  canvasDimensions: { width: number; height: number } | null;
+  displayMode: "expanded" | "collapsed";
+  isAnimating: boolean;
+  canvasId: number | null;
+  vizManager: VizStateManager;
+}
 
 /**
  * ControllableViz - Full controllable visualization component
@@ -76,73 +103,105 @@ export interface ControllableVizProps {
   onDisplayModeChange?: (displayMode: "expanded" | "collapsed") => void;
 }
 
-export function ControllableViz({
-  vizManager,
-  vizRenderConfig,
-  annotationMargin,
-  onViewChange,
-  onDisplayModeChange,
-}: ControllableVizProps) {
-  // Use custom hook to manage canvas and VizStateManager
-  const { canvasElement, canvasId, vizState, canvasDimensions } = useVizCanvas(
-    vizManager,
-    vizRenderConfig,
-    vizRenderConfig.initialCanvasWidth,
-    (state, origin) => {
-      // Notify parent only when the specific property changes
-      if (origin === "viewId") {
-        onViewChange?.(state.viewId);
-      }
-      if (origin === "displayMode") {
-        onDisplayModeChange?.(state.displayMode);
-      }
+export const ControllableViz = forwardRef<FullVizRef, ControllableVizProps>(
+  function ControllableViz(
+    {
+      vizManager,
+      vizRenderConfig,
+      annotationMargin,
+      onViewChange,
+      onDisplayModeChange,
     },
-  );
+    ref,
+  ) {
+    // Use custom hook to manage canvas and VizStateManager
+    const { canvasElement, canvasId, vizState, canvasDimensions } =
+      useVizCanvas(
+        vizManager,
+        vizRenderConfig,
+        vizRenderConfig.initialCanvasWidth,
+        (state, origin) => {
+          // Notify parent only when the specific property changes
+          if (origin === "viewId") {
+            onViewChange?.(state.viewId);
+          }
+          if (origin === "displayMode") {
+            onDisplayModeChange?.(state.displayMode);
+          }
+        },
+      );
 
-  return (
-    <div className="controllable-viz">
-      {/* Controls container - only render when canvas is attached */}
-      {canvasId !== null && (
-        <div className="controllable-viz__controls-container">
-          <ViewIdPicker
-            allQuestions={vizManager.getGroupingQuestions()}
-            viewIdLookup={vizManager.getViewIdLookup()}
-            initialViewId={vizRenderConfig.initialViewId}
-            label="Split by:"
-            onViewIdChange={(viewId) =>
-              vizManager.setClientViewId(canvasId, viewId)
-            }
-          />
-          <DisplayModePicker
-            onDisplayModeChange={(mode) =>
-              vizManager.setClientDisplayMode(canvasId, mode)
-            }
-            initialMode={vizRenderConfig.initialDisplayMode}
-          />
-        </div>
-      )}
+    // Expose ref for DebugWrapper
+    useImperativeHandle(
+      ref,
+      () => ({
+        vizState: vizState ? { segmentDisplay: vizState.segmentDisplay } : null,
+        annotationMargin,
+        canvasDimensions,
+        displayMode:
+          vizState?.displayMode ?? vizRenderConfig.initialDisplayMode,
+        isAnimating:
+          canvasId !== null ? vizManager.getIsAnimating(canvasId) : false,
+        canvasId,
+        vizManager,
+      }),
+      [
+        vizState,
+        annotationMargin,
+        canvasDimensions,
+        vizRenderConfig.initialDisplayMode,
+        canvasId,
+        vizManager,
+      ],
+    );
 
-      {/* Canvas container with canvas + annotations */}
-      <div
-        className="controllable-viz__canvas-container"
-        style={{
-          position: "relative",
-          width: canvasDimensions.width + 2 * annotationMargin.x,
-          height: canvasDimensions.height + 2 * annotationMargin.y,
-        }}
-      >
-        {/* Manually attached canvas */}
-        <VizCanvasMount canvasElement={canvasElement} />
-
-        {/* React-rendered annotation overlays */}
-        {vizState?.segmentDisplay && vizState?.gridLabelsDisplay && (
-          <AnnotationLayer
-            segmentDisplay={vizState.segmentDisplay}
-            gridLabelsDisplay={vizState.gridLabelsDisplay}
-            annotationMargin={annotationMargin}
-          />
+    return (
+      <div className="controllable-viz">
+        {/* Controls container - only render when canvas is attached */}
+        {canvasId !== null && (
+          <div className="controllable-viz__controls-container">
+            <ViewIdPicker
+              allQuestions={vizManager.getGroupingQuestions()}
+              viewIdLookup={vizManager.getViewIdLookup()}
+              initialViewId={vizRenderConfig.initialViewId}
+              label="Split by:"
+              onViewIdChange={(viewId) =>
+                vizManager.setClientViewId(canvasId, viewId)
+              }
+            />
+            <DisplayModePicker
+              onDisplayModeChange={(mode) =>
+                vizManager.setClientDisplayMode(canvasId, mode)
+              }
+              initialMode={vizRenderConfig.initialDisplayMode}
+            />
+          </div>
         )}
+
+        {/* Canvas container with canvas + annotations */}
+        <div
+          className="controllable-viz__canvas-container"
+          style={{
+            position: "relative",
+            width: canvasDimensions.width + 2 * annotationMargin.x,
+            height: canvasDimensions.height + 2 * annotationMargin.y,
+          }}
+        >
+          {/* Manually attached canvas */}
+          <VizCanvasMount canvasElement={canvasElement} />
+
+          {/* React-rendered annotation overlays */}
+          {vizState?.segmentDisplay && vizState?.gridLabelsDisplay && (
+            <AnnotationLayer
+              segmentDisplay={vizState.segmentDisplay}
+              gridLabelsDisplay={vizState.gridLabelsDisplay}
+              annotationMargin={annotationMargin}
+            />
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  },
+);
+
+ControllableViz.displayName = "ControllableViz";

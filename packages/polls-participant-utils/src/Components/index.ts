@@ -7,3 +7,6 @@ export * from './FullViz';
 
 // Single-split visualization components (render one split via attachSingleSplitCanvas)
 export * from './SingleSplitViz';
+
+// Debug utilities
+export * from './DebugWrapper';

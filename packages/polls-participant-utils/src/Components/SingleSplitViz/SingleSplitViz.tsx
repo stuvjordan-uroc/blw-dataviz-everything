@@ -1,9 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { VizStateManager } from "../../VizStateManager";
 import { SingleSplitCanvas } from "../../VizStateManager/SingleSplitCanvas";
 import { VizRenderConfig } from "../../types";
 import { Question, ResponseGroup } from "shared-types";
 import { VizCanvasMount } from "../FullViz/VizCanvasMount";
+
+/**
+ * Ref interface exposed by SingleSplitViz for debug wrapper
+ */
+export interface SingleSplitVizRef {
+  manager: SingleSplitCanvas | null;
+  annotationMargin: { x: number; y: number };
+  canvasDimensions: { width: number; height: number } | null;
+  displayMode: "expanded" | "collapsed";
+  isAnimating: boolean;
+}
 
 export interface SingleSplitVizProps {
   /**
@@ -38,15 +55,27 @@ export interface SingleSplitVizProps {
    * If not provided, uses vizRenderConfig.initialCanvasWidth.
    */
   canvasWidth?: number;
+
+  /**
+   * Optional callback invoked when manager and canvas are ready (used by DebugWrapper)
+   */
+  onReady?: () => void;
 }
 
-export function SingleSplitViz({
-  vizManager,
-  vizRenderConfig,
-  annotationMargin,
-  splitToFocus,
-  canvasWidth,
-}: SingleSplitVizProps) {
+export const SingleSplitViz = forwardRef<
+  SingleSplitVizRef,
+  SingleSplitVizProps
+>(function SingleSplitViz(
+  {
+    vizManager,
+    vizRenderConfig,
+    annotationMargin,
+    splitToFocus,
+    canvasWidth,
+    onReady,
+  },
+  ref,
+) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const managerRef = useRef<SingleSplitCanvas | null>(null);
   const [canvasDimensions, setCanvasDimensions] = useState<{
@@ -89,6 +118,11 @@ export function SingleSplitViz({
     };
     setCanvasDimensions(dims);
 
+    // Notify parent that manager is ready (for DebugWrapper)
+    if (onReady) {
+      onReady();
+    }
+
     // Cleanup: detach the canvas when component unmounts or dependencies change
     return () => {
       detachSingleSplitCanvas();
@@ -96,7 +130,21 @@ export function SingleSplitViz({
       managerRef.current = null;
       setCanvasDimensions(null);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vizManager, vizRenderConfig, splitToFocus]);
+
+  // Expose ref for DebugWrapper to access manager and geometry data
+  useImperativeHandle(
+    ref,
+    () => ({
+      manager: managerRef.current,
+      annotationMargin,
+      canvasDimensions,
+      displayMode: vizRenderConfig.initialDisplayMode,
+      isAnimating: managerRef.current?.getIsAnimating() ?? false,
+    }),
+    [annotationMargin, canvasDimensions, vizRenderConfig.initialDisplayMode],
+  );
 
   // Effect 2: Handle canvas width changes (resize existing canvas without remounting)
   useEffect(() => {
@@ -137,4 +185,6 @@ export function SingleSplitViz({
       </div>
     </div>
   );
-}
+});
+
+SingleSplitViz.displayName = "SingleSplitViz";

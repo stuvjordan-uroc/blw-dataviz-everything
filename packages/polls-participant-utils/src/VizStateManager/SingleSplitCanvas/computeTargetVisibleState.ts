@@ -20,16 +20,22 @@ export function computeSingleSplitTVS(
     const loadedImage = loadedImages.get(responseGroup.pointImage.svgDataURL)
     if (loadedImage) {
       for (const point of responseGroup.pointPositions) {
+        // point.x/y are relative to segment origin (0,0).
+        // Add responseGroup.bounds.x/y to get position relative to segment group origin,
+        // then scale from segment group coordinate space to canvas pixels.
+        const absX = point.x + responseGroup.bounds.x;
+        const absY = point.y + responseGroup.bounds.y;
+        const canvasX = Math.round(drawableWidth * absX / split.segmentGroupBounds.width) + canvasData.margin.x;
+        const canvasY = Math.round(drawableHeight * absY / split.segmentGroupBounds.height) + canvasData.margin.y;
+
         mapToReturn.set(
           pointKey(point.point),
           {
             image: loadedImage,
             key: pointKey(point.point),
             position: {
-              // point.x and point.y are already absolute coordinates relative to segmentGroupBounds
-              // so we don't add responseGroup.bounds.x/y (that would double-count the segment position)
-              x: Math.round(drawableWidth * point.x / split.segmentGroupBounds.width) + canvasData.margin.x,
-              y: Math.round(drawableHeight * point.y / split.segmentGroupBounds.height) + canvasData.margin.y
+              x: canvasX,
+              y: canvasY
             },
             point: point.point
           }

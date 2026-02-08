@@ -49,6 +49,7 @@ export class SingleSplitCanvas {
   //animation
   private animation: Required<AnimationConfig>;
   private animationController: VizAnimationController;
+  private isAnimating: boolean = false;
 
   //===============================
   // CONSTRUCTOR
@@ -263,6 +264,30 @@ export class SingleSplitCanvas {
     return this.splitIndex
   }
 
+  getIsAnimating() {
+    return this.isAnimating
+  }
+
+  getLogicalState() {
+    return cloneSingleSplitLogicalState(this.logicalState);
+  }
+
+  getCurrentVisibleState() {
+    return new Map(this.currentVisibleState);
+  }
+
+  getCanvasData() {
+    return {
+      pixelWidth: this.canvas.pixelWidth,
+      pixelHeight: this.canvas.pixelHeight,
+      margin: { ...this.canvas.margin }
+    };
+  }
+
+  getServerState() {
+    return this.serverState;
+  }
+
   setClientDisplayMode(displayMode: "expanded" | "collapsed") {
     //no-op if the new displayMode is the same as the old
     if (this.logicalState.displayMode !== displayMode) {
@@ -282,6 +307,7 @@ export class SingleSplitCanvas {
       )
 
       //Step 2: start animation to new targetVisibleState
+      this.isAnimating = true;
       this.animationController.startAnimation(
         this.currentVisibleState,
         this.logicalState.targetVisibleState,
@@ -290,7 +316,9 @@ export class SingleSplitCanvas {
           this.currentVisibleState = newVisibleState;
           this.drawVisibleState();
         },
-        () => { }
+        () => {
+          this.isAnimating = false;
+        }
       )
 
       //Step 3: notify subscribers of state change
@@ -393,6 +421,7 @@ export class SingleSplitCanvas {
     )
 
     //Step 3: start animation to new targetVisibleState
+    this.isAnimating = true;
     this.animationController.startAnimation(
       this.currentVisibleState,
       this.logicalState.targetVisibleState,
@@ -401,7 +430,9 @@ export class SingleSplitCanvas {
         this.currentVisibleState = newVisibleState;
         this.drawVisibleState();
       },
-      () => { }
+      () => {
+        this.isAnimating = false;
+      }
     )
 
     //Step 4: notify subscribers

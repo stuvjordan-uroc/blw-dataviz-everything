@@ -1,0 +1,273 @@
+{
+  "componentType": "SingleSplitViz",
+  "timestamp": "2026-02-08T21:49:09.780Z",
+  "canvas": {
+    "width": 800,
+    "height": 571,
+    "margin": {
+      "x": 20,
+      "y": 20
+    },
+    "drawableArea": {
+      "width": 760,
+      "height": 531
+    }
+  },
+  "displayMode": "expanded",
+  "segmentGroup": {
+    "renderSplitIdx": 0,
+    "basisSplitIndices": [
+      0
+    ],
+    "bounds": {
+      "x": 20,
+      "y": 20,
+      "width": 760,
+      "height": 531
+    },
+    "segments": [
+      {
+        "responseGroupIdx": 0,
+        "label": "Beneficial",
+        "bounds": {
+          "x": 20,
+          "y": 20,
+          "width": 374,
+          "height": 531
+        },
+        "points": [
+          {
+            "key": "0-0-0",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 0,
+            "position": {
+              "x": 83,
+              "y": 74
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-0-1",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 1,
+            "position": {
+              "x": 246,
+              "y": 78
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-0-2",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 2,
+            "position": {
+              "x": 337,
+              "y": 60
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-0-3",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 3,
+            "position": {
+              "x": 57,
+              "y": 186
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-0-4",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 4,
+            "position": {
+              "x": 240,
+              "y": 246
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-0-5",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 5,
+            "position": {
+              "x": 379,
+              "y": 189
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-0-6",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 6,
+            "position": {
+              "x": 138,
+              "y": 382
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-0-7",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 7,
+            "position": {
+              "x": 208,
+              "y": 317
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-0-8",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 8,
+            "position": {
+              "x": 307,
+              "y": 323
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-0-9",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 0,
+            "id": 9,
+            "position": {
+              "x": 129,
+              "y": 496
+            },
+            "isInSegmentBounds": true,
+            "isInSegmentGroupBounds": true
+          }
+        ],
+        "invalidPoints": []
+      },
+      {
+        "responseGroupIdx": 1,
+        "label": "Important",
+        "bounds": {
+          "x": 421,
+          "y": 20,
+          "width": 278,
+          "height": 531
+        },
+        "points": [],
+        "invalidPoints": [
+          {
+            "key": "0-1-0",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 1,
+            "id": 0,
+            "position": {
+              "x": 79,
+              "y": 66
+            },
+            "isInSegmentBounds": false,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-1-1",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 1,
+            "id": 1,
+            "position": {
+              "x": 199,
+              "y": 96
+            },
+            "isInSegmentBounds": false,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-1-2",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 1,
+            "id": 2,
+            "position": {
+              "x": 129,
+              "y": 269
+            },
+            "isInSegmentBounds": false,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-1-3",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 1,
+            "id": 3,
+            "position": {
+              "x": 233,
+              "y": 211
+            },
+            "isInSegmentBounds": false,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-1-4",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 1,
+            "id": 4,
+            "position": {
+              "x": 141,
+              "y": 321
+            },
+            "isInSegmentBounds": false,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-1-5",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 1,
+            "id": 5,
+            "position": {
+              "x": 173,
+              "y": 377
+            },
+            "isInSegmentBounds": false,
+            "isInSegmentGroupBounds": true
+          },
+          {
+            "key": "0-1-6",
+            "basisSplitIdx": 0,
+            "expandedRGIdx": 1,
+            "id": 6,
+            "position": {
+              "x": 145,
+              "y": 503
+            },
+            "isInSegmentBounds": false,
+            "isInSegmentGroupBounds": true
+          }
+        ]
+      },
+      {
+        "responseGroupIdx": 2,
+        "label": "Essential",
+        "bounds": {
+          "x": 726,
+          "y": 20,
+          "width": 54,
+          "height": 531
+        },
+        "points": [],
+        "invalidPoints": []
+      }
+    ]
+  }
+}

@@ -38,6 +38,7 @@ export class VizStateManager {
     currentVisibleState: Map<string, PointDisplay>;
     animation: Required<AnimationConfig>;
     animationController: VizAnimationController;
+    isAnimating: boolean;
   }> = new Map()
   private nextCanvasId: number = 0;
 
@@ -244,7 +245,8 @@ export class VizStateManager {
       currentVisibleState: visibleState,
       logicalState: logicalState,
       nextSubscriberId: 0,
-      stateSubscribers: new Map()
+      stateSubscribers: new Map(),
+      isAnimating: false
     })
 
     //draw visible state on canvas
@@ -431,6 +433,7 @@ export class VizStateManager {
         )
 
         //Step 2: start animation to new targetVisibleState
+        canvasData.isAnimating = true;
         canvasData.animationController.startAnimation(
           canvasData.currentVisibleState,
           canvasData.logicalState.targetVisibleState,
@@ -439,7 +442,9 @@ export class VizStateManager {
             canvasData.currentVisibleState = newVisibleState;
             this.drawVisibleState(canvasId);
           },
-          () => { }
+          () => {
+            canvasData.isAnimating = false;
+          }
         )
 
         //Step 3: notify subscribers of state change
@@ -475,6 +480,7 @@ export class VizStateManager {
         )
 
         //Step 2: start animation to new targetVisibleState
+        canvasData.isAnimating = true;
         canvasData.animationController.startAnimation(
           canvasData.currentVisibleState,
           canvasData.logicalState.targetVisibleState,
@@ -483,7 +489,9 @@ export class VizStateManager {
             canvasData.currentVisibleState = newVisibleState;
             this.drawVisibleState(canvasId);
           },
-          () => { }
+          () => {
+            canvasData.isAnimating = false;
+          }
         )
 
         //Step 3: notify subscribers of state change
@@ -526,6 +534,7 @@ export class VizStateManager {
 
 
         //Step 2: start animation to new targetVisibleState
+        canvasData.isAnimating = true;
         canvasData.animationController.startAnimation(
           canvasData.currentVisibleState,
           canvasData.logicalState.targetVisibleState,
@@ -534,7 +543,9 @@ export class VizStateManager {
             canvasData.currentVisibleState = newVisibleState;
             this.drawVisibleState(canvasId);
           },
-          () => { }
+          () => {
+            canvasData.isAnimating = false;
+          }
         )
 
         //Step 3: notify subscribers of state change
@@ -665,6 +676,53 @@ export class VizStateManager {
     // Return unsubscribe function
     return () => {
       canvasData.stateSubscribers.delete(subscriberId);
+    };
+  }
+
+  /**
+   * Get animation state for a canvas
+   * @param canvasId - id of canvas to check
+   * @returns true if animation is in progress, false otherwise
+   */
+  getIsAnimating(canvasId: number): boolean {
+    const canvasData = this.canvases.get(canvasId);
+    return canvasData?.isAnimating ?? false;
+  }
+
+  /**
+   * Get current logical state for a canvas (for debugging/logging)
+   * @param canvasId - id of canvas
+   * @returns Copy of logical state or null if canvas not found
+   */
+  getLogicalState(canvasId: number): VizLogicalState | null {
+    const canvasData = this.canvases.get(canvasId);
+    if (!canvasData) return null;
+    return cloneVizLogicalState(canvasData.logicalState);
+  }
+
+  /**
+   * Get current visible state for a canvas (for debugging/logging)
+   * @param canvasId - id of canvas
+   * @returns Copy of visible state map or null if canvas not found
+   */
+  getCurrentVisibleState(canvasId: number): Map<string, PointDisplay> | null {
+    const canvasData = this.canvases.get(canvasId);
+    if (!canvasData) return null;
+    return new Map(canvasData.currentVisibleState);
+  }
+
+  /**
+   * Get canvas dimensions and margin (for debugging/logging)
+   * @param canvasId - id of canvas
+   * @returns Canvas data or null if canvas not found
+   */
+  getCanvasData(canvasId: number): { pixelWidth: number; pixelHeight: number; margin: { x: number; y: number } } | null {
+    const canvasData = this.canvases.get(canvasId);
+    if (!canvasData) return null;
+    return {
+      pixelWidth: canvasData.canvas.pixelWidth,
+      pixelHeight: canvasData.canvas.pixelHeight,
+      margin: { ...canvasData.canvas.margin }
     };
   }
 }

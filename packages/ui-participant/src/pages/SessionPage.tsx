@@ -42,7 +42,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { SessionResponse } from "shared-types";
-import { useSessionViz, SingleSplitViz } from "polls-participant-utils";
+import { useSessionViz, SingleSplitViz, DebugWrapper } from "polls-participant-utils";
 import { useBreakpoint, vizConfig } from "ui-shared";
 import { PollForm } from "../components/PollForm";
 import * as styles from "./SessionPage.css";
@@ -276,23 +276,25 @@ function SessionPage() {
                   */}
                   {vizStatus === "ready" && vizRef && (
                     <div className={styles.vizWrapper}>
-                      <SingleSplitViz
-                        vizManager={vizRef.vizManager}
-                        vizRenderConfig={{
-                          initialCanvasWidth: currentVizConfig.canvasWidth,
-                          initialDisplayMode: "expanded",
-                          animation: {
-                            appearDuration: 200, // New points fade in over 200ms
-                            disappearDuration: 150, // Removed points fade out over 150ms
-                            moveDuration: 400, // Points move to new positions over 400ms
-                            imageChangeDuration: 400, // Cross-fade between images over 400ms
-                          },
-                          margin: { x: 20, y: 20 }, // Internal canvas padding for points
-                        }}
-                        annotationMargin={currentVizConfig.annotationMargin} // External space for labels (responsive)
-                        canvasWidth={currentVizConfig.canvasWidth} // Responsive width from breakpoint system
-                        splitToFocus={vizRef.vizData.viewMaps[""][0]} // Base view (empty viewId = no active grouping questions)
-                      />
+                      <DebugWrapper show={import.meta.env.DEV}>
+                        <SingleSplitViz
+                          vizManager={vizRef.vizManager}
+                          vizRenderConfig={{
+                            initialCanvasWidth: currentVizConfig.canvasWidth,
+                            initialDisplayMode: "expanded",
+                            animation: {
+                              appearDuration: 200, // New points fade in over 200ms
+                              disappearDuration: 150, // Removed points fade out over 150ms
+                              moveDuration: 400, // Points move to new positions over 400ms
+                              imageChangeDuration: 400, // Cross-fade between images over 400ms
+                            },
+                            margin: { x: 20, y: 20 }, // Internal canvas padding for points
+                          }}
+                          annotationMargin={currentVizConfig.annotationMargin} // External space for labels (responsive)
+                          canvasWidth={currentVizConfig.canvasWidth} // Responsive width from breakpoint system
+                          splitToFocus={vizRef.vizData.viewMaps[""][0]} // Base view (empty viewId = no active grouping questions)
+                        />
+                      </DebugWrapper>
                     </div>
                   )}
                 </div>
